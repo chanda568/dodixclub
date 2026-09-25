@@ -43,7 +43,8 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   gender: { type: String, required: true },
   location: { type: String, required: true },
-  phone: { type: String, default: '' }, // Captured for WhatsApp gender verification
+  phone: { type: String, default: '' }, // WhatsApp number for females
+  plan: { type: String, default: '7 Days' }, // Subscription plan for males ('7 Days' or '30 Days')
   role: { type: String, default: 'client' },
   activated: { type: Boolean, default: false }
 });
@@ -103,7 +104,7 @@ app.post('/api/login', async (req, res) => {
 // Register route
 app.post('/api/register', async (req, res) => {
   try {
-    const { username, password, gender, location, role, phone } = req.body;
+    const { username, password, gender, location, role, phone, plan } = req.body;
     
     if (!username || !password || !gender || !location) {
       return res.json({ success: false, error: "All fields are required." });
@@ -122,7 +123,8 @@ app.post('/api/register', async (req, res) => {
       password: hashedPassword,
       gender,
       location,
-      phone: phone || '', // Save WhatsApp/phone number
+      phone: phone || '',
+      plan: gender === 'Male' ? (plan || '7 Days') : 'N/A', // Save selected plan for males
       role: role || 'client',
       activated: false
     });
@@ -198,21 +200,16 @@ wss.on('connection', (ws) => {
     try {
       const parsed = JSON.parse(data.toString());
 
-      // 1. Handle user authentication / registration over socket connection
       if (parsed.type === 'auth' && parsed.username) {
         currentUsername = parsed.username.toLowerCase().trim();
         activeClients.set(currentUsername, ws);
-        console.log(`[WS] User connected & authenticated: ${currentUsername}`);
         return;
       }
 
-      // 2. Handle incoming chat messages
       if (parsed.type === 'chat_message') {
         const { sender, recipient, text } = parsed;
-
         if (!sender || !text) return;
 
-        // Create message object
         const newMessage = new Message({
           id: Date.now().toString(),
           sender: sender.toLowerCase().trim(),
@@ -221,18 +218,12 @@ wss.on('connection', (ws) => {
           timestamp: new Date()
         });
 
-        // PERSISTENCE: Save message to MongoDB
         await newMessage.save();
-
-        // BROADCASTING: Send message back to sender and recipient (if online)
         const payload = JSON.stringify({ type: 'chat_message', message: newMessage });
 
-        // Send to recipient if active
         if (newMessage.recipient !== 'public' && activeClients.has(newMessage.recipient)) {
           activeClients.get(newMessage.recipient).send(payload);
         }
-
-        // Send back to sender to confirm sync
         if (activeClients.has(newMessage.sender)) {
           activeClients.get(newMessage.sender).send(payload);
         }
@@ -243,16 +234,11 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
-    if (currentUsername) {
-      activeClients.delete(currentUsername);
-      console.log(`[WS] User disconnected: ${currentUsername}`);
-    }
+    if (currentUsername) activeClients.delete(currentUsername);
   });
 });
 
-
-// ================= SERVER STARTUP = =================
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT} (HTTP + WebSockets + MongoDB Enabled)`);
+  console.log(`Server running on port ${PORT}`);
 });

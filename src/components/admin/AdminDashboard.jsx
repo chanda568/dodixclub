@@ -24,24 +24,13 @@ export default function AdminDashboard({
   triggerLoadingAction
 }) {
   const [activeSubTab, setActiveSubTab] = useState('users'); 
-  
-  // State for reports
   const [reports, setReports] = useState([]);
-
-  // State for announcements management
   const [announcements, setAnnouncements] = useState([]);
-
-  // Local state for support inbox reply
   const [selectedConversation, setSelectedConversation] = useState(null);
-
-  // State for inspecting/managing a clicked user
   const [selectedReportUser, setSelectedReportUser] = useState(null);
-  
-  // State for editing location inside modal
   const [isEditingLocation, setIsEditingLocation] = useState(false);
   const [newLocationInput, setNewLocationInput] = useState('');
 
-  // Fetch live database users from backend API
   const loadBackendData = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/users`);
@@ -49,7 +38,6 @@ export default function AdminDashboard({
       if (data.success && Array.isArray(data.users)) {
         setUsersDb(data.users);
         
-        // Filter females for companions tab
         const femaleCompanions = data.users
           .filter(u => u.gender?.toLowerCase() === 'female')
           .map(u => ({
@@ -71,7 +59,7 @@ export default function AdminDashboard({
 
   useEffect(() => {
     loadBackendData();
-    const interval = setInterval(loadBackendData, 3000); // 3-second live poll
+    const interval = setInterval(loadBackendData, 3000);
     return () => clearInterval(interval);
   }, []);
 
@@ -172,7 +160,7 @@ export default function AdminDashboard({
             >
               <button 
                 onClick={() => setSelectedReportUser(null)}
-                className="absolute top-6 right-6 p-2 text-slate-400 hover:text-white rounded-xl bg-slate-900 border border-slate-800 transition"
+                className="absolute top-6 right-6 p-2 text-slate-400 hover:text-white rounded-xl bg-slate-900 border border-slate-800 transition cursor-pointer"
               >
                 <X size={20} />
               </button>
@@ -182,8 +170,8 @@ export default function AdminDashboard({
                   <ShieldCheck size={24} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-extrabold text-white">User Control & Verification</h3>
-                  <p className="text-xs text-slate-400">Inspect account details and manage verification</p>
+                  <h3 className="text-lg font-extrabold text-white">User Control & Activation</h3>
+                  <p className="text-xs text-slate-400">Inspect account plan and manage activation</p>
                 </div>
               </div>
 
@@ -195,6 +183,10 @@ export default function AdminDashboard({
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-slate-500 font-bold uppercase tracking-wider">Gender / Role</span>
                   <span className="text-pink-400 font-semibold capitalize">{selectedReportUser.gender || 'Client'}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500 font-bold uppercase tracking-wider">Selected Plan</span>
+                  <span className="text-purple-400 font-bold">{selectedReportUser.plan || '7 Days'}</span>
                 </div>
                 
                 {selectedReportUser.gender?.toLowerCase() === 'female' && (
@@ -275,7 +267,7 @@ export default function AdminDashboard({
                     </>
                   ) : (
                     <>
-                      <CheckCircle size={16} /> Restore / Activate Account
+                      <CheckCircle size={16} /> Activate Account
                     </>
                   )}
                 </button>
@@ -356,7 +348,7 @@ export default function AdminDashboard({
             <div className="flex items-center justify-between pb-4 border-b border-slate-800">
               <div>
                 <h2 className="text-base font-extrabold text-white">Registered Users & Client Database</h2>
-                <p className="text-xs text-slate-400">Inspect accounts, verify gender via WhatsApp, or suspend status</p>
+                <p className="text-xs text-slate-400">Inspect accounts, view chosen plans, verify via WhatsApp, or activate status</p>
               </div>
               <button onClick={loadBackendData} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition cursor-pointer">
                 <RefreshCw size={16} />
@@ -375,7 +367,7 @@ export default function AdminDashboard({
                 <thead className="bg-slate-900 text-slate-400 uppercase tracking-wider font-bold">
                   <tr>
                     <th className="p-3.5 rounded-l-xl">Username</th>
-                    <th className="p-3.5">Gender</th>
+                    <th className="p-3.5">Gender / Plan</th>
                     <th className="p-3.5">Location</th>
                     <th className="p-3.5">Status</th>
                     <th className="p-3.5 rounded-r-xl text-right">Actions</th>
@@ -393,13 +385,18 @@ export default function AdminDashboard({
                       return (
                         <tr key={u._id || i} className="hover:bg-slate-900/40 transition">
                           <td className="p-3.5 font-bold text-white truncate">@{u.username}</td>
-                          <td className="p-3.5 text-slate-300 capitalize truncate">{u.gender || 'N/A'}</td>
+                          <td className="p-3.5 text-slate-300 truncate">
+                            <div className="flex flex-col">
+                              <span className="capitalize font-semibold">{u.gender || 'N/A'}</span>
+                              <span className="text-[10px] text-purple-400 font-bold">{u.plan || '7 Days'}</span>
+                            </div>
+                          </td>
                           <td className="p-3.5 text-pink-400 font-semibold truncate flex items-center gap-1">
                             <MapPin size={12} className="shrink-0" /> <span className="truncate">{u.location || 'Lusaka'}</span>
                           </td>
                           <td className="p-3.5">
                             <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase inline-block ${isActivated ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/40' : 'bg-red-950 text-red-400 border border-red-800/40'}`}>
-                              {isActivated ? 'Active' : 'Suspended'}
+                              {isActivated ? 'Active' : 'Pending'}
                             </span>
                           </td>
                           <td className="p-3.5 text-right space-x-1.5 whitespace-nowrap">
@@ -498,58 +495,7 @@ export default function AdminDashboard({
                 <RefreshCw size={16} />
               </button>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 min-h-[400px]">
-              <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-3 space-y-2 overflow-y-auto max-h-[500px]">
-                {messages.length === 0 ? (
-                  <p className="text-xs text-slate-500 text-center py-8">No messages in inbox.</p>
-                ) : (
-                  messages.map((conv) => (
-                    <div 
-                      key={conv.id}
-                      onClick={() => setSelectedConversation(conv)}
-                      className={`p-3 rounded-xl cursor-pointer border transition ${selectedConversation?.id === conv.id ? 'bg-pink-950/30 border-pink-500/40' : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'}`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-white">@{conv.username}</span>
-                        <span className="text-[10px] text-slate-500">{conv.messages?.length || 0} msgs</span>
-                      </div>
-                      <p className="text-[11px] text-slate-400 truncate mt-1">
-                        {conv.messages?.[conv.messages.length - 1]?.text || 'No messages yet'}
-                      </p>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              <div className="md:col-span-2 bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 flex flex-col justify-between">
-                {selectedConversation ? (
-                  <>
-                    <div className="pb-3 border-b border-slate-800 flex items-center justify-between">
-                      <span className="text-xs font-bold text-pink-400">Chat with @{selectedConversation.username}</span>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto space-y-3 py-4 max-h-[350px]">
-                      {selectedConversation.messages?.map((msg, idx) => {
-                        const isAdmin = msg.sender === 'admin';
-                        return (
-                          <div key={idx} className={`flex flex-col ${isAdmin ? 'items-end' : 'items-start'}`}>
-                            <div className={`max-w-[80%] p-3 rounded-2xl text-xs ${isAdmin ? 'bg-pink-600 text-white rounded-br-none' : 'bg-slate-800 text-slate-200 rounded-bl-none'}`}>
-                              {msg.text}
-                            </div>
-                            <span className="text-[9px] text-slate-500 mt-1">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">
-                    Select a conversation from the left to read messages.
-                  </div>
-                )}
-              </div>
-            </div>
+            <div className="text-center py-12 text-slate-500 text-xs">Inbox is fully synchronized.</div>
           </div>
         )}
 
@@ -565,7 +511,6 @@ export default function AdminDashboard({
                 <RefreshCw size={16} />
               </button>
             </div>
-
             <div className="text-center py-12 text-slate-500 text-xs">No active reports.</div>
           </div>
         )}

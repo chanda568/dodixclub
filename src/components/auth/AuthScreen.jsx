@@ -12,7 +12,8 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
   const [showPassword, setShowPassword] = useState(false);
   const [gender, setGender] = useState('Female');
   const [location, setLocation] = useState('Lusaka');
-  const [phone, setPhone] = useState(''); // <-- Added phone state
+  const [phone, setPhone] = useState('');
+  const [plan, setPlan] = useState('7 Days'); // Added plan state
   const [errorMsg, setErrorMsg] = useState('');
 
   const handleAuthSubmit = async (e) => {
@@ -24,7 +25,7 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
       return;
     }
 
-    if (isRegistering && !phone.trim()) {
+    if (isRegistering && gender === 'Female' && !phone.trim()) {
       setErrorMsg('Please provide your WhatsApp number for verification.');
       return;
     }
@@ -42,7 +43,8 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
               password: password.trim(),
               gender,
               location,
-              phone: phone.trim(), // <-- Send phone to backend
+              phone: phone.trim(),
+              plan: gender === 'Male' ? plan : 'N/A', // Send selected plan for males
               role: gender === 'Female' ? 'companion' : 'client'
             })
           });
@@ -59,7 +61,6 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
         }
       });
     } else {
-      // Admin backdoor check
       if (cleanUsername === 'admin' && password.trim() === 'admin123') {
         triggerLoadingAction('Authenticating Admin...', () => {
           setCurrentUser({ username: 'admin', role: 'admin', activated: true });
@@ -67,7 +68,6 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
         return;
       }
 
-      // Regular user login via backend API
       triggerLoadingAction('Authenticating...', async () => {
         try {
           const response = await fetch(`${BACKEND_URL}/api/login`, {
@@ -144,18 +144,6 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
 
           {isRegistering && (
             <>
-              <div>
-                <label className="block font-bold text-slate-400 mb-1">WhatsApp Number (for verification)</label>
-                <input 
-                  type="text" 
-                  required
-                  placeholder="e.g. 260970000000" 
-                  value={phone} 
-                  onChange={(e) => setPhone(e.target.value)} 
-                  className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-pink-500" 
-                />
-              </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-400 mb-1">Gender</label>
@@ -182,6 +170,43 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
                   </select>
                 </div>
               </div>
+
+              {/* Activation Plan Selector for Male Users */}
+              {gender === 'Male' && (
+                <div className="space-y-1.5 p-3 bg-slate-800/60 border border-slate-700 rounded-2xl">
+                  <label className="block font-bold text-pink-400">Choose Activation Plan</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPlan('7 Days')}
+                      className={`py-2 rounded-xl font-bold transition border cursor-pointer ${plan === '7 Days' ? 'bg-pink-600 border-pink-500 text-white shadow-md' : 'bg-slate-800 border-slate-700 text-slate-300'}`}
+                    >
+                      7 Days Plan
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPlan('30 Days')}
+                      className={`py-2 rounded-xl font-bold transition border cursor-pointer ${plan === '30 Days' ? 'bg-pink-600 border-pink-500 text-white shadow-md' : 'bg-slate-800 border-slate-700 text-slate-300'}`}
+                    >
+                      30 Days Plan
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {gender === 'Female' && (
+                <div>
+                  <label className="block font-bold text-slate-400 mb-1">WhatsApp Number (for verification)</label>
+                  <input 
+                    type="text" 
+                    required
+                    placeholder="e.g. 260970000000" 
+                    value={phone} 
+                    onChange={(e) => setPhone(e.target.value)} 
+                    className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-pink-500" 
+                  />
+                </div>
+              )}
             </>
           )}
 
