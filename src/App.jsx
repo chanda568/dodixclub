@@ -1,7 +1,6 @@
 // src/App.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  DEFAULT_USERS_DB, 
   DEFAULT_LADIES_DB, 
   DEFAULT_MESSAGES_DB 
 } from './data/constants';
@@ -12,6 +11,8 @@ import AgeGate from './components/common/AgeGate';
 import AuthScreen from './components/auth/AuthScreen';
 import AdminDashboard from './components/admin/AdminDashboard';
 import ClientDirectory from './components/client/ClientDirectory';
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
 export default function App() {
   // Age Verification State
@@ -24,17 +25,8 @@ export default function App() {
     return saved ? JSON.parse(saved) : null;
   });
 
-  const [usersDb, setUsersDb] = useState(() => {
-    const saved = localStorage.getItem('dodix_users_db');
-    if (saved) {
-      try {
-        const decrypted = decryptStorageData(saved);
-        if (Array.isArray(decrypted)) return decrypted;
-      } catch (e) {}
-      try { return JSON.parse(saved); } catch (e) {}
-    }
-    return DEFAULT_USERS_DB;
-  });
+  // Users DB fetched live from MongoDB backend
+  const [usersDb, setUsersDb] = useState([]);
 
   const [ladies, setLadies] = useState(() => {
     const saved = localStorage.getItem('dodix_ladies_db');
@@ -68,52 +60,37 @@ export default function App() {
     }
   };
 
-  // Sync latest user status from DB when checking status or refreshing
-  const handleSyncUserStatus = () => {
-    if (!currentUser) return;
+  // Fetch all users from MongoDB backend
+  const fetchUsersFromBackend = async () => {
     try {
-      const raw = localStorage.getItem('dodix_users_db');
-      if (raw) {
-        const users = decryptStorageData(raw);
-        const latest = users.find(u => u.username?.toLowerCase() === currentUser.username?.toLowerCase());
-        if (latest) {
-          const merged = { ...currentUser, ...latest };
-          setCurrentUser(merged);
-          sessionStorage.setItem('dodix_current_user', JSON.stringify(merged));
+      const res = await fetch(`${BACKEND_URL}/api/users`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.users)) {
+        setUsersDb(data.users);
+        
+        // If logged in, sync current user state with latest database record
+        if (currentUser) {
+          const latest = data.users.find(u => u.username?.toLowerCase() === currentUser.username?.toLowerCase());
+          if (latest) {
+            const merged = { ...currentUser, ...latest };
+            setCurrentUser(merged);
+            sessionStorage.setItem('dodix_current_user', JSON.stringify(merged));
+          }
         }
       }
     } catch (e) {
-      console.error("Error syncing status:", e);
+      console.error("Error fetching users from backend:", e);
     }
   };
 
-  // Automatically sync user status periodically to immediately catch admin suspensions
+  // Fetch users on mount and set up periodic sync interval for real-time admin status updates
   useEffect(() => {
-    if (!currentUser) return;
-    const interval = setInterval(() => {
-      try {
-        const raw = localStorage.getItem('dodix_users_db');
-        if (raw) {
-          const users = decryptStorageData(raw);
-          const latest = users.find(u => u.username?.toLowerCase() === currentUser.username?.toLowerCase());
-          if (latest) {
-            // If activation status changed in localStorage by admin, update state immediately
-            if (latest.activated !== currentUser.activated || latest.approved !== currentUser.approved) {
-              const merged = { ...currentUser, ...latest };
-              setCurrentUser(merged);
-              sessionStorage.setItem('dodix_current_user', JSON.stringify(merged));
-            }
-          }
-        }
-      } catch (e) {
-        console.error("Background sync error:", e);
-      }
-    }, 1000);
-
+    fetchUsersFromBackend();
+    const interval = setInterval(fetchUsersFromBackend, 3000);
     return () => clearInterval(interval);
-  }, [currentUser]);
+  }, [currentUser?.username]);
 
-  const handleSaveWhatsappForVerification = (e) => {
+  const handleSaveWhatsappForVerification = async (e) => {
     e.preventDefault();
     if (!whatsappInput.trim()) {
       alert("Please enter a valid WhatsApp number.");
@@ -121,15 +98,7 @@ export default function App() {
     }
 
     try {
-      const updatedUsers = usersDb.map(u => {
-        if (u.username?.toLowerCase() === currentUser.username?.toLowerCase()) {
-          return { ...u, phone: whatsappInput.trim(), whatsappNumber: whatsappInput.trim() };
-        }
-        return u;
-      });
-      setUsersDb(updatedUsers);
-      localStorage.setItem('dodix_users_db', encryptStorageData(updatedUsers));
-
+      // Send update to backend or save in local user session state
       const updatedCurrent = { ...currentUser, phone: whatsappInput.trim(), whatsappNumber: whatsappInput.trim() };
       setCurrentUser(updatedCurrent);
       sessionStorage.setItem('dodix_current_user', JSON.stringify(updatedCurrent));
@@ -146,9 +115,7 @@ export default function App() {
     if (currentUser) {
       sessionStorage.setItem('dodix_current_user', JSON.stringify(currentUser));
 
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
-
-      fetch(`${backendUrl}/api/messages`)
+      fetch(`${BACKEND_URL}/api/messages`)
         .then(res => res.json())
         .then(data => {
           if (data.success && data.messages.length > 0) {
@@ -157,8 +124,8 @@ export default function App() {
         })
         .catch(err => console.error("Failed to fetch messages from server:", err));
 
-      const wsProtocol = backendUrl.startsWith('https') ? 'wss://' : 'ws://';
-      const cleanHost = backendUrl.replace(/^https?:\/\//, '');
+      const wsProtocol = BACKEND_URL.startsWith('https') ? 'wss://' : 'ws://';
+      const cleanHost = BACKEND_URL.replace(/^https?:\/\//, '');
       const ws = new WebSocket(`${wsProtocol}${cleanHost}`);
       socketRef.current = ws;
 
@@ -200,10 +167,6 @@ export default function App() {
   }, [currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('dodix_users_db', encryptStorageData(usersDb));
-  }, [usersDb]);
-
-  useEffect(() => {
     localStorage.setItem('dodix_ladies_db', encryptStorageData(ladies));
   }, [ladies]);
 
@@ -242,8 +205,6 @@ export default function App() {
   if (!currentUser) {
     return (
       <AuthScreen 
-        usersDb={usersDb} 
-        setUsersDb={setUsersDb} 
         setCurrentUser={setCurrentUser} 
         isLoading={isLoading} 
         loadingText={loadingText} 
@@ -272,20 +233,8 @@ export default function App() {
     );
   }
 
-  // 4. Check live activation status from database to immediately block suspended users
-  let liveActivated = currentUser.activated;
-  try {
-    const rawUsers = localStorage.getItem('dodix_users_db');
-    if (rawUsers) {
-      const parsedUsers = decryptStorageData(rawUsers);
-      const dbMatch = parsedUsers.find(u => u.username?.toLowerCase() === currentUser.username?.toLowerCase());
-      if (dbMatch && dbMatch.activated !== undefined) {
-        liveActivated = dbMatch.activated;
-      }
-    }
-  } catch (e) {}
-
-  const isUserActive = liveActivated !== false || currentUser.approved === true;
+  // 4. Check live activation status from database
+  const isUserActive = currentUser.activated === true || currentUser.role === 'admin';
   
   if (!isUserActive) {
     return (
@@ -342,8 +291,7 @@ export default function App() {
           <div className="space-y-3 pt-2">
             <button 
               onClick={() => {
-                handleSyncUserStatus();
-                window.location.reload();
+                fetchUsersFromBackend();
               }}
               className="w-full py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold rounded-xl text-xs shadow-lg shadow-pink-600/20 transition flex items-center justify-center gap-2"
             >

@@ -2,19 +2,19 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { LOGO_URL, ZAMBIAN_LOCATIONS } from '../../data/constants';
-import { encryptStorageData } from '../../utils/storageEncryption';
 
-export default function AuthScreen({ usersDb, setUsersDb, setCurrentUser, isLoading, loadingText, triggerLoadingAction }) {
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+
+export default function AuthScreen({ setCurrentUser, isLoading, loadingText, triggerLoadingAction }) {
   const [isRegistering, setIsRegistering] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false); // State for password visibility toggle
+  const [showPassword, setShowPassword] = useState(false);
   const [gender, setGender] = useState('Female');
   const [location, setLocation] = useState('Lusaka');
-  const [requestedPackage, setRequestedPackage] = useState('7 Days VIP Access');
   const [errorMsg, setErrorMsg] = useState('');
 
-  const handleAuthSubmit = (e) => {
+  const handleAuthSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
 
@@ -23,52 +23,58 @@ export default function AuthScreen({ usersDb, setUsersDb, setCurrentUser, isLoad
       return;
     }
 
+    const cleanUsername = username.trim().toLowerCase();
+
     if (isRegistering) {
-      const cleanUsername = username.trim().toLowerCase();
-      const existing = usersDb.find(u => u.username.toLowerCase() === cleanUsername);
-      
-      if (existing || cleanUsername === 'admin') {
-        setErrorMsg('Username is already taken. Please choose another.');
-        return;
-      }
+      triggerLoadingAction('Creating account...', async () => {
+        try {
+          const response = await fetch(`${BACKEND_URL}/api/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              username: cleanUsername,
+              password: password.trim(),
+              gender,
+              location,
+              role: gender === 'Female' ? 'companion' : 'client'
+            })
+          });
 
-      triggerLoadingAction('Creating account...', () => {
-        const newUser = {
-          username: username.trim(),
-          password: password.trim(),
-          role: gender === 'Female' ? 'companion' : 'client',
-          gender,
-          location,
-          requestedPackage: gender === 'Female' ? 'None' : requestedPackage,
-          activated: gender !== 'Female', // Female accounts require admin activation/verification
-          createdAt: new Date().toISOString()
-        };
-
-        const updatedUsers = [...usersDb, newUser];
-        setUsersDb(updatedUsers);
-        localStorage.setItem('dodix_users_db', encryptStorageData(updatedUsers));
-        setCurrentUser(newUser);
+          const data = await response.json();
+          if (data.success) {
+            setCurrentUser(data.user);
+          } else {
+            setErrorMsg(data.error || 'Registration failed.');
+          }
+        } catch (err) {
+          console.error("Registration error:", err);
+          setErrorMsg('Failed to connect to server. Please try again.');
+        }
       });
     } else {
-      // Admin backdoor / check
-      if (username.trim().toLowerCase() === 'admin' && password.trim() === 'admin123') {
-        triggerLoadingAction('Authenticating Admin...', () => {
-          setCurrentUser({ username: 'admin', role: 'admin' });
-        });
-        return;
-      }
+      // Admin backdoor check or regular login
+      triggerLoadingAction('Authenticating...', async () => {
+        try {
+          const response = await fetch(`${BACKEND_URL}/api/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              username: cleanUsername,
+              password: password.trim()
+            })
+          });
 
-      const cleanUsername = username.trim().toLowerCase();
-      const found = usersDb.find(u => u.username.toLowerCase() === cleanUsername && u.password === password.trim());
-      
-      if (found) {
-        // Activation check removed here so users can log in and be restricted inside the dashboard
-        triggerLoadingAction('Logging in...', () => {
-          setCurrentUser(found);
-        });
-      } else {
-        setErrorMsg('Invalid username or password.');
-      }
+          const data = await response.json();
+          if (data.success) {
+            setCurrentUser(data.user);
+          } else {
+            setErrorMsg(data.error || 'Invalid username or password.');
+          }
+        } catch (err) {
+          console.error("Login error:", err);
+          setErrorMsg('Failed to connect to server. Please try again.');
+        }
+      });
     }
   };
 
@@ -122,49 +128,32 @@ export default function AuthScreen({ usersDb, setUsersDb, setCurrentUser, isLoad
           </div>
 
           {isRegistering && (
-            <>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-400 mb-1">Gender</label>
-                  <select 
-                    value={gender} 
-                    onChange={(e) => setGender(e.target.value)} 
-                    className="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-pink-400 font-semibold focus:outline-none focus:border-pink-500"
-                  >
-                    <option value="Female">Female</option>
-                    <option value="Male">Male</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-400 mb-1">Location Area</label>
-                  <select 
-                    value={location} 
-                    onChange={(e) => setLocation(e.target.value)} 
-                    className="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-pink-400 font-semibold focus:outline-none focus:border-pink-500"
-                  >
-                    {ZAMBIAN_LOCATIONS.map(loc => (
-                      <option key={loc} value={loc}>{loc}</option>
-                    ))}
-                  </select>
-                </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block font-bold text-slate-400 mb-1">Gender</label>
+                <select 
+                  value={gender} 
+                  onChange={(e) => setGender(e.target.value)} 
+                  className="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-pink-400 font-semibold focus:outline-none focus:border-pink-500"
+                >
+                  <option value="Female">Female</option>
+                  <option value="Male">Male</option>
+                  <option value="Other">Other</option>
+                </select>
               </div>
-
-              {gender !== 'Female' && (
-                <div>
-                  <label className="block font-bold text-slate-400 mb-1">Membership Package</label>
-                  <select 
-                    value={requestedPackage} 
-                    onChange={(e) => setRequestedPackage(e.target.value)} 
-                    className="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-pink-400 font-semibold focus:outline-none focus:border-pink-500"
-                  >
-                    <option value="7 Days VIP Access">7 Days VIP Access</option>
-                    <option value="30 Days Executive Access">30 Days Executive Access</option>
-                    <option value="Lifetime Pass">Lifetime Pass</option>
-                  </select>
-                </div>
-              )}
-            </>
+              <div>
+                <label className="block font-bold text-slate-400 mb-1">Location Area</label>
+                <select 
+                  value={location} 
+                  onChange={(e) => setLocation(e.target.value)} 
+                  className="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-pink-400 font-semibold focus:outline-none focus:border-pink-500"
+                >
+                  {ZAMBIAN_LOCATIONS.map(loc => (
+                    <option key={loc} value={loc}>{loc}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
           )}
 
           <button 
