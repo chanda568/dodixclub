@@ -82,12 +82,13 @@ export default function AdminDashboard({
 
   const loadBackendData = async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/users`);
-      const data = await res.json();
-      if (data.success && Array.isArray(data.users)) {
-        setUsersDb(data.users);
+      // Fetch users
+      const resUsers = await fetch(`${BACKEND_URL}/api/users`);
+      const dataUsers = await resUsers.json();
+      if (dataUsers.success && Array.isArray(dataUsers.users)) {
+        setUsersDb(dataUsers.users);
         
-        const femaleCompanions = data.users
+        const femaleCompanions = dataUsers.users
           .filter(u => u.gender?.toLowerCase() === 'female')
           .map(u => ({
             id: u._id || u.username,
@@ -101,8 +102,15 @@ export default function AdminDashboard({
           }));
         setLadies(femaleCompanions);
       }
+
+      // Fetch reports
+      const resReports = await fetch(`${BACKEND_URL}/api/reports`);
+      const dataReports = await resReports.json();
+      if (dataReports.success && Array.isArray(dataReports.reports)) {
+        setReports(dataReports.reports);
+      }
     } catch (err) {
-      console.error("Error fetching live backend users:", err);
+      console.error("Error fetching live backend data:", err);
     }
   };
 
@@ -155,6 +163,18 @@ export default function AdminDashboard({
       }
     } catch (err) {
       console.error("Error deleting user:", err);
+    }
+  };
+
+  const handleDeleteReport = async (reportId) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/reports/${reportId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        loadBackendData();
+      }
+    } catch (err) {
+      console.error("Error deleting report:", err);
     }
   };
 
@@ -577,7 +597,41 @@ export default function AdminDashboard({
                 <RefreshCw size={16} />
               </button>
             </div>
-            <div className="text-center py-12 text-slate-500 text-xs">No active reports.</div>
+
+            <div className="space-y-3">
+              {reports.length === 0 ? (
+                <div className="text-center py-12 text-slate-500 text-xs">No active reports.</div>
+              ) : (
+                reports.map((rep) => (
+                  <div key={rep._id || rep.id} className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black text-white bg-pink-950/80 px-2.5 py-0.5 rounded-lg border border-pink-900/40">@{rep.reporter}</span>
+                        <span className="text-xs text-slate-400">reported</span>
+                        <span className="text-xs font-black text-rose-400 bg-rose-950/80 px-2.5 py-0.5 rounded-lg border border-rose-900/40">@{rep.targetUser}</span>
+                      </div>
+                      <p className="text-xs text-slate-300 font-medium pt-1">Reason: <span className="text-white">{rep.reason}</span></p>
+                      <p className="text-[10px] text-slate-500">{new Date(rep.timestamp).toLocaleString()}</p>
+                    </div>
+
+                    <div className="flex items-center gap-2 self-end sm:self-center">
+                      <button
+                        onClick={() => handleOpenUserInspect(rep.targetUser)}
+                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 transition cursor-pointer"
+                      >
+                        Inspect User
+                      </button>
+                      <button
+                        onClick={() => handleDeleteReport(rep._id || rep.id)}
+                        className="px-3 py-1.5 bg-red-950/60 hover:bg-red-900/80 text-red-300 rounded-xl text-xs font-bold border border-red-900/50 transition flex items-center gap-1 cursor-pointer"
+                      >
+                        <Trash2 size={13} /> Dismiss
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         )}
 

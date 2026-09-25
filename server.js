@@ -58,8 +58,16 @@ const messageSchema = new mongoose.Schema({
   timestamp: { type: Date, default: Date.now }
 });
 
+const reportSchema = new mongoose.Schema({
+  reporter: { type: String, required: true, lowercase: true, trim: true },
+  targetUser: { type: String, required: true, lowercase: true, trim: true },
+  reason: { type: String, required: true },
+  timestamp: { type: Date, default: Date.now }
+});
+
 const User = mongoose.model('User', userSchema);
 const Message = mongoose.model('Message', messageSchema);
+const Report = mongoose.model('Report', reportSchema);
 
 // Seed default admin if database is empty
 async function seedDefaultAdmin() {
@@ -187,6 +195,47 @@ app.get('/api/messages', async (req, res) => {
   try {
     const messages = await Message.find({}).sort({ timestamp: 1 });
     res.json({ success: true, messages });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// --- REPORT ROUTES ---
+app.post('/api/reports', async (req, res) => {
+  try {
+    const { reporter, targetUser, reason } = req.body;
+    if (!reporter || !targetUser || !reason) {
+      return res.json({ success: false, error: "All fields are required." });
+    }
+
+    const newReport = new Report({
+      reporter: reporter.toLowerCase().trim(),
+      targetUser: targetUser.toLowerCase().trim(),
+      reason,
+      timestamp: new Date()
+    });
+
+    await newReport.save();
+    res.json({ success: true, report: newReport });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/reports', async (req, res) => {
+  try {
+    const reports = await Report.find({}).sort({ timestamp: -1 });
+    res.json({ success: true, reports });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/reports/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await Report.findByIdAndDelete(id);
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
