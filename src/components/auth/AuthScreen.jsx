@@ -12,7 +12,7 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
   const [showPassword, setShowPassword] = useState(false);
   const [gender, setGender] = useState('Female');
   const [location, setLocation] = useState('Lusaka');
-  const [phone, setPhone] = useState('');
+  const [phoneInput, setPhoneInput] = useState('');
   const [plan, setPlan] = useState('7 Days');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -25,8 +25,10 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
       return;
     }
 
-    if (isRegistering && gender === 'Female' && !phone.trim()) {
-      setErrorMsg('Please provide your WhatsApp number for verification.');
+    const cleanPhone = `260${phoneInput.trim().replace(/^0+/, '')}`;
+
+    if (isRegistering && gender === 'Female' && (!phoneInput.trim() || phoneInput.trim().length < 9)) {
+      setErrorMsg('Please provide a valid WhatsApp number (e.g., 970000000).');
       return;
     }
 
@@ -43,7 +45,7 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
               password: password.trim(),
               gender,
               location,
-              phone: phone.trim(),
+              phone: cleanPhone,
               plan: gender === 'Male' ? plan : 'N/A',
               role: gender === 'Female' ? 'companion' : 'client'
             })
@@ -94,7 +96,7 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
   };
 
   const handleForgotPasswordWhatsApp = () => {
-    const adminPhone = "260965039645"; // Updated Admin WhatsApp Help Center number
+    const adminPhone = "260965039645"; // Admin Help Center WhatsApp number
     const msg = encodeURIComponent("Hello Dodix Admin, I forgot my account password and need assistance resetting it.");
     window.open(`https://wa.me/${adminPhone}?text=${msg}`, '_blank');
   };
@@ -202,14 +204,19 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
               {gender === 'Female' && (
                 <div>
                   <label className="block font-bold text-slate-400 mb-1">WhatsApp Number (for verification)</label>
-                  <input 
-                    type="text" 
-                    required
-                    placeholder="e.g. 260970000000" 
-                    value={phone} 
-                    onChange={(e) => setPhone(e.target.value)} 
-                    className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-pink-500" 
-                  />
+                  <div className="flex items-center bg-slate-800 border border-slate-700 rounded-xl overflow-hidden focus-within:border-pink-500 transition">
+                    <span className="px-3 py-2.5 bg-slate-900 text-pink-400 font-bold border-r border-slate-700 select-none">
+                      +260
+                    </span>
+                    <input 
+                      type="tel" 
+                      required
+                      placeholder="970000000" 
+                      value={phoneInput} 
+                      onChange={(e) => setPhoneInput(e.target.value.replace(/\D/g, ''))} 
+                      className="w-full px-3 py-2.5 bg-transparent text-slate-200 focus:outline-none" 
+                    />
+                  </div>
                 </div>
               )}
             </>
