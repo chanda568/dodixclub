@@ -1,5 +1,5 @@
 // src/data/constants.js
-export const LOGO_URL = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80";
+export const LOGO_URL = "/logo.jpg";
 
 export const ZAMBIAN_LOCATIONS = [
   "Kabwe", 
