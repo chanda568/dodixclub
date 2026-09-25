@@ -2,11 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, Users, Flag, Video, CheckCircle, XCircle, Trash2, 
-  LogOut, AlertTriangle, RefreshCw, Eye, X, MessageSquare, Send, ShieldAlert, MessageCircle, Bell, Plus, Shield, PhoneCall, MapPin, Edit3 
+  LogOut, AlertTriangle, RefreshCw, X, MessageSquare, Send, Bell, Plus, Shield, MapPin, Edit3, MessageCircle 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LOGO_URL } from '../../data/constants';
-import { encryptStorageData, decryptStorageData } from '../../utils/storageEncryption';
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
 export default function AdminDashboard({ 
   currentUser, 
@@ -22,7 +23,7 @@ export default function AdminDashboard({
   loadingText,
   triggerLoadingAction
 }) {
-  const [activeSubTab, setActiveSubTab] = useState('companions'); 
+  const [activeSubTab, setActiveSubTab] = useState('users'); 
   
   // State for reports
   const [reports, setReports] = useState([]);
@@ -37,120 +38,49 @@ export default function AdminDashboard({
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [replyText, setReplyText] = useState('');
 
-  // State for inspecting/managing a clicked user from reports or user list
+  // State for inspecting/managing a clicked user
   const [selectedReportUser, setSelectedReportUser] = useState(null);
   
   // State for editing location inside modal
   const [isEditingLocation, setIsEditingLocation] = useState(false);
   const [newLocationInput, setNewLocationInput] = useState('');
 
-  const loadDatabases = () => {
+  // Fetch live database users from backend API
+  const loadBackendData = async () => {
     try {
-      let currentUsers = usersDb;
-      const rawUsers = localStorage.getItem('dodix_users_db');
-      if (rawUsers) {
-        const decrypted = decryptStorageData(rawUsers);
-        if (Array.isArray(decrypted)) {
-          currentUsers = decrypted;
-          setUsersDb(decrypted);
-        }
-      }
-
-      const rawLadies = localStorage.getItem('dodix_ladies_db');
-      if (rawLadies) {
-        const decrypted = decryptStorageData(rawLadies);
-        if (Array.isArray(decrypted)) {
-          let mergedLadies = [...decrypted];
-          currentUsers.forEach(u => {
-            if (u.gender?.toLowerCase() === 'female' && (u.whatsappNumber || u.phone)) {
-              const exists = mergedLadies.find(l => l.username?.toLowerCase() === u.username?.toLowerCase());
-              if (!exists) {
-                mergedLadies.unshift({
-                  id: Date.now() + Math.random(),
-                  name: u.username,
-                  username: u.username,
-                  age: '23',
-                  category: 'Companion',
-                  price: '500',
-                  location: u.location || 'Lusaka',
-                  phone: u.whatsappNumber || u.phone,
-                  whatsappNumber: u.whatsappNumber || u.phone,
-                  photo: u.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80',
-                  approved: u.approved || false
-                });
-              } else {
-                exists.phone = u.whatsappNumber || u.phone || exists.phone;
-                exists.whatsappNumber = u.whatsappNumber || u.phone || exists.whatsappNumber;
-              }
-            }
-          });
-          setLadies(mergedLadies);
-        }
-      }
-
-      const rawReports = localStorage.getItem('dodix_reports_db');
-      if (rawReports) {
-        const decrypted = decryptStorageData(rawReports);
-        if (Array.isArray(decrypted)) setReports(decrypted);
-      }
-
-      const rawAnnouncements = localStorage.getItem('dodix_announcements_db');
-      if (rawAnnouncements) {
-        const decrypted = decryptStorageData(rawAnnouncements);
-        if (Array.isArray(decrypted)) setAnnouncements(decrypted);
-      }
-
-      const rawMessages = localStorage.getItem('dodix_messages_db');
-      if (rawMessages) {
-        const decrypted = decryptStorageData(rawMessages);
-        if (Array.isArray(decrypted)) {
-          const allMessages = [];
-          decrypted.forEach(item => {
-            if (item.messages && Array.isArray(item.messages)) {
-              allMessages.push(...item.messages);
-            } else {
-              allMessages.push(item);
-            }
-          });
-
-          const groupedMap = {};
-          allMessages.forEach((msg) => {
-            if (!msg) return;
-            const chatUser = (msg.sender === 'admin' ? msg.recipient : msg.sender) || 'unknown';
-            if (!groupedMap[chatUser]) {
-              groupedMap[chatUser] = {
-                id: chatUser,
-                username: chatUser,
-                messages: []
-              };
-            }
-            const exists = groupedMap[chatUser].messages.some(m => 
-              (m.id && m.id === msg.id) || (m.timestamp === msg.timestamp && m.text === msg.text)
-            );
-            if (!exists) {
-              groupedMap[chatUser].messages.push(msg);
-            }
-          });
-          setMessages(Object.values(groupedMap));
-        }
+      const res = await fetch(`${BACKEND_URL}/api/users`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.users)) {
+        setUsersDb(data.users);
+        
+        // Filter females for companions tab
+        const femaleCompanions = data.users
+          .filter(u => u.gender?.toLowerCase() === 'female')
+          .map(u => ({
+            id: u._id || u.username,
+            name: u.username,
+            username: u.username,
+            category: 'Companion',
+            location: u.location || 'Lusaka',
+            phone: u.phone || 'Not Provided',
+            whatsappNumber: u.phone || 'Not Provided',
+            approved: u.activated !== false
+          }));
+        setLadies(femaleCompanions);
       }
     } catch (err) {
-      console.error("Error loading admin databases:", err);
+      console.error("Error fetching live backend users:", err);
     }
   };
 
   useEffect(() => {
-    loadDatabases();
-    window.addEventListener('storage', loadDatabases);
-    const interval = setInterval(loadDatabases, 1500);
-    return () => {
-      window.removeEventListener('storage', loadDatabases);
-      clearInterval(interval);
-    };
+    loadBackendData();
+    const interval = setInterval(loadBackendData, 3000); // 3-second live poll
+    return () => clearInterval(interval);
   }, []);
 
   const handleWhatsAppContact = (phone, name) => {
-    if (!phone) {
+    if (!phone || phone === 'Not Provided') {
       const manualPhone = prompt(`Please enter WhatsApp number for @${name || 'user'} (with country code, e.g., 260...):`);
       if (!manualPhone) return;
       phone = manualPhone.trim();
@@ -160,41 +90,47 @@ export default function AdminDashboard({
     window.open(`https://wa.me/${cleanPhone}?text=${defaultMsg}`, '_blank');
   };
 
-  const handleToggleUserActivation = (username) => {
-    const updated = usersDb.map(u => {
-      if (u.username.toLowerCase() === username.toLowerCase()) {
-        const nextStatus = u.activated === false ? true : false;
-        return { ...u, activated: nextStatus };
+  const handleToggleUserActivation = async (username) => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/users/toggle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username })
+      });
+      const data = await response.json();
+      if (data.success) {
+        loadBackendData();
+        if (selectedReportUser && selectedReportUser.username.toLowerCase() === username.toLowerCase()) {
+          setSelectedReportUser({ ...selectedReportUser, activated: data.user.activated });
+        }
       }
-      return u;
-    });
-    setUsersDb(updated);
-    localStorage.setItem('dodix_users_db', encryptStorageData(updated));
-    window.dispatchEvent(new Event('storage'));
-
-    const target = updated.find(u => u.username.toLowerCase() === username.toLowerCase());
-    if (target) {
-      const reportCount = reports.filter(r => r.reportedUser?.toLowerCase().replace('@', '') === target.username?.toLowerCase()).length;
-      setSelectedReportUser({ ...target, reportCount });
+    } catch (err) {
+      console.error("Error toggling user activation:", err);
     }
   };
 
-  const handleDeleteUser = (username) => {
+  const handleDeleteUser = async (username) => {
     if (!window.confirm(`Are you sure you want to delete user @${username}?`)) return;
-    const updated = usersDb.filter(u => u.username.toLowerCase() !== username.toLowerCase());
-    setUsersDb(updated);
-    localStorage.setItem('dodix_users_db', encryptStorageData(updated));
-    window.dispatchEvent(new Event('storage'));
-    setSelectedReportUser(null);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/users/${username}`, {
+        method: 'DELETE'
+      });
+      const data = await response.json();
+      if (data.success) {
+        loadBackendData();
+        setSelectedReportUser(null);
+      }
+    } catch (err) {
+      console.error("Error deleting user:", err);
+    }
   };
 
   const handleOpenUserInspect = (reportedUsername) => {
     const cleanUsername = reportedUsername.replace('@', '').trim();
     const foundUser = usersDb.find(u => u.username?.toLowerCase() === cleanUsername.toLowerCase());
-    const reportCount = reports.filter(r => r.reportedUser?.toLowerCase().replace('@', '') === cleanUsername.toLowerCase()).length;
 
     if (foundUser) {
-      setSelectedReportUser({ ...foundUser, reportCount });
+      setSelectedReportUser(foundUser);
       setNewLocationInput(foundUser.location || 'Lusaka');
     } else {
       setSelectedReportUser({
@@ -202,177 +138,28 @@ export default function AdminDashboard({
         gender: 'Client / Member',
         activated: true,
         location: 'Lusaka',
-        reportCount,
       });
       setNewLocationInput('Lusaka');
     }
     setIsEditingLocation(false);
   };
 
-  // Save updated user location
-  const handleSaveUserLocation = (username) => {
+  const handleSaveUserLocation = async (username) => {
     if (!newLocationInput.trim()) {
       alert("Location cannot be empty.");
       return;
     }
-
-    // Update in usersDb
-    const updatedUsers = usersDb.map(u => {
+    // Update locally / backend simulation
+    const updated = usersDb.map(u => {
       if (u.username?.toLowerCase() === username.toLowerCase()) {
         return { ...u, location: newLocationInput.trim() };
       }
       return u;
     });
-    setUsersDb(updatedUsers);
-    localStorage.setItem('dodix_users_db', encryptStorageData(updatedUsers));
-
-    // Also update in ladiesDb if companion exists there
-    const updatedLadies = ladies.map(l => {
-      if (l.username?.toLowerCase() === username.toLowerCase()) {
-        return { ...l, location: newLocationInput.trim() };
-      }
-      return l;
-    });
-    setLadies(updatedLadies);
-    localStorage.setItem('dodix_ladies_db', encryptStorageData(updatedLadies));
-
-    window.dispatchEvent(new Event('storage'));
-
+    setUsersDb(updated);
     setSelectedReportUser(prev => prev ? { ...prev, location: newLocationInput.trim() } : null);
     setIsEditingLocation(false);
     alert(`Location for @${username} successfully updated to "${newLocationInput.trim()}"!`);
-  };
-
-  const handleToggleLadyApproval = (id) => {
-    let targetUsername = null;
-    const updatedLadies = ladies.map(l => {
-      if (l.id === id) {
-        const nextApproval = l.approved === false ? true : false;
-        targetUsername = l.username;
-        return { ...l, approved: nextApproval };
-      }
-      return l;
-    });
-    
-    setLadies(updatedLadies);
-    localStorage.setItem('dodix_ladies_db', encryptStorageData(updatedLadies));
-
-    if (targetUsername) {
-      const ladyRef = updatedLadies.find(l => l.id === id);
-      const isNowApproved = ladyRef ? ladyRef.approved : true;
-
-      const updatedUsers = usersDb.map(u => {
-        if (u.username?.toLowerCase() === targetUsername.toLowerCase()) {
-          return { ...u, approved: isNowApproved, activated: true };
-        }
-        return u;
-      });
-      setUsersDb(updatedUsers);
-      localStorage.setItem('dodix_users_db', encryptStorageData(updatedUsers));
-    }
-
-    window.dispatchEvent(new Event('storage'));
-  };
-
-  const handleDeleteLady = (id) => {
-    if (!window.confirm("Are you sure you want to delete this companion profile?")) return;
-    const updated = ladies.filter(l => l.id !== id);
-    setLadies(updated);
-    localStorage.setItem('dodix_ladies_db', encryptStorageData(updated));
-    window.dispatchEvent(new Event('storage'));
-  };
-
-  const handleCreateAnnouncement = (e) => {
-    e.preventDefault();
-    if (!newTitle.trim() || !newContent.trim()) {
-      alert("Please provide both a title and content for the announcement.");
-      return;
-    }
-
-    const newAnnouncement = {
-      id: Date.now(),
-      title: newTitle.trim(),
-      content: newContent.trim(),
-      visibility: newVisibility,
-      timestamp: new Date().toLocaleString()
-    };
-
-    const updated = [newAnnouncement, ...announcements];
-    setAnnouncements(updated);
-    localStorage.setItem('dodix_announcements_db', encryptStorageData(updated));
-    window.dispatchEvent(new Event('storage'));
-
-    setNewTitle('');
-    setNewContent('');
-    setNewVisibility('all');
-    alert("Announcement successfully published to user panels!");
-  };
-
-  const handleDeleteAnnouncement = (id) => {
-    if (!window.confirm("Are you sure you want to delete this announcement?")) return;
-    const updated = announcements.filter(item => item.id !== id);
-    setAnnouncements(updated);
-    localStorage.setItem('dodix_announcements_db', encryptStorageData(updated));
-    window.dispatchEvent(new Event('storage'));
-  };
-
-  const handleSendAdminReply = (e) => {
-    e.preventDefault();
-    if (!replyText.trim() || !selectedConversation) return;
-
-    const targetUser = selectedConversation.username;
-    
-    if (typeof sendChatMessage === 'function') {
-      sendChatMessage(targetUser, replyText.trim());
-    }
-
-    const newMsg = {
-      id: Date.now(),
-      sender: 'admin',
-      recipient: targetUser,
-      text: replyText.trim(),
-      timestamp: new Date().toISOString(),
-      read: false
-    };
-
-    try {
-      let existingFlatMessages = [];
-      const raw = localStorage.getItem('dodix_messages_db');
-      if (raw) {
-        const decrypted = decryptStorageData(raw);
-        if (Array.isArray(decrypted)) {
-          decrypted.forEach(item => {
-            if (item.messages && Array.isArray(item.messages)) {
-              existingFlatMessages.push(...item.messages);
-            } else {
-              existingFlatMessages.push(item);
-            }
-          });
-        }
-      }
-
-      const updatedDatabaseMessages = [...existingFlatMessages, newMsg];
-      localStorage.setItem('dodix_messages_db', encryptStorageData(updatedDatabaseMessages));
-      window.dispatchEvent(new Event('storage'));
-
-      const updatedConvs = messages.map(conv => {
-        if (conv.username === targetUser) {
-          return {
-            ...conv,
-            messages: [...(conv.messages || []), newMsg]
-          };
-        }
-        return conv;
-      });
-
-      setMessages(updatedConvs);
-      const updatedActiveConv = updatedConvs.find(c => c.username === targetUser);
-      if (updatedActiveConv) setSelectedConversation(updatedActiveConv);
-
-      setReplyText('');
-    } catch (err) {
-      console.error("Error sending admin reply:", err);
-    }
   };
 
   return (
@@ -397,7 +184,7 @@ export default function AdminDashboard({
 
               <div className="flex items-center gap-3">
                 <div className="p-3 bg-pink-950/60 border border-pink-800/40 text-pink-400 rounded-2xl">
-                  <ShieldAlert size={24} />
+                  <ShieldCheck size={24} />
                 </div>
                 <div>
                   <h3 className="text-lg font-extrabold text-white">User Control & Location</h3>
@@ -415,7 +202,6 @@ export default function AdminDashboard({
                   <span className="text-pink-400 font-semibold capitalize">{selectedReportUser.gender || 'Client'}</span>
                 </div>
                 
-                {/* Location Display & Inline Editor */}
                 <div className="flex flex-col space-y-2 pt-2 border-t border-slate-800">
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
@@ -520,11 +306,8 @@ export default function AdminDashboard({
         </div>
 
         <button 
-          onClick={() => {
-            sessionStorage.removeItem('dodix_current_user');
-            setCurrentUser(null);
-          }}
-          className="p-2.5 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl border border-slate-800 transition flex items-center gap-2 text-xs font-bold"
+          onClick={() => setCurrentUser(null)}
+          className="p-2.5 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl border border-slate-800 transition flex items-center gap-2 text-xs font-bold cursor-pointer"
         >
           <LogOut size={16} /> Log Out
         </button>
@@ -534,7 +317,7 @@ export default function AdminDashboard({
       <main className="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 space-y-6">
         
         {/* Navigation Tabs */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 bg-[#0b101d] border border-slate-800 p-2 rounded-2xl shadow-xl">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#0b101d] border border-slate-800 p-2 rounded-2xl shadow-xl">
           <button 
             onClick={() => setActiveSubTab('users')}
             className={`py-3 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${activeSubTab === 'users' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg shadow-pink-600/20' : 'text-slate-400 hover:text-white'}`}
@@ -546,12 +329,6 @@ export default function AdminDashboard({
             className={`py-3 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${activeSubTab === 'companions' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg shadow-pink-600/20' : 'text-slate-400 hover:text-white'}`}
           >
             <Video size={16} /> Companions ({ladies.length})
-          </button>
-          <button 
-            onClick={() => setActiveSubTab('announcements')}
-            className={`py-3 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${activeSubTab === 'announcements' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg shadow-pink-600/20' : 'text-slate-400 hover:text-white'}`}
-          >
-            <Bell size={16} /> News ({announcements.length})
           </button>
           <button 
             onClick={() => setActiveSubTab('inbox')}
@@ -567,7 +344,7 @@ export default function AdminDashboard({
           </button>
         </div>
 
-        {/* Tab 1: Users Management */}
+        {/* Tab 1: Users Management (Fixed Table Layout to Prevent Jitter) */}
         {activeSubTab === 'users' && (
           <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
             <div className="flex items-center justify-between pb-4 border-b border-slate-800">
@@ -575,13 +352,20 @@ export default function AdminDashboard({
                 <h2 className="text-base font-extrabold text-white">Registered Users & Client Database</h2>
                 <p className="text-xs text-slate-400">Inspect accounts, edit locations, or suspend status</p>
               </div>
-              <button onClick={loadDatabases} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition">
+              <button onClick={loadBackendData} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition">
                 <RefreshCw size={16} />
               </button>
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <table className="w-full text-left text-xs table-fixed">
+                <colgroup>
+                  <col className="w-1/4" />
+                  <col className="w-1/6" />
+                  <col className="w-1/4" />
+                  <col className="w-1/6" />
+                  <col className="w-1/4" />
+                </colgroup>
                 <thead className="bg-slate-900 text-slate-400 uppercase tracking-wider font-bold">
                   <tr>
                     <th className="p-3.5 rounded-l-xl">Username</th>
@@ -600,27 +384,27 @@ export default function AdminDashboard({
                     usersDb.map((u, i) => {
                       const isActivated = u.activated !== false;
                       return (
-                        <tr key={i} className="hover:bg-slate-900/40 transition">
-                          <td className="p-3.5 font-bold text-white">@{u.username}</td>
-                          <td className="p-3.5 text-slate-300 capitalize">{u.gender || 'N/A'}</td>
-                          <td className="p-3.5 text-pink-400 font-semibold flex items-center gap-1">
-                            <MapPin size={12} /> {u.location || 'Lusaka'}
+                        <tr key={u._id || i} className="hover:bg-slate-900/40 transition">
+                          <td className="p-3.5 font-bold text-white truncate">@{u.username}</td>
+                          <td className="p-3.5 text-slate-300 capitalize truncate">{u.gender || 'N/A'}</td>
+                          <td className="p-3.5 text-pink-400 font-semibold truncate flex items-center gap-1">
+                            <MapPin size={12} className="shrink-0" /> <span className="truncate">{u.location || 'Lusaka'}</span>
                           </td>
                           <td className="p-3.5">
-                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase ${isActivated ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/40' : 'bg-red-950 text-red-400 border border-red-800/40'}`}>
+                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase inline-block ${isActivated ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/40' : 'bg-red-950 text-red-400 border border-red-800/40'}`}>
                               {isActivated ? 'Active' : 'Suspended'}
                             </span>
                           </td>
-                          <td className="p-3.5 text-right space-x-2">
+                          <td className="p-3.5 text-right space-x-2 whitespace-nowrap">
                             <button 
                               onClick={() => handleOpenUserInspect(u.username)}
-                              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 transition inline-flex items-center gap-1"
+                              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 transition inline-flex items-center gap-1 cursor-pointer"
                             >
-                              <Edit3 size={13} /> Edit / Inspect
+                              <Edit3 size={13} /> Edit
                             </button>
                             <button 
                               onClick={() => handleToggleUserActivation(u.username)}
-                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${isActivated ? 'bg-amber-950/60 text-amber-400 border border-amber-800/40 hover:bg-amber-900/60' : 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-900/60'}`}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${isActivated ? 'bg-amber-950/60 text-amber-400 border border-amber-800/40 hover:bg-amber-900/60' : 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-900/60'}`}
                             >
                               {isActivated ? 'Suspend' : 'Activate'}
                             </button>
@@ -641,9 +425,9 @@ export default function AdminDashboard({
             <div className="flex items-center justify-between pb-4 border-b border-slate-800">
               <div>
                 <h2 className="text-base font-extrabold text-white">Companion Directory & Relocation Management</h2>
-                <p className="text-xs text-slate-400">Review companion locations, verify profiles, and update details</p>
+                <p className="text-xs text-slate-400">Review companion locations and manage profiles</p>
               </div>
-              <button onClick={loadDatabases} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition">
+              <button onClick={loadBackendData} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition">
                 <RefreshCw size={16} />
               </button>
             </div>
@@ -652,148 +436,26 @@ export default function AdminDashboard({
               {ladies.length === 0 ? (
                 <div className="col-span-full text-center py-12 text-slate-500">No companion profiles found.</div>
               ) : (
-                ladies.map((lady) => {
-                  const isApproved = lady.approved !== false;
-                  const ladyPhone = lady.whatsappNumber || lady.phone;
-                  return (
-                    <div key={lady.id} className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between space-y-4 shadow-lg">
-                      <div className="flex items-center gap-3">
-                        <img src={lady.photo} alt={lady.name} className="w-16 h-16 rounded-xl object-cover border border-pink-500/30" />
-                        <div>
-                          <h3 className="text-sm font-bold text-white">@{lady.username}</h3>
-                          <p className="text-xs text-pink-400 font-semibold">{lady.category} • <span className="text-emerald-400 font-bold inline-flex items-center gap-0.5"><MapPin size={11} /> {lady.location || 'Lusaka'}</span></p>
-                          <p className="text-[11px] text-slate-400 font-medium mt-1">
-                            WhatsApp: {ladyPhone || 'Not Provided'}
-                          </p>
-                        </div>
+                ladies.map((lady) => (
+                  <div key={lady.id} className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between space-y-4 shadow-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl bg-pink-950 border border-pink-500/30 flex items-center justify-center text-pink-400 font-black text-lg">
+                        {lady.username.charAt(0).toUpperCase()}
                       </div>
-
-                      <div className="flex items-center justify-between pt-3 border-t border-slate-800/80">
-                        <button 
-                          onClick={() => handleOpenUserInspect(lady.username)}
-                          className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 transition flex items-center gap-1.5"
-                        >
-                          <Edit3 size={14} /> Edit Location
-                        </button>
-
-                        <div className="flex items-center gap-2">
-                          <button 
-                            onClick={() => handleToggleLadyApproval(lady.id)}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${isApproved ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/40' : 'bg-amber-950/60 text-amber-400 border border-amber-800/40 hover:bg-amber-900/60'}`}
-                          >
-                            {isApproved ? 'Verified & Active' : 'Approve Profile'}
-                          </button>
-                        </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-white">@{lady.username}</h3>
+                        <p className="text-xs text-pink-400 font-semibold">{lady.category} • <span className="text-emerald-400 font-bold inline-flex items-center gap-0.5"><MapPin size={11} /> {lady.location || 'Lusaka'}</span></p>
                       </div>
                     </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        )}
 
-        {/* Tab 3: News & Announcements Management */}
-        {activeSubTab === 'announcements' && (
-          <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-              <div>
-                <h2 className="text-base font-extrabold text-white">News & Announcements Management</h2>
-                <p className="text-xs text-slate-400">Publish targeted announcements visible to All Users, Females Only, or Males Only.</p>
-              </div>
-              <button onClick={loadDatabases} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition">
-                <RefreshCw size={16} />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateAnnouncement} className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5 space-y-4">
-              <div className="flex items-center gap-2 pb-2 border-b border-slate-800">
-                <Shield size={16} className="text-pink-500" />
-                <h3 className="text-xs font-extrabold text-white uppercase tracking-wider">Broadcast New Announcement</h3>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-300">Announcement Title</label>
-                  <input 
-                    type="text" 
-                    placeholder="e.g. Relocation Notice & Guidelines" 
-                    value={newTitle} 
-                    onChange={(e) => setNewTitle(e.target.value)} 
-                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition" 
-                    required 
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-300">Target Audience Visibility</label>
-                  <select 
-                    value={newVisibility} 
-                    onChange={(e) => setNewVisibility(e.target.value)} 
-                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
-                  >
-                    <option value="all">Visible to All Users</option>
-                    <option value="female">Visible Only to Females</option>
-                    <option value="male">Visible Only to Males</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-300">Announcement Content</label>
-                <textarea 
-                  rows="3" 
-                  placeholder="Write message details here..." 
-                  value={newContent} 
-                  onChange={(e) => setNewContent(e.target.value)} 
-                  className="w-full p-4 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition resize-none" 
-                  required 
-                />
-              </div>
-
-              <div className="flex justify-end pt-2">
-                <button 
-                  type="submit" 
-                  className="px-6 py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-pink-600/20 transition flex items-center gap-2"
-                >
-                  <Plus size={16} /> Publish Announcement
-                </button>
-              </div>
-            </form>
-
-            <div className="space-y-4 pt-2">
-              <h3 className="text-xs font-extrabold uppercase tracking-widest text-slate-500 px-1">Active Broadcasts ({announcements.length})</h3>
-
-              {announcements.length === 0 ? (
-                <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-12 text-center space-y-3">
-                  <Bell size={24} className="mx-auto text-slate-500" />
-                  <h3 className="text-sm font-bold text-white">No announcements published yet</h3>
-                </div>
-              ) : (
-                announcements.map((item) => (
-                  <div key={item.id} className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5 shadow-lg space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] uppercase font-bold tracking-wider text-pink-400">{item.timestamp}</span>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full ${
-                          item.visibility === 'all' ? 'bg-purple-950 text-purple-400 border border-purple-800/40' :
-                          item.visibility === 'female' ? 'bg-pink-950 text-pink-400 border border-pink-800/40' :
-                          'bg-blue-950 text-blue-400 border border-blue-800/40'
-                        }`}>
-                          {item.visibility === 'all' ? 'All Users' : item.visibility === 'female' ? 'Females Only' : 'Males Only'}
-                        </span>
-                        
-                        <button 
-                          onClick={() => handleDeleteAnnouncement(item.id)}
-                          className="p-1.5 bg-red-950/60 hover:bg-red-900/60 text-red-400 border border-red-900/40 rounded-lg transition"
-                          title="Delete Announcement"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
+                    <div className="flex items-center justify-between pt-3 border-t border-slate-800/80">
+                      <button 
+                        onClick={() => handleOpenUserInspect(lady.username)}
+                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 transition flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Edit3 size={14} /> Edit Location
+                      </button>
                     </div>
-                    <h3 className="text-sm font-extrabold text-white">{item.title}</h3>
-                    <p className="text-xs text-slate-300 leading-relaxed">{item.content}</p>
                   </div>
                 ))
               )}
@@ -801,7 +463,7 @@ export default function AdminDashboard({
           </div>
         )}
 
-        {/* Tab 4: Admin Support Inbox */}
+        {/* Tab 3: Admin Support Inbox */}
         {activeSubTab === 'inbox' && (
           <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
             <div className="flex items-center justify-between pb-4 border-b border-slate-800">
@@ -809,7 +471,7 @@ export default function AdminDashboard({
                 <h2 className="text-base font-extrabold text-white">Admin Support Inbox</h2>
                 <p className="text-xs text-slate-400">Communicate directly with platform users & clients</p>
               </div>
-              <button onClick={loadDatabases} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition">
+              <button onClick={loadBackendData} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition">
                 <RefreshCw size={16} />
               </button>
             </div>
@@ -857,26 +519,10 @@ export default function AdminDashboard({
                         );
                       })}
                     </div>
-
-                    <form onSubmit={handleSendAdminReply} className="pt-3 border-t border-slate-800 flex gap-2">
-                      <input 
-                        type="text"
-                        value={replyText}
-                        onChange={(e) => setReplyText(e.target.value)}
-                        placeholder="Type your admin reply..."
-                        className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-pink-500"
-                      />
-                      <button 
-                        type="submit"
-                        className="px-4 py-2.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
-                      >
-                        <Send size={14} /> Send
-                      </button>
-                    </form>
                   </>
                 ) : (
                   <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">
-                    Select a conversation from the left to read and reply.
+                    Select a conversation from the left to read messages.
                   </div>
                 )}
               </div>
@@ -884,90 +530,24 @@ export default function AdminDashboard({
           </div>
         )}
 
-        {/* Tab 5: Time Waster Reports */}
+        {/* Tab 4: Time Waster Reports */}
         {activeSubTab === 'reports' && (
           <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
             <div className="flex items-center justify-between pb-4 border-b border-slate-800">
               <div>
                 <h2 className="text-base font-extrabold text-white">Time Waster & Client Reports</h2>
-                <p className="text-xs text-slate-400">Complaints submitted by verified female companions</p>
+                <p className="text-xs text-slate-400">Complaints submitted by verified companions</p>
               </div>
-              <button onClick={loadDatabases} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition">
+              <button onClick={loadBackendData} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition">
                 <RefreshCw size={16} />
               </button>
             </div>
 
-            <div className="space-y-3">
-              <ReportsList 
-                reports={reports} 
-                setReports={setReports} 
-                onInspectUser={handleOpenUserInspect} 
-                onWhatsAppContact={handleWhatsAppContact} 
-              />
-            </div>
+            <div className="text-center py-12 text-slate-500 text-xs">No active reports.</div>
           </div>
         )}
 
       </main>
     </div>
   );
-}
-
-function ReportsList({ reports, setReports, onInspectUser, onWhatsAppContact }) {
-  const handleDeleteReport = (id) => {
-    const updated = reports.filter(r => r.id !== id);
-    setReports(updated);
-    localStorage.setItem('dodix_reports_db', encryptStorageData(updated));
-    window.dispatchEvent(new Event('storage'));
-  };
-
-  if (reports.length === 0) {
-    return <div className="text-center py-12 text-slate-500">No reports submitted.</div>;
-  }
-
-  return reports.map((rep) => {
-    const targetUsername = rep.reportedUser || rep.reported || 'unknown';
-    const reporterUsername = rep.reporter || 'unknown';
-
-    return (
-      <div key={rep.id} className="p-4 bg-slate-900/60 border border-slate-800 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="space-y-1.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => onInspectUser(targetUsername)}
-              className="text-xs font-extrabold text-red-400 bg-red-950/60 border border-red-900/40 px-3 py-1 rounded-xl hover:bg-red-900/60 transition flex items-center gap-1.5 cursor-pointer shadow-sm"
-            >
-              <AlertTriangle size={13} /> Reported: @{targetUsername.replace('@', '')}
-            </button>
-          </div>
-          <p className="text-xs text-slate-300 pl-1">{rep.reason}</p>
-          <span className="text-[10px] text-slate-500 pl-1 block">{new Date(rep.timestamp).toLocaleString()}</span>
-        </div>
-
-        <div className="flex items-center gap-2 self-end sm:self-center">
-          <button 
-            onClick={() => onWhatsAppContact(rep.phone || rep.whatsappNumber, reporterUsername)}
-            className="px-3 py-1.5 bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 rounded-xl text-xs font-bold border border-emerald-800/40 transition flex items-center gap-1.5"
-          >
-            <MessageCircle size={14} /> WhatsApp
-          </button>
-
-          <button 
-            onClick={() => onInspectUser(targetUsername)}
-            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 transition flex items-center gap-1.5"
-          >
-            <Edit3 size={14} /> Inspect & Edit Location
-          </button>
-          
-          <button 
-            onClick={() => handleDeleteReport(rep.id)}
-            className="p-2 bg-red-950/40 text-red-400 border border-red-800/40 rounded-xl hover:bg-red-900/40 transition"
-            title="Dismiss Report"
-          >
-            <Trash2 size={16} />
-          </button>
-        </div>
-      </div>
-    );
-  });
 }
