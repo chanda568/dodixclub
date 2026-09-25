@@ -224,7 +224,7 @@ export default function AdminDashboard({
   return (
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col font-sans selection:bg-pink-500 selection:text-white">
       
-      {/* Full-Size Image Lightbox Modal with Watermark Overlay */}
+      {/* Full-Size Image Lightbox Modal with Clear Watermark Overlay */}
       <AnimatePresence>
         {fullScreenImage && (
           <div className="fixed inset-0 bg-black/95 backdrop-blur-lg z-50 flex items-center justify-center p-4">
@@ -235,14 +235,14 @@ export default function AdminDashboard({
               >
                 <X size={24} />
               </button>
-              <div className="relative max-w-full max-h-[85vh] overflow-hidden rounded-2xl shadow-2xl border border-slate-800 bg-black">
+              <div className="relative max-w-full max-h-[85vh] overflow-hidden rounded-2xl shadow-2xl border border-slate-800 bg-black flex items-center justify-center">
                 <img 
                   src={fullScreenImage} 
                   alt="Full Size Advertisement" 
                   className="max-w-full max-h-[85vh] object-contain block"
                 />
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-30 mix-blend-screen overflow-hidden">
-                  <img src={LOGO_URL} alt="Watermark" className="w-96 h-96 object-contain transform rotate-[-15deg]" />
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-85 overflow-hidden bg-black/20">
+                  <img src={LOGO_URL} alt="Watermark" className="w-80 h-80 object-contain filter drop-shadow-2xl" />
                 </div>
               </div>
             </div>
@@ -268,7 +268,7 @@ export default function AdminDashboard({
               </button>
 
               <div className="flex items-center gap-4">
-                {/* Clickable Profile Picture with Watermark Overlay */}
+                {/* Clickable Profile Picture with Clear Watermark Overlay */}
                 <div 
                   onClick={() => setFullScreenImage(selectedCompanionModal.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80')}
                   className="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-pink-500/40 shadow-lg shrink-0 bg-slate-950 cursor-pointer group hover:border-pink-400 transition"
@@ -282,8 +282,8 @@ export default function AdminDashboard({
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white">
                     <Maximize2 size={18} />
                   </div>
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-25 mix-blend-screen">
-                    <img src={LOGO_URL} alt="Watermark" className="w-16 h-16 object-contain transform rotate-[-15deg]" />
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-85 bg-black/30">
+                    <img src={LOGO_URL} alt="Watermark" className="w-16 h-16 object-contain filter drop-shadow-md" />
                   </div>
                 </div>
 
@@ -652,7 +652,7 @@ export default function AdminDashboard({
           </div>
         )}
 
-        {/* Tab 2: Companions Directory & Review with Watermark Overlays */}
+        {/* Tab 2: Companions Directory & Review with Visible Watermark Overlays */}
         {activeSubTab === 'companions' && (
           <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
             <div className="flex items-center justify-between pb-4 border-b border-slate-800">
@@ -677,9 +677,9 @@ export default function AdminDashboard({
                         alt={lady.name || lady.username} 
                         className="w-full h-full object-cover group-hover:scale-105 transition duration-500" 
                       />
-                      {/* Watermark Overlay covering face/identity */}
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-25 mix-blend-screen overflow-hidden">
-                        <img src={LOGO_URL} alt="Watermark" className="w-48 h-48 object-contain transform rotate-[-15deg]" />
+                      {/* Clearly Visible Watermark Overlay covering face/identity */}
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-85 bg-black/30 overflow-hidden">
+                        <img src={LOGO_URL} alt="Watermark" className="w-48 h-48 object-contain filter drop-shadow-lg" />
                       </div>
                       <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80" />
 
