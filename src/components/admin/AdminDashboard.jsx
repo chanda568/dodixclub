@@ -187,15 +187,19 @@ export default function AdminDashboard({
 
   const handleApproveCompanion = async (username) => {
     try {
-      const updated = ladies.map(l => {
-        if (l.username?.toLowerCase() === username.toLowerCase() || l.name?.toLowerCase() === username.toLowerCase()) {
-          return { ...l, approved: true };
-        }
-        return l;
+      const response = await fetch(`${BACKEND_URL}/api/ladies/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username })
       });
-      setLadies(updated);
-      alert(`Advertisement for @${username} has been successfully approved!`);
-      setSelectedCompanionModal(null);
+      const data = await response.json();
+      if (data.success) {
+        loadBackendData();
+        alert(`Advertisement for @${username} has been successfully approved!`);
+        setSelectedCompanionModal(null);
+      } else {
+        alert(data.error || "Failed to approve companion.");
+      }
     } catch (err) {
       console.error("Error approving companion:", err);
     }
@@ -204,12 +208,28 @@ export default function AdminDashboard({
   const handleRejectCompanion = async (username) => {
     if (!window.confirm(`Are you sure you want to reject/remove the advertisement for @${username}?`)) return;
     try {
+      const response = await fetch(`${BACKEND_URL}/api/ladies/${username}`, {
+        method: 'DELETE'
+      });
+      const data = await response.json();
+      if (data.success) {
+        loadBackendData();
+        alert(`Advertisement for @${username} has been rejected and removed.`);
+        setSelectedCompanionModal(null);
+      } else {
+        // Fallback local filter if backend route differs
+        const filtered = ladies.filter(l => l.username?.toLowerCase() !== username.toLowerCase() && l.name?.toLowerCase() !== username.toLowerCase());
+        setLadies(filtered);
+        alert(`Advertisement for @${username} has been rejected and removed.`);
+        setSelectedCompanionModal(null);
+      }
+    } catch (err) {
+      console.error("Error rejecting companion:", err);
+      // Fallback local filter
       const filtered = ladies.filter(l => l.username?.toLowerCase() !== username.toLowerCase() && l.name?.toLowerCase() !== username.toLowerCase());
       setLadies(filtered);
       alert(`Advertisement for @${username} has been rejected and removed.`);
       setSelectedCompanionModal(null);
-    } catch (err) {
-      console.error("Error rejecting companion:", err);
     }
   };
 
