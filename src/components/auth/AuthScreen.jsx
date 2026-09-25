@@ -52,7 +52,15 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
         }
       });
     } else {
-      // Admin backdoor check or regular login
+      // Admin backdoor check
+      if (cleanUsername === 'admin' && password.trim() === 'admin123') {
+        triggerLoadingAction('Authenticating Admin...', () => {
+          setCurrentUser({ username: 'admin', role: 'admin', activated: true });
+        });
+        return;
+      }
+
+      // Regular user login via backend API
       triggerLoadingAction('Authenticating...', async () => {
         try {
           const response = await fetch(`${BACKEND_URL}/api/login`, {
