@@ -185,6 +185,34 @@ export default function AdminDashboard({
     }
   };
 
+  const handleApproveCompanion = async (username) => {
+    try {
+      const updated = ladies.map(l => {
+        if (l.username?.toLowerCase() === username.toLowerCase() || l.name?.toLowerCase() === username.toLowerCase()) {
+          return { ...l, approved: true };
+        }
+        return l;
+      });
+      setLadies(updated);
+      alert(`Advertisement for @${username} has been successfully approved!`);
+      setSelectedCompanionModal(null);
+    } catch (err) {
+      console.error("Error approving companion:", err);
+    }
+  };
+
+  const handleRejectCompanion = async (username) => {
+    if (!window.confirm(`Are you sure you want to reject/remove the advertisement for @${username}?`)) return;
+    try {
+      const filtered = ladies.filter(l => l.username?.toLowerCase() !== username.toLowerCase() && l.name?.toLowerCase() !== username.toLowerCase());
+      setLadies(filtered);
+      alert(`Advertisement for @${username} has been rejected and removed.`);
+      setSelectedCompanionModal(null);
+    } catch (err) {
+      console.error("Error rejecting companion:", err);
+    }
+  };
+
   const handleOpenUserInspect = (reportedUsername) => {
     const cleanUsername = reportedUsername.replace('@', '').trim();
     const foundUser = usersDb.find(u => u.username?.toLowerCase() === cleanUsername.toLowerCase());
@@ -224,7 +252,7 @@ export default function AdminDashboard({
   return (
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col font-sans selection:bg-pink-500 selection:text-white">
       
-      {/* Full-Size Image Lightbox Modal (Watermark Removed) */}
+      {/* Full-Size Image Lightbox Modal */}
       <AnimatePresence>
         {fullScreenImage && (
           <div className="fixed inset-0 bg-black/95 backdrop-blur-lg z-50 flex items-center justify-center p-4">
@@ -247,7 +275,7 @@ export default function AdminDashboard({
         )}
       </AnimatePresence>
 
-      {/* Companion Profile & Video Review Modal */}
+      {/* Companion Profile & Advertisement Review Modal */}
       <AnimatePresence>
         {selectedCompanionModal && (
           <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
@@ -265,7 +293,6 @@ export default function AdminDashboard({
               </button>
 
               <div className="flex items-center gap-4">
-                {/* Clickable Profile Picture (Watermark Removed) */}
                 <div 
                   onClick={() => setFullScreenImage(selectedCompanionModal.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80')}
                   className="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-pink-500/40 shadow-lg shrink-0 bg-slate-950 cursor-pointer group hover:border-pink-400 transition"
@@ -284,8 +311,8 @@ export default function AdminDashboard({
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <h3 className="text-xl font-extrabold text-white">{selectedCompanionModal.name || selectedCompanionModal.username}, {selectedCompanionModal.age || '23'}</h3>
-                    <span className="bg-emerald-500/90 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
-                      <ShieldCheck size={11} /> VERIFIED
+                    <span className={`font-black text-[9px] px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm ${selectedCompanionModal.approved !== false ? 'bg-emerald-500/90 text-slate-950' : 'bg-amber-500/90 text-slate-950'}`}>
+                      <ShieldCheck size={11} /> {selectedCompanionModal.approved !== false ? 'APPROVED' : 'PENDING'}
                     </span>
                   </div>
                   <p className="text-xs text-pink-400 font-semibold uppercase tracking-wider">{selectedCompanionModal.category || 'VIP'} Companion</p>
@@ -324,7 +351,7 @@ export default function AdminDashboard({
                       <video 
                         src={selectedCompanionModal.verificationVideoUrl} 
                         controls 
-                        className="max-h-72 w-auto object-contain mx-auto"
+                        className="max-h-60 w-auto object-contain mx-auto"
                       />
                     </div>
                     <p className="text-[11px] text-slate-400">File: <span className="text-white font-medium">{selectedCompanionModal.verificationVideoName || 'Promotional_Clip.mp4'}</span></p>
@@ -334,20 +361,30 @@ export default function AdminDashboard({
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3 pt-2">
+              {/* Approve & Reject Advertisement Buttons */}
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800">
+                <button 
+                  onClick={() => handleApproveCompanion(selectedCompanionModal.username || selectedCompanionModal.name)}
+                  className="py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition cursor-pointer"
+                >
+                  <CheckCircle size={15} /> Approve Ad
+                </button>
+                <button 
+                  onClick={() => handleRejectCompanion(selectedCompanionModal.username || selectedCompanionModal.name)}
+                  className="py-3 bg-red-600 hover:bg-red-500 text-white font-black rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-red-600/20 transition cursor-pointer"
+                >
+                  <XCircle size={15} /> Reject Ad
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 pt-1">
                 <button 
                   onClick={() => {
                     handleWhatsAppContact(selectedCompanionModal.phone, selectedCompanionModal.username || selectedCompanionModal.name);
                   }}
-                  className="py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition cursor-pointer"
+                  className="py-2.5 bg-slate-900 hover:bg-slate-800 text-emerald-400 border border-slate-800 font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition cursor-pointer"
                 >
-                  <MessageCircle size={15} /> WhatsApp Contact
-                </button>
-                <button 
-                  onClick={() => setSelectedCompanionModal(null)}
-                  className="py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition border border-slate-700 cursor-pointer"
-                >
-                  Close Review
+                  <MessageCircle size={14} /> Contact via WhatsApp
                 </button>
               </div>
             </motion.div>
@@ -646,13 +683,13 @@ export default function AdminDashboard({
           </div>
         )}
 
-        {/* Tab 2: Companions Directory & Review (Watermark Removed) */}
+        {/* Tab 2: Companions Directory & Advertisement Moderation */}
         {activeSubTab === 'companions' && (
           <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
             <div className="flex items-center justify-between pb-4 border-b border-slate-800">
               <div>
-                <h2 className="text-base font-extrabold text-white">Companion Directory & Advertisement Review</h2>
-                <p className="text-xs text-slate-400">Review submitted photos, rates, locations, and promotional verification video clips</p>
+                <h2 className="text-base font-extrabold text-white">Companion Directory & Advertisement Moderation</h2>
+                <p className="text-xs text-slate-400">Review submitted photos, rates, locations, promotional video clips, and approve/reject ads</p>
               </div>
               <button onClick={loadBackendData} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition cursor-pointer">
                 <RefreshCw size={16} />
@@ -663,56 +700,76 @@ export default function AdminDashboard({
               {ladies.length === 0 ? (
                 <div className="col-span-full text-center py-16 text-slate-500 text-xs">No companion listings or profiles submitted yet.</div>
               ) : (
-                ladies.map((lady) => (
-                  <div key={lady._id || lady.id} className="bg-slate-900/60 border border-slate-800 rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between group hover:border-pink-500/40 transition">
-                    <div className="relative h-56 bg-slate-950 overflow-hidden">
-                      <img 
-                        src={lady.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80'} 
-                        alt={lady.name || lady.username} 
-                        className="w-full h-full object-cover group-hover:scale-105 transition duration-500" 
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80" />
+                ladies.map((lady) => {
+                  const isApproved = lady.approved !== false;
+                  return (
+                    <div key={lady._id || lady.id} className="bg-slate-900/60 border border-slate-800 rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between group hover:border-pink-500/40 transition">
+                      <div className="relative h-56 bg-slate-950 overflow-hidden">
+                        <img 
+                          src={lady.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80'} 
+                          alt={lady.name || lady.username} 
+                          className="w-full h-full object-cover group-hover:scale-105 transition duration-500" 
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80" />
 
-                      <div className="absolute top-3 right-3">
-                        <span className="bg-emerald-500 text-slate-950 font-black text-[9px] px-2.5 py-1 rounded-full shadow flex items-center gap-1">
-                          <ShieldCheck size={11} /> {lady.category || 'VIP'}
-                        </span>
+                        <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                          <span className={`font-black text-[9px] px-2.5 py-1 rounded-full shadow flex items-center gap-1 ${isApproved ? 'bg-emerald-500 text-slate-950' : 'bg-amber-500 text-slate-950'}`}>
+                            <ShieldCheck size={11} /> {isApproved ? 'APPROVED' : 'PENDING'}
+                          </span>
+                        </div>
+
+                        <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end">
+                          <div>
+                            <h3 className="text-white font-extrabold text-base">{lady.name || lady.username}, {lady.age || '23'}</h3>
+                            <p className="text-slate-300 text-xs flex items-center gap-1">
+                              <MapPin size={11} className="text-pink-500" /> {lady.specificLocation || lady.location}
+                            </p>
+                          </div>
+                          <div className="bg-slate-950/90 border border-slate-800 px-2.5 py-1 rounded-xl text-right">
+                            <span className="text-[8px] text-slate-400 block font-bold">RATE</span>
+                            <span className="text-emerald-400 font-black text-xs">ZMW {lady.price || '0'}</span>
+                          </div>
+                        </div>
                       </div>
 
-                      <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end">
-                        <div>
-                          <h3 className="text-white font-extrabold text-base">{lady.name || lady.username}, {lady.age || '23'}</h3>
-                          <p className="text-slate-300 text-xs flex items-center gap-1">
-                            <MapPin size={11} className="text-pink-500" /> {lady.specificLocation || lady.location}
-                          </p>
-                        </div>
-                        <div className="bg-slate-950/90 border border-slate-800 px-2.5 py-1 rounded-xl text-right">
-                          <span className="text-[8px] text-slate-400 block font-bold">RATE</span>
-                          <span className="text-emerald-400 font-black text-xs">ZMW {lady.price || '0'}</span>
+                      <div className="p-4 space-y-3 flex flex-col justify-between flex-grow">
+                        <p className="text-xs text-slate-400 line-clamp-2">{lady.extraServices || 'Available for social companionship.'}</p>
+
+                        <div className="space-y-2 pt-2 border-t border-slate-800">
+                          <div className="grid grid-cols-2 gap-2">
+                            <button 
+                              onClick={() => setSelectedCompanionModal(lady)}
+                              className="py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 border border-slate-700 transition cursor-pointer"
+                            >
+                              <Eye size={13} /> Review
+                            </button>
+                            <button 
+                              onClick={() => handleWhatsAppContact(lady.phone, lady.username)}
+                              className="py-2 bg-emerald-950/80 hover:bg-emerald-900/80 text-emerald-300 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 border border-emerald-800/50 transition cursor-pointer"
+                            >
+                              <MessageCircle size={13} /> WhatsApp
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <button 
+                              onClick={() => handleApproveCompanion(lady.username || lady.name)}
+                              className="py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 transition cursor-pointer"
+                            >
+                              <CheckCircle size={13} /> Approve
+                            </button>
+                            <button 
+                              onClick={() => handleRejectCompanion(lady.username || lady.name)}
+                              className="py-2 bg-red-600 hover:bg-red-500 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md shadow-red-600/20 transition cursor-pointer"
+                            >
+                              <XCircle size={13} /> Reject
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
-
-                    <div className="p-4 space-y-3 flex flex-col justify-between flex-grow">
-                      <p className="text-xs text-slate-400 line-clamp-2">{lady.extraServices || 'Available for social companionship.'}</p>
-
-                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800">
-                        <button 
-                          onClick={() => setSelectedCompanionModal(lady)}
-                          className="py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 border border-slate-700 transition cursor-pointer"
-                        >
-                          <Eye size={13} /> Review Profile
-                        </button>
-                        <button 
-                          onClick={() => handleWhatsAppContact(lady.phone, lady.username)}
-                          className="py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 transition cursor-pointer"
-                        >
-                          <MessageCircle size={13} /> WhatsApp
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
