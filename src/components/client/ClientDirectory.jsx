@@ -49,21 +49,21 @@ export default function ClientDirectory({
             title: 'General Platform Update',
             content: 'Welcome to DodixClub! Please ensure your account details and locations are updated for seamless matching.',
             visibility: 'all',
-            timestamp: new Date().toLocaleString()
+            timestamp: new Date().toISOString()
           },
           {
             id: 2,
             title: 'Exclusive Notice for Female Companions',
             content: 'Mandatory verification video clips must be updated regularly. Please check your profile tab to verify your status.',
             visibility: 'female',
-            timestamp: new Date().toLocaleString()
+            timestamp: new Date().toISOString()
           },
           {
             id: 3,
             title: 'Elite Member Guidelines & Etiquette',
             content: 'Remember to respect scheduled bookings and review our code of conduct regarding platform time wasters.',
             visibility: 'male',
-            timestamp: new Date().toLocaleString()
+            timestamp: new Date().toISOString()
           }
         ];
         setAnnouncements(defaultAnnouncements);
@@ -86,7 +86,7 @@ export default function ClientDirectory({
       title: newTitle.trim(),
       content: newContent.trim(),
       visibility: newVisibility,
-      timestamp: new Date().toLocaleString()
+      timestamp: new Date().toISOString()
     };
 
     const updated = [newAnnouncement, ...announcements];
@@ -107,7 +107,7 @@ export default function ClientDirectory({
   };
 
   const handleContactSupportWhatsApp = () => {
-    const adminPhone = "260965039645"; // Default Admin Help Center Number
+    const adminPhone = "260965039645"; // Admin Help Center Number
     const supportMsg = encodeURIComponent("Hello Dodix Support, I need assistance with my account/subscription.");
     window.open(`https://wa.me/${adminPhone}?text=${supportMsg}`, '_blank');
   };
@@ -140,14 +140,13 @@ export default function ClientDirectory({
     try {
       const saved = localStorage.getItem(`dodix_history_${currentUser?.username}`);
       return saved ? (decryptStorageData(saved) || []) : [
-        { id: 1, action: 'Profile Initialized', timestamp: new Date().toLocaleString(), status: 'Pending Review' }
+        { id: 1, action: 'Profile Initialized', timestamp: new Date().toISOString(), status: 'Pending Review' }
       ];
     } catch {
       return [];
     }
   });
 
-  // Targeted status notification sync strictly matching THIS specific user's companion profile
   useEffect(() => {
     if (!isFemaleUser || !currentUser?.username) return;
     try {
@@ -172,8 +171,8 @@ export default function ClientDirectory({
               ? `Great news @${currentUser.username}! Your companion advertisement has been successfully approved by Dodix Admin and is now live in the Elite Directory.` 
               : `Hello @${currentUser.username}, your companion advertisement listing is currently pending review or requires verification updates.`,
             visibility: 'female',
-            targetUsername: currentUser.username.toLowerCase(), // Strictly targets only this user
-            timestamp: new Date().toLocaleString()
+            targetUsername: currentUser.username.toLowerCase(),
+            timestamp: new Date().toISOString()
           };
 
           setAnnouncements(prev => {
@@ -185,7 +184,7 @@ export default function ClientDirectory({
           const newHistoryItem = {
             id: Date.now(),
             action: isApproved ? 'Advertisement Approved by Admin' : 'Advertisement Status Updated',
-            timestamp: new Date().toLocaleString(),
+            timestamp: new Date().toISOString(),
             status: isApproved ? 'Approved' : 'Pending Review'
           };
           setProfileHistory(prev => {
@@ -376,7 +375,7 @@ export default function ClientDirectory({
     const newHistoryItem = {
       id: Date.now(),
       action: myExistingLadyProfile ? 'Updated Companion Listing Details' : 'Created New Companion Listing',
-      timestamp: new Date().toLocaleString(),
+      timestamp: new Date().toISOString(),
       status: 'Submitted / Pending Review'
     };
     const updatedHistory = [newHistoryItem, ...profileHistory];
@@ -470,8 +469,6 @@ export default function ClientDirectory({
       </div>
     );
   }
-
-  const isAccountRestricted = !isAdminUser && (currentUser.activated === false || currentUser.activated === undefined);
 
   const approvedLadies = ladies.filter(l => l.approved !== false);
   const filteredLadies = approvedLadies.filter(l => {
@@ -820,7 +817,6 @@ export default function ClientDirectory({
                     </button>
                   )}
 
-                  {/* Contact Support Option */}
                   <button 
                     onClick={() => { handleContactSupportWhatsApp(); setSidebarOpen(false); }}
                     className="w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 text-slate-400 hover:bg-slate-900 hover:text-white transition"
@@ -915,7 +911,6 @@ export default function ClientDirectory({
               </button>
             )}
 
-            {/* Contact Support Option */}
             <button 
               onClick={handleContactSupportWhatsApp}
               className="w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 text-slate-400 hover:bg-slate-900 hover:text-white transition"
@@ -1018,7 +1013,15 @@ export default function ClientDirectory({
                   visibleAnnouncements.map((item) => (
                     <div key={item.id} className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 shadow-xl space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-pink-400">{item.timestamp}</span>
+                        <span className="text-[10px] uppercase font-bold tracking-wider text-pink-400">
+                          {item.timestamp ? new Date(item.timestamp).toLocaleString('en-GB', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          }) : 'Just now'}
+                        </span>
                         <div className="flex items-center gap-2">
                           <span className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full ${
                             item.targetUsername ? 'bg-pink-950 text-pink-400 border border-pink-800/40' :
@@ -1090,7 +1093,15 @@ export default function ClientDirectory({
                       {profileHistory.map((item) => (
                         <div key={item.id} className="p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-between gap-4">
                           <div className="space-y-1">
-                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{item.timestamp}</span>
+                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                              {item.timestamp ? new Date(item.timestamp).toLocaleString('en-GB', {
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              }) : 'Just now'}
+                            </span>
                             <h4 className="text-xs font-bold text-white">{item.action}</h4>
                           </div>
                           <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold uppercase ${item.status === 'Approved' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/40' : 'bg-amber-950 text-amber-400 border border-amber-800/40'}`}>
@@ -1181,14 +1192,19 @@ export default function ClientDirectory({
 
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-slate-300">WhatsApp Phone Number</label>
-                      <input 
-                        type="text" 
-                        placeholder="e.g. 26097..." 
-                        value={formPhone} 
-                        onChange={(e) => setFormPhone(e.target.value)} 
-                        className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition" 
-                        required 
-                      />
+                      <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl overflow-hidden focus-within:border-pink-500 transition">
+                        <span className="px-3 py-3 bg-slate-950 text-pink-400 font-bold border-r border-slate-800 select-none text-xs">
+                          +260
+                        </span>
+                        <input 
+                          type="tel" 
+                          required
+                          placeholder="970000000" 
+                          value={formPhone} 
+                          onChange={(e) => setFormPhone(e.target.value.replace(/\D/g, ''))} 
+                          className="w-full px-3 py-3 bg-transparent text-xs text-slate-200 focus:outline-none" 
+                        />
+                      </div>
                     </div>
 
                     <div className="space-y-1.5">

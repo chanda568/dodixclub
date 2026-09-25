@@ -136,7 +136,7 @@ export default function AdminDashboard({
       title: newTitle.trim(),
       content: newContent.trim(),
       visibility: newVisibility,
-      timestamp: new Date().toLocaleString()
+      timestamp: new Date().toISOString()
     };
     const updated = [newAnnouncement, ...announcements];
     setAnnouncements(updated);
