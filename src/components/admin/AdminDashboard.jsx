@@ -2,14 +2,13 @@
 import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, Users, Flag, Video, CheckCircle, XCircle, Trash2, 
-  LogOut, RefreshCw, X, MessageSquare, MapPin, Edit3, MessageCircle, Clock, Eye, Sparkles 
+  LogOut, RefreshCw, X, MessageSquare, MapPin, Edit3, MessageCircle, Clock, Eye, Sparkles, Maximize2 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LOGO_URL } from '../../data/constants';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
-// Helper component to display registration date and live plan expiration countdown
 function AdminUserTimer({ createdAt, plan }) {
   const [timeLeft, setTimeLeft] = useState({ expired: false, text: '' });
 
@@ -38,7 +37,7 @@ function AdminUserTimer({ createdAt, plan }) {
     };
 
     calculateTime();
-    const timer = setInterval(calculateTime, 60000); // Update every minute
+    const timer = setInterval(calculateTime, 60000);
     return () => clearInterval(timer);
   }, [createdAt, plan]);
 
@@ -78,26 +77,24 @@ export default function AdminDashboard({
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [selectedReportUser, setSelectedReportUser] = useState(null);
   const [selectedCompanionModal, setSelectedCompanionModal] = useState(null);
+  const [fullScreenImage, setFullScreenImage] = useState(null); // Full-size image viewer state
   const [isEditingLocation, setIsEditingLocation] = useState(false);
   const [newLocationInput, setNewLocationInput] = useState('');
 
   const loadBackendData = async () => {
     try {
-      // Fetch users
       const resUsers = await fetch(`${BACKEND_URL}/api/users`);
       const dataUsers = await resUsers.json();
       if (dataUsers.success && Array.isArray(dataUsers.users)) {
         setUsersDb(dataUsers.users);
       }
 
-      // Fetch companion profiles (/api/ladies)
       const resLadies = await fetch(`${BACKEND_URL}/api/ladies`);
       const dataLadies = await resLadies.json();
       if (dataLadies.success && Array.isArray(dataLadies.ladies)) {
         setLadies(dataLadies.ladies);
       }
 
-      // Fetch reports
       const resReports = await fetch(`${BACKEND_URL}/api/reports`);
       const dataReports = await resReports.json();
       if (dataReports.success && Array.isArray(dataReports.reports)) {
@@ -227,6 +224,27 @@ export default function AdminDashboard({
   return (
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col font-sans selection:bg-pink-500 selection:text-white">
       
+      {/* Full-Size Image Lightbox Modal */}
+      <AnimatePresence>
+        {fullScreenImage && (
+          <div className="fixed inset-0 bg-black/95 backdrop-blur-lg z-50 flex items-center justify-center p-4">
+            <div className="relative max-w-5xl max-h-[90vh] w-full h-full flex items-center justify-center">
+              <button 
+                onClick={() => setFullScreenImage(null)}
+                className="absolute top-4 right-4 p-3 text-white bg-slate-900/80 hover:bg-slate-800 rounded-full border border-slate-700 transition cursor-pointer z-10 shadow-xl"
+              >
+                <X size={24} />
+              </button>
+              <img 
+                src={fullScreenImage} 
+                alt="Full Size Advertisement" 
+                className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl border border-slate-800"
+              />
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Companion Profile & Video Review Modal */}
       <AnimatePresence>
         {selectedCompanionModal && (
@@ -245,16 +263,25 @@ export default function AdminDashboard({
               </button>
 
               <div className="flex items-center gap-4">
-                <div className="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-pink-500/40 shadow-lg shrink-0 bg-slate-950">
+                {/* Clickable Profile Picture */}
+                <div 
+                  onClick={() => setFullScreenImage(selectedCompanionModal.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80')}
+                  className="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-pink-500/40 shadow-lg shrink-0 bg-slate-950 cursor-pointer group hover:border-pink-400 transition"
+                  title="Click to view full-size image"
+                >
                   <img 
                     src={selectedCompanionModal.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80'} 
                     alt={selectedCompanionModal.name} 
-                    className="w-full h-full object-cover" 
+                    className="w-full h-full object-cover group-hover:scale-105 transition" 
                   />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white">
+                    <Maximize2 size={18} />
+                  </div>
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-25 mix-blend-screen">
                     <img src={LOGO_URL} alt="Watermark" className="w-16 h-16 object-contain transform rotate-[-15deg]" />
                   </div>
                 </div>
+
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <h3 className="text-xl font-extrabold text-white">{selectedCompanionModal.name || selectedCompanionModal.username}, {selectedCompanionModal.age || '23'}</h3>
@@ -287,18 +314,20 @@ export default function AdminDashboard({
                 </div>
               )}
 
-              {/* Promotional Verification Video Section */}
+              {/* Promotional Verification Video Section (Natural Resolution - No Crop) */}
               <div className="space-y-2 p-4 bg-purple-950/20 border border-purple-800/40 rounded-2xl">
                 <span className="text-xs font-bold text-purple-300 flex items-center gap-1.5">
                   <Video size={15} className="text-pink-400" /> Promotional Verification Video
                 </span>
                 {selectedCompanionModal.verificationVideoUrl ? (
                   <div className="space-y-2">
-                    <video 
-                      src={selectedCompanionModal.verificationVideoUrl} 
-                      controls 
-                      className="w-full h-48 rounded-xl object-cover bg-black border border-purple-900/50 shadow-inner"
-                    />
+                    <div className="w-full bg-black rounded-xl overflow-hidden border border-purple-900/50 flex items-center justify-center">
+                      <video 
+                        src={selectedCompanionModal.verificationVideoUrl} 
+                        controls 
+                        className="max-h-72 w-auto object-contain mx-auto"
+                      />
+                    </div>
                     <p className="text-[11px] text-slate-400">File: <span className="text-white font-medium">{selectedCompanionModal.verificationVideoName || 'Promotional_Clip.mp4'}</span></p>
                   </div>
                 ) : (
