@@ -611,7 +611,15 @@ export default function AdminDashboard({
                         <span className="text-xs font-black text-rose-400 bg-rose-950/80 px-2.5 py-0.5 rounded-lg border border-rose-900/40">@{rep.targetUser}</span>
                       </div>
                       <p className="text-xs text-slate-300 font-medium pt-1">Reason: <span className="text-white">{rep.reason}</span></p>
-                      <p className="text-[10px] text-slate-500">{new Date(rep.timestamp).toLocaleString()}</p>
+                      <p className="text-[11px] text-pink-400/80 font-semibold pt-0.5 flex items-center gap-1">
+                        <span>🕒</span> {rep.timestamp ? new Date(rep.timestamp).toLocaleString('en-GB', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        }) : 'Just now'}
+                      </p>
                     </div>
 
                     <div className="flex items-center gap-2 self-end sm:self-center">
