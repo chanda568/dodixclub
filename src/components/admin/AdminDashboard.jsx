@@ -224,7 +224,7 @@ export default function AdminDashboard({
   return (
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col font-sans selection:bg-pink-500 selection:text-white">
       
-      {/* Full-Size Image Lightbox Modal with Clear Watermark Overlay */}
+      {/* Full-Size Image Lightbox Modal with Circular Face Privacy Mask */}
       <AnimatePresence>
         {fullScreenImage && (
           <div className="fixed inset-0 bg-black/95 backdrop-blur-lg z-50 flex items-center justify-center p-4">
@@ -241,8 +241,9 @@ export default function AdminDashboard({
                   alt="Full Size Advertisement" 
                   className="max-w-full max-h-[85vh] object-contain block"
                 />
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-85 overflow-hidden bg-black/20">
-                  <img src={LOGO_URL} alt="Watermark" className="w-80 h-80 object-contain filter drop-shadow-2xl" />
+                {/* Circular Face Privacy Mask positioned over upper-center head area */}
+                <div className="absolute top-[10%] left-1/2 transform -translate-x-1/2 w-48 h-48 md:w-56 md:h-56 rounded-full overflow-hidden border-2 border-pink-500/50 shadow-2xl bg-slate-950/90 backdrop-blur-md flex items-center justify-center pointer-events-none">
+                  <img src={LOGO_URL} alt="Privacy Watermark" className="w-full h-full object-cover scale-110" />
                 </div>
               </div>
             </div>
@@ -268,7 +269,7 @@ export default function AdminDashboard({
               </button>
 
               <div className="flex items-center gap-4">
-                {/* Clickable Profile Picture with Clear Watermark Overlay */}
+                {/* Clickable Profile Picture with Circular Face Privacy Mask */}
                 <div 
                   onClick={() => setFullScreenImage(selectedCompanionModal.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80')}
                   className="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-pink-500/40 shadow-lg shrink-0 bg-slate-950 cursor-pointer group hover:border-pink-400 transition"
@@ -282,8 +283,8 @@ export default function AdminDashboard({
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white">
                     <Maximize2 size={18} />
                   </div>
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-85 bg-black/30">
-                    <img src={LOGO_URL} alt="Watermark" className="w-16 h-16 object-contain filter drop-shadow-md" />
+                  <div className="absolute top-1 left-1/2 transform -translate-x-1/2 w-12 h-12 rounded-full overflow-hidden border border-pink-500/50 bg-slate-950/90 flex items-center justify-center pointer-events-none shadow">
+                    <img src={LOGO_URL} alt="Privacy Mask" className="w-full h-full object-cover scale-110" />
                   </div>
                 </div>
 
@@ -652,7 +653,7 @@ export default function AdminDashboard({
           </div>
         )}
 
-        {/* Tab 2: Companions Directory & Review with Visible Watermark Overlays */}
+        {/* Tab 2: Companions Directory & Review with Circular Face Privacy Masks */}
         {activeSubTab === 'companions' && (
           <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
             <div className="flex items-center justify-between pb-4 border-b border-slate-800">
@@ -677,9 +678,9 @@ export default function AdminDashboard({
                         alt={lady.name || lady.username} 
                         className="w-full h-full object-cover group-hover:scale-105 transition duration-500" 
                       />
-                      {/* Clearly Visible Watermark Overlay covering face/identity */}
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-85 bg-black/30 overflow-hidden">
-                        <img src={LOGO_URL} alt="Watermark" className="w-48 h-48 object-contain filter drop-shadow-lg" />
+                      {/* Circular Face Privacy Mask placed precisely over the head/face area */}
+                      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 w-32 h-32 rounded-full overflow-hidden border-2 border-pink-500/50 shadow-xl bg-slate-950/90 backdrop-blur-md flex items-center justify-center pointer-events-none">
+                        <img src={LOGO_URL} alt="Privacy Mask" className="w-full h-full object-cover scale-110" />
                       </div>
                       <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80" />
 
