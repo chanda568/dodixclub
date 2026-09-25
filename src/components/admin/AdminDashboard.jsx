@@ -131,6 +131,22 @@ export default function AdminDashboard({
     window.open(`https://wa.me/${cleanPhone}?text=${defaultMsg}`, '_blank');
   };
 
+  const handleWhatsAppReporter = (reporterUsername) => {
+    const cleanReporterName = reporterUsername.replace('@', '').trim();
+    const foundUser = usersDb.find(u => u.username?.toLowerCase() === cleanReporterName.toLowerCase());
+    
+    let phone = foundUser?.phone;
+    if (!phone || phone === 'Not Provided') {
+      const manualPhone = prompt(`Please enter WhatsApp number for reporter @${cleanReporterName} (with country code, e.g., 260...):`);
+      if (!manualPhone) return;
+      phone = manualPhone.trim();
+    }
+
+    const cleanPhone = phone.replace(/[^0-9]/g, '');
+    const defaultMsg = encodeURIComponent(`Hello @${cleanReporterName}, this is Dodix Admin regarding the report you submitted. We would like to ask you a few further questions.`);
+    window.open(`https://wa.me/${cleanPhone}?text=${defaultMsg}`, '_blank');
+  };
+
   const handleToggleUserActivation = async (username) => {
     try {
       const response = await fetch(`${BACKEND_URL}/api/users/toggle`, {
@@ -622,7 +638,14 @@ export default function AdminDashboard({
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-2 self-end sm:self-center">
+                    <div className="flex items-center gap-2 self-end sm:self-center flex-wrap">
+                      <button
+                        onClick={() => handleWhatsAppReporter(rep.reporter)}
+                        className="px-3 py-1.5 bg-emerald-950/80 hover:bg-emerald-900/80 text-emerald-300 rounded-xl text-xs font-bold border border-emerald-800/50 transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+                        title="Message Reporter on WhatsApp"
+                      >
+                        <MessageCircle size={14} /> WhatsApp Reporter
+                      </button>
                       <button
                         onClick={() => handleOpenUserInspect(rep.targetUser)}
                         className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 transition cursor-pointer"
