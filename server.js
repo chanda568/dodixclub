@@ -34,6 +34,7 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   gender: { type: String, required: true },
   location: { type: String, required: true },
+  phone: { type: String, default: '' }, // <-- Added phone field for WhatsApp verification
   role: { type: String, default: 'client' },
   activated: { type: Boolean, default: false }
 });
@@ -55,16 +56,10 @@ async function seedDefaultAdmin() {
   if (count === 0) {
     const hashedPassword = await bcrypt.hash('password123', 10);
     const defaultUsers = [
-      { username: 'admin', password: hashedPassword, gender: 'Male', location: 'Lusaka', role: 'admin', activated: true },
-      { username: 'pal', password: hashedPassword, gender: 'Male', location: 'Lusaka', role: 'client', activated: false },
-      { username: 'lap', password: hashedPassword, gender: 'Male', location: 'Lusaka', role: 'client', activated: false },
-      { username: 'ver', password: hashedPassword, gender: 'Male', location: 'Lusaka', role: 'client', activated: false },
-      { username: 'car', password: hashedPassword, gender: 'Male', location: 'Lusaka', role: 'client', activated: false },
-      { username: 'tar', password: hashedPassword, gender: 'Male', location: 'Lusaka', role: 'client', activated: true },
-      { username: 'des', password: hashedPassword, gender: 'Male', location: 'Lusaka', role: 'client', activated: true }
+      { username: 'admin', password: hashedPassword, gender: 'Male', location: 'Lusaka', role: 'admin', activated: true }
     ];
     await User.insertMany(defaultUsers);
-    console.log('[Database] Seeded default users into MongoDB.');
+    console.log('[Database] Seeded default admin into MongoDB.');
   }
 }
 
@@ -99,7 +94,7 @@ app.post('/api/login', async (req, res) => {
 // Register route
 app.post('/api/register', async (req, res) => {
   try {
-    const { username, password, gender, location, role } = req.body;
+    const { username, password, gender, location, role, phone } = req.body;
     
     if (!username || !password || !gender || !location) {
       return res.json({ success: false, error: "All fields are required." });
@@ -118,6 +113,7 @@ app.post('/api/register', async (req, res) => {
       password: hashedPassword,
       gender,
       location,
+      phone: phone || '', // <-- Capture and save phone number
       role: role || 'client',
       activated: false
     });
