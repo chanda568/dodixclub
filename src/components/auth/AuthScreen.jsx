@@ -94,7 +94,7 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
   };
 
   const handleForgotPasswordWhatsApp = () => {
-    const adminPhone = "260970000000"; // Replace with your support/admin WhatsApp number
+    const adminPhone = "260965039645"; // Updated Admin WhatsApp Help Center number
     const msg = encodeURIComponent("Hello Dodix Admin, I forgot my account password and need assistance resetting it.");
     window.open(`https://wa.me/${adminPhone}?text=${msg}`, '_blank');
   };
