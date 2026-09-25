@@ -77,7 +77,7 @@ export default function AdminDashboard({
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [selectedReportUser, setSelectedReportUser] = useState(null);
   const [selectedCompanionModal, setSelectedCompanionModal] = useState(null);
-  const [fullScreenImage, setFullScreenImage] = useState(null); // Full-size image viewer state
+  const [fullScreenImage, setFullScreenImage] = useState(null);
   const [isEditingLocation, setIsEditingLocation] = useState(false);
   const [newLocationInput, setNewLocationInput] = useState('');
 
@@ -224,7 +224,7 @@ export default function AdminDashboard({
   return (
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col font-sans selection:bg-pink-500 selection:text-white">
       
-      {/* Full-Size Image Lightbox Modal */}
+      {/* Full-Size Image Lightbox Modal with Watermark Overlay */}
       <AnimatePresence>
         {fullScreenImage && (
           <div className="fixed inset-0 bg-black/95 backdrop-blur-lg z-50 flex items-center justify-center p-4">
@@ -235,11 +235,16 @@ export default function AdminDashboard({
               >
                 <X size={24} />
               </button>
-              <img 
-                src={fullScreenImage} 
-                alt="Full Size Advertisement" 
-                className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl border border-slate-800"
-              />
+              <div className="relative max-w-full max-h-[85vh] overflow-hidden rounded-2xl shadow-2xl border border-slate-800 bg-black">
+                <img 
+                  src={fullScreenImage} 
+                  alt="Full Size Advertisement" 
+                  className="max-w-full max-h-[85vh] object-contain block"
+                />
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-30 mix-blend-screen overflow-hidden">
+                  <img src={LOGO_URL} alt="Watermark" className="w-96 h-96 object-contain transform rotate-[-15deg]" />
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -263,7 +268,7 @@ export default function AdminDashboard({
               </button>
 
               <div className="flex items-center gap-4">
-                {/* Clickable Profile Picture */}
+                {/* Clickable Profile Picture with Watermark Overlay */}
                 <div 
                   onClick={() => setFullScreenImage(selectedCompanionModal.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80')}
                   className="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-pink-500/40 shadow-lg shrink-0 bg-slate-950 cursor-pointer group hover:border-pink-400 transition"
@@ -314,7 +319,7 @@ export default function AdminDashboard({
                 </div>
               )}
 
-              {/* Promotional Verification Video Section (Natural Resolution - No Crop) */}
+              {/* Promotional Verification Video Section */}
               <div className="space-y-2 p-4 bg-purple-950/20 border border-purple-800/40 rounded-2xl">
                 <span className="text-xs font-bold text-purple-300 flex items-center gap-1.5">
                   <Video size={15} className="text-pink-400" /> Promotional Verification Video
@@ -647,7 +652,7 @@ export default function AdminDashboard({
           </div>
         )}
 
-        {/* Tab 2: Companions Directory & Review */}
+        {/* Tab 2: Companions Directory & Review with Watermark Overlays */}
         {activeSubTab === 'companions' && (
           <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
             <div className="flex items-center justify-between pb-4 border-b border-slate-800">
@@ -672,8 +677,9 @@ export default function AdminDashboard({
                         alt={lady.name || lady.username} 
                         className="w-full h-full object-cover group-hover:scale-105 transition duration-500" 
                       />
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 mix-blend-screen">
-                        <img src={LOGO_URL} alt="Watermark" className="w-32 h-32 object-contain transform rotate-[-15deg]" />
+                      {/* Watermark Overlay covering face/identity */}
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-25 mix-blend-screen overflow-hidden">
+                        <img src={LOGO_URL} alt="Watermark" className="w-48 h-48 object-contain transform rotate-[-15deg]" />
                       </div>
                       <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80" />
 
