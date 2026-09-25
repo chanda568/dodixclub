@@ -146,7 +146,9 @@ export default function App() {
     if (currentUser) {
       sessionStorage.setItem('dodix_current_user', JSON.stringify(currentUser));
 
-      fetch('http://localhost:5000/api/messages')
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+
+      fetch(`${backendUrl}/api/messages`)
         .then(res => res.json())
         .then(data => {
           if (data.success && data.messages.length > 0) {
@@ -155,7 +157,9 @@ export default function App() {
         })
         .catch(err => console.error("Failed to fetch messages from server:", err));
 
-      const ws = new WebSocket('ws://localhost:5000');
+      const wsProtocol = backendUrl.startsWith('https') ? 'wss://' : 'ws://';
+      const cleanHost = backendUrl.replace(/^https?:\/\//, '');
+      const ws = new WebSocket(`${wsProtocol}${cleanHost}`);
       socketRef.current = ws;
 
       ws.onopen = () => {
