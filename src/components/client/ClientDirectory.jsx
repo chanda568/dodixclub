@@ -123,7 +123,7 @@ export default function ClientDirectory({
 
   // Compact Interactive Sticker Editor states for face privacy masking
   const [rawImageForSticker, setRawImageForSticker] = useState(null);
-  const [stickerPosition, setStickerPosition] = useState({ x: 50, y: 30, size: 65 }); // compact default size
+  const [stickerPosition, setStickerPosition] = useState({ x: 50, y: 30, size: 65 });
   const [isDraggingSticker, setIsDraggingSticker] = useState(false);
   const stickerContainerRef = useRef(null);
 
@@ -140,6 +140,55 @@ export default function ClientDirectory({
       return [];
     }
   });
+
+  // Sync companion status notifications (Approved / Rejected) from Admin actions
+  useEffect(() => {
+    if (!isFemaleUser || !currentUser?.username) return;
+    try {
+      const myLady = ladies.find(l => l.username?.toLowerCase() === currentUser.username.toLowerCase() || l.name?.toLowerCase() === currentUser.username.toLowerCase());
+      if (myLady) {
+        const isApproved = myLady.approved !== false;
+        const statusKey = `dodix_last_notified_status_${currentUser.username}`;
+        const lastStatus = localStorage.getItem(statusKey);
+        const currentStatusStr = isApproved ? 'APPROVED' : 'PENDING';
+
+        if (lastStatus !== currentStatusStr) {
+          localStorage.setItem(statusKey, currentStatusStr);
+          
+          const statusAnnouncement = {
+            id: Date.now(),
+            title: isApproved ? '🎉 Advertisement Approved!' : '⚠️ Advertisement Under Review / Update Required',
+            content: isApproved 
+              ? 'Great news! Your companion advertisement has been successfully approved by Dodix Admin and is now live in the Elite Directory.' 
+              : 'Your companion advertisement listing is currently pending review or requires verification updates.',
+            visibility: 'female',
+            timestamp: new Date().toLocaleString()
+          };
+
+          setAnnouncements(prev => {
+            const updated = [statusAnnouncement, ...prev];
+            localStorage.setItem('dodix_announcements_db', encryptStorageData(updated));
+            return updated;
+          });
+
+          // Update local history log
+          const newHistoryItem = {
+            id: Date.now(),
+            action: isApproved ? 'Advertisement Approved by Admin' : 'Advertisement Status Updated',
+            timestamp: new Date().toLocaleString(),
+            status: isApproved ? 'Approved' : 'Pending Review'
+          };
+          setProfileHistory(prev => {
+            const updatedHistory = [newHistoryItem, ...prev];
+            localStorage.setItem(`dodix_history_${currentUser?.username}`, encryptStorageData(updatedHistory));
+            return updatedHistory;
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Error syncing status notification:", err);
+    }
+  }, [ladies, currentUser, isFemaleUser]);
 
   useEffect(() => {
     const checkUserStatus = () => {
@@ -207,7 +256,6 @@ export default function ClientDirectory({
     reader.readAsDataURL(file);
   };
 
-  // Burn compact sticker onto canvas at selected coordinates
   const handleApplyStickerAndSave = () => {
     if (!rawImageForSticker) return;
 
@@ -458,7 +506,6 @@ export default function ClientDirectory({
 
               <p className="text-xs text-slate-400">Drag the circular sticker over your face to ensure complete privacy protection.</p>
 
-              {/* Sticker Placement Canvas Area */}
               <div 
                 ref={stickerContainerRef}
                 onPointerDown={() => setIsDraggingSticker(true)}
@@ -468,7 +515,6 @@ export default function ClientDirectory({
               >
                 <img src={rawImageForSticker} alt="Raw Upload" className="max-h-full max-w-full object-contain pointer-events-none" />
                 
-                {/* Movable Compact Circular Sticker Element */}
                 <div 
                   style={{
                     left: `${stickerPosition.x}%`,
@@ -903,7 +949,7 @@ export default function ClientDirectory({
                   {isAdminUser ? 'Admin Announcement Management' : 'News & Announcements'}
                 </h2>
                 <p className="text-xs text-slate-400 mt-1">
-                  {isAdminUser ? 'Create and manage announcements across visibility tiers (All, Females Only, Males Only).' : 'Important updates broadcasted by platform administration.'}
+                  {isAdminUser ? 'Create and manage announcements across visibility tiers (All, Females Only, Males Only).' : 'Important updates and status broadcasts from platform administration.'}
                 </p>
               </div>
 
@@ -966,7 +1012,7 @@ export default function ClientDirectory({
 
               <div className="space-y-4 pt-2">
                 <h3 className="text-xs font-extrabold uppercase tracking-widest text-slate-500 px-1">
-                  {isAdminUser ? 'All Active Announcements' : 'Your Feed'}
+                  {isAdminUser ? 'All Active Announcements' : 'Your Feed & Status Updates'}
                 </h3>
 
                 {visibleAnnouncements.length === 0 ? (
