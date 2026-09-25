@@ -121,9 +121,9 @@ export default function ClientDirectory({
   const [formHosting, setFormHosting] = useState(myExistingLadyProfile?.hosting || 'Yes');
   const [formServices, setFormServices] = useState(myExistingLadyProfile?.extraServices || '');
 
-  // Interactive Sticker Editor states for face privacy masking
+  // Compact Interactive Sticker Editor states for face privacy masking
   const [rawImageForSticker, setRawImageForSticker] = useState(null);
-  const [stickerPosition, setStickerPosition] = useState({ x: 50, y: 30, size: 110 }); // percentage coords & pixel size
+  const [stickerPosition, setStickerPosition] = useState({ x: 50, y: 30, size: 65 }); // compact default size
   const [isDraggingSticker, setIsDraggingSticker] = useState(false);
   const stickerContainerRef = useRef(null);
 
@@ -202,12 +202,12 @@ export default function ClientDirectory({
     const reader = new FileReader();
     reader.onloadend = () => {
       setRawImageForSticker(reader.result);
-      setStickerPosition({ x: 50, y: 32, size: 110 });
+      setStickerPosition({ x: 50, y: 30, size: 65 });
     };
     reader.readAsDataURL(file);
   };
 
-  // Burn sticker onto canvas at selected coordinates
+  // Burn compact sticker onto canvas at selected coordinates
   const handleApplyStickerAndSave = () => {
     if (!rawImageForSticker) return;
 
@@ -436,7 +436,7 @@ export default function ClientDirectory({
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col relative selection:bg-pink-500 selection:text-white font-sans">
       {isLoading && <LogoLoader text={loadingText} />}
 
-      {/* Interactive Circular Privacy Sticker Editor Modal */}
+      {/* Interactive Compact Circular Privacy Sticker Editor Modal */}
       <AnimatePresence>
         {rawImageForSticker && (
           <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
@@ -468,7 +468,7 @@ export default function ClientDirectory({
               >
                 <img src={rawImageForSticker} alt="Raw Upload" className="max-h-full max-w-full object-contain pointer-events-none" />
                 
-                {/* Movable Circular Sticker Element */}
+                {/* Movable Compact Circular Sticker Element */}
                 <div 
                   style={{
                     left: `${stickerPosition.x}%`,
@@ -491,8 +491,8 @@ export default function ClientDirectory({
                 </div>
                 <input 
                   type="range" 
-                  min="60" 
-                  max="180" 
+                  min="40" 
+                  max="90" 
                   value={stickerPosition.size} 
                   onChange={(e) => setStickerPosition(prev => ({ ...prev, size: Number(e.target.value) }))}
                   className="w-full accent-pink-500 cursor-pointer"
