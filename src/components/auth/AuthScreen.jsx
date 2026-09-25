@@ -12,6 +12,7 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
   const [showPassword, setShowPassword] = useState(false);
   const [gender, setGender] = useState('Female');
   const [location, setLocation] = useState('Lusaka');
+  const [phone, setPhone] = useState(''); // <-- Added phone state
   const [errorMsg, setErrorMsg] = useState('');
 
   const handleAuthSubmit = async (e) => {
@@ -20,6 +21,11 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
 
     if (!username.trim() || !password.trim()) {
       setErrorMsg('Please enter both username and password.');
+      return;
+    }
+
+    if (isRegistering && !phone.trim()) {
+      setErrorMsg('Please provide your WhatsApp number for verification.');
       return;
     }
 
@@ -36,6 +42,7 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
               password: password.trim(),
               gender,
               location,
+              phone: phone.trim(), // <-- Send phone to backend
               role: gender === 'Female' ? 'companion' : 'client'
             })
           });
@@ -136,38 +143,52 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
           </div>
 
           {isRegistering && (
-            <div className="grid grid-cols-2 gap-3">
+            <>
               <div>
-                <label className="block font-bold text-slate-400 mb-1">Gender</label>
-                <select 
-                  value={gender} 
-                  onChange={(e) => setGender(e.target.value)} 
-                  className="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-pink-400 font-semibold focus:outline-none focus:border-pink-500"
-                >
-                  <option value="Female">Female</option>
-                  <option value="Male">Male</option>
-                  <option value="Other">Other</option>
-                </select>
+                <label className="block font-bold text-slate-400 mb-1">WhatsApp Number (for verification)</label>
+                <input 
+                  type="text" 
+                  required
+                  placeholder="e.g. 260970000000" 
+                  value={phone} 
+                  onChange={(e) => setPhone(e.target.value)} 
+                  className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-pink-500" 
+                />
               </div>
-              <div>
-                <label className="block font-bold text-slate-400 mb-1">Location Area</label>
-                <select 
-                  value={location} 
-                  onChange={(e) => setLocation(e.target.value)} 
-                  className="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-pink-400 font-semibold focus:outline-none focus:border-pink-500"
-                >
-                  {ZAMBIAN_LOCATIONS.map(loc => (
-                    <option key={loc} value={loc}>{loc}</option>
-                  ))}
-                </select>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-400 mb-1">Gender</label>
+                  <select 
+                    value={gender} 
+                    onChange={(e) => setGender(e.target.value)} 
+                    className="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-pink-400 font-semibold focus:outline-none focus:border-pink-500"
+                  >
+                    <option value="Female">Female</option>
+                    <option value="Male">Male</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-400 mb-1">Location Area</label>
+                  <select 
+                    value={location} 
+                    onChange={(e) => setLocation(e.target.value)} 
+                    className="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-pink-400 font-semibold focus:outline-none focus:border-pink-500"
+                  >
+                    {ZAMBIAN_LOCATIONS.map(loc => (
+                      <option key={loc} value={loc}>{loc}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
-            </div>
+            </>
           )}
 
           <button 
             type="submit" 
             disabled={isLoading}
-            className="w-full py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl shadow-lg shadow-pink-600/20 transition mt-2 disabled:opacity-50"
+            className="w-full py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl shadow-lg shadow-pink-600/20 transition mt-2 disabled:opacity-50 cursor-pointer"
           >
             {isLoading ? (loadingText || 'Processing...') : (isRegistering ? 'Create Account' : 'Sign In')}
           </button>
@@ -176,7 +197,7 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
         <div className="text-center pt-2 border-t border-slate-800">
           <button 
             onClick={() => { setIsRegistering(!isRegistering); setErrorMsg(''); }} 
-            className="text-xs text-slate-400 hover:text-pink-400 transition font-medium"
+            className="text-xs text-slate-400 hover:text-pink-400 transition font-medium cursor-pointer"
           >
             {isRegistering ? 'Already have an account? Sign In' : "Don't have an account? Register Now"}
           </button>
