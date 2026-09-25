@@ -209,7 +209,7 @@ export default function ClientDirectory({
     }
   };
 
-  const handleSaveLadyProfile = (e) => {
+  const handleSaveLadyProfile = async (e) => {
     e.preventDefault();
     if (!formPhone || !formPrice) {
       alert("Please fill in your phone number and rate/price.");
@@ -222,7 +222,6 @@ export default function ClientDirectory({
     }
 
     const updatedProfile = {
-      id: myExistingLadyProfile ? myExistingLadyProfile.id : Date.now(),
       username: currentUser.username,
       name: formName || currentUser.username,
       category: formCategory,
@@ -236,30 +235,43 @@ export default function ClientDirectory({
       extraServices: formServices,
       verificationVideoUrl,
       verificationVideoName: verificationVideoName || 'Promotional_Clip.mp4',
-      approved: myExistingLadyProfile ? myExistingLadyProfile.approved : false 
     };
 
-    let updatedLadiesList = [];
-    if (myExistingLadyProfile) {
-      updatedLadiesList = ladies.map(l => l.id === myExistingLadyProfile.id ? updatedProfile : l);
-    } else {
-      updatedLadiesList = [updatedProfile, ...ladies];
-    }
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/ladies`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedProfile)
+      });
+      const data = await response.json();
 
-    setLadies(updatedLadiesList);
-    localStorage.setItem('dodix_ladies_db', encryptStorageData(updatedLadiesList));
+      if (data.success) {
+        let updatedLadiesList = [];
+        if (myExistingLadyProfile) {
+          updatedLadiesList = ladies.map(l => l.username?.toLowerCase() === currentUser.username?.toLowerCase() ? { ...data.companion, id: data.companion._id } : l);
+        } else {
+          updatedLadiesList = [{ ...data.companion, id: data.companion._id }, ...ladies];
+        }
+        setLadies(updatedLadiesList);
+
+        alert("Your companion listing details and promotional video have been successfully saved and sent to Admin for review!");
+      } else {
+        alert(data.error || "Failed to submit profile.");
+      }
+    } catch (err) {
+      console.error("Error submitting profile to backend:", err);
+      alert("Network error connecting to server.");
+    }
 
     const newHistoryItem = {
       id: Date.now(),
       action: myExistingLadyProfile ? 'Updated Companion Listing Details' : 'Created New Companion Listing',
       timestamp: new Date().toLocaleString(),
-      status: updatedProfile.approved ? 'Approved' : 'Submitted / Pending Review'
+      status: 'Submitted / Pending Review'
     };
     const updatedHistory = [newHistoryItem, ...profileHistory];
     setProfileHistory(updatedHistory);
     localStorage.setItem(`dodix_history_${currentUser?.username}`, encryptStorageData(updatedHistory));
-
-    alert("Your companion listing details and promotional video have been successfully saved and submitted for review!");
   };
 
   const handleReportSubmit = async (e) => {
@@ -947,8 +959,6 @@ export default function ClientDirectory({
                         className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
                       >
                         <option value="VIP">VIP</option>
-                        <option value="Exclusive">Exclusive</option>
-                        <option value="Elite">Elite</option>
                         <option value="Standard">Standard</option>
                       </select>
                     </div>
@@ -1172,7 +1182,7 @@ export default function ClientDirectory({
                   </div>
 
                   <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
-                    {['All', 'VIP', 'Exclusive', 'Elite', 'Standard'].map((cat) => (
+                    {['All', 'VIP', 'Standard'].map((cat) => (
                       <button 
                         key={cat} 
                         onClick={() => setSelectedCategory(cat)} 
@@ -1196,7 +1206,7 @@ export default function ClientDirectory({
                   ) : (
                     filteredLadies.map((lady) => (
                       <div 
-                        key={lady.id} 
+                        key={lady.id || lady._id} 
                         className="bg-[#0b101d] border border-slate-800/80 rounded-3xl overflow-hidden shadow-xl hover:border-pink-500/40 transition duration-300 flex flex-col group"
                       >
                         <div className="relative h-72 overflow-hidden bg-slate-950">

@@ -9,7 +9,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(cors());
 
 // 1. Create standard HTTP server from Express app
@@ -65,9 +66,28 @@ const reportSchema = new mongoose.Schema({
   timestamp: { type: Date, default: Date.now }
 });
 
+const companionSchema = new mongoose.Schema({
+  username: { type: String, required: true, unique: true, lowercase: true, trim: true },
+  name: { type: String, required: true },
+  category: { type: String, default: 'VIP' },
+  price: { type: String, required: true },
+  location: { type: String, required: true },
+  specificLocation: { type: String, default: '' },
+  phone: { type: String, required: true },
+  photo: { type: String, default: '' },
+  age: { type: String, default: '23' },
+  hosting: { type: String, default: 'Yes' },
+  extraServices: { type: String, default: '' },
+  verificationVideoUrl: { type: String, default: '' },
+  verificationVideoName: { type: String, default: '' },
+  approved: { type: Boolean, default: true },
+  updatedAt: { type: Date, default: Date.now }
+});
+
 const User = mongoose.model('User', userSchema);
 const Message = mongoose.model('Message', messageSchema);
 const Report = mongoose.model('Report', reportSchema);
+const Companion = mongoose.model('Companion', companionSchema);
 
 // Seed default admin if database is empty
 async function seedDefaultAdmin() {
@@ -178,7 +198,9 @@ app.post('/api/users/toggle', async (req, res) => {
 app.delete('/api/users/:username', async (req, res) => {
   try {
     const { username } = req.params;
-    const result = await User.findOneAndDelete({ username: username?.toLowerCase().trim() });
+    const cleanUsername = username?.toLowerCase().trim();
+    const result = await User.findOneAndDelete({ username: cleanUsername });
+    await Companion.findOneAndDelete({ username: cleanUsername });
     
     if (result) {
       res.json({ success: true });
@@ -236,6 +258,56 @@ app.delete('/api/reports/:id', async (req, res) => {
     const { id } = req.params;
     await Report.findByIdAndDelete(id);
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// --- COMPANION LISTING ROUTES ---
+app.get('/api/ladies', async (req, res) => {
+  try {
+    const ladies = await Companion.find({});
+    res.json({ success: true, ladies });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/ladies', async (req, res) => {
+  try {
+    const profileData = req.body;
+    if (!profileData.username || !profileData.phone || !profileData.price) {
+      return res.json({ success: false, error: "Required fields missing." });
+    }
+
+    const cleanUsername = profileData.username.toLowerCase().trim();
+    
+    let companion = await Companion.findOne({ username: cleanUsername });
+    if (companion) {
+      companion.name = profileData.name;
+      companion.category = profileData.category;
+      companion.price = profileData.price;
+      companion.location = profileData.location;
+      companion.specificLocation = profileData.specificLocation;
+      companion.phone = profileData.phone;
+      companion.photo = profileData.photo;
+      companion.age = profileData.age;
+      companion.hosting = profileData.hosting;
+      companion.extraServices = profileData.extraServices;
+      companion.verificationVideoUrl = profileData.verificationVideoUrl;
+      companion.verificationVideoName = profileData.verificationVideoName;
+      companion.updatedAt = new Date();
+      await companion.save();
+    } else {
+      companion = new Companion({
+        ...profileData,
+        username: cleanUsername,
+        approved: true
+      });
+      await companion.save();
+    }
+
+    res.json({ success: true, companion });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
