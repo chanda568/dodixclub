@@ -1,7 +1,7 @@
 // src/components/client/ClientDirectory.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  LogOut, MessageSquare, Sparkles, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, Crown, ShieldAlert, RefreshCw, CheckCircle, Flag, ChevronRight, Heart, CreditCard, Settings, Send, Upload, Image as ImageIcon, Video, History as HistoryIcon, Bell, Plus, Trash2, Shield, Check
+  LogOut, MessageSquare, Sparkles, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, Crown, ShieldAlert, RefreshCw, CheckCircle, Flag, ChevronRight, Heart, CreditCard, Settings, Send, Upload, Image as ImageIcon, Video, History as HistoryIcon, Bell, Plus, Trash2, Shield, Check, MessageCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LOGO_URL } from '../../data/constants';
@@ -104,6 +104,12 @@ export default function ClientDirectory({
     const updated = announcements.filter(item => item.id !== id);
     setAnnouncements(updated);
     localStorage.setItem('dodix_announcements_db', encryptStorageData(updated));
+  };
+
+  const handleContactSupportWhatsApp = () => {
+    const adminPhone = "260965039645"; // Default Admin Help Center Number
+    const supportMsg = encodeURIComponent("Hello Dodix Support, I need assistance with my account/subscription.");
+    window.open(`https://wa.me/${adminPhone}?text=${supportMsg}`, '_blank');
   };
 
   const myExistingLadyProfile = ladies.find(
@@ -478,7 +484,6 @@ export default function ClientDirectory({
 
   const visibleAnnouncements = announcements.filter(item => {
     if (isAdminUser) return true;
-    // If it's a targeted status notification, only display it for the exact matching user
     if (item.targetUsername) {
       return item.targetUsername === currentUser.username?.toLowerCase();
     }
@@ -571,42 +576,6 @@ export default function ClientDirectory({
           </div>
         )}
       </AnimatePresence>
-
-      {isAccountRestricted && (
-        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 text-center shadow-2xl space-y-6">
-            <div className="w-16 h-16 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
-              <Clock size={32} className="animate-pulse" />
-            </div>
-
-            <div className="space-y-2">
-              <h2 className="text-xl font-extrabold text-white">Account Restricted / Pending</h2>
-              <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-                Your account (<span className="text-pink-400 font-semibold">{currentUser.username}</span>) has been suspended or is awaiting admin approval.
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              <button
-                onClick={handleSyncAccountStatus}
-                className="w-full py-3.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-pink-600/20 transition"
-              >
-                <RefreshCw size={16} /> Sync & Check Status
-              </button>
-
-              <button
-                onClick={() => {
-                  sessionStorage.removeItem('dodix_current_user');
-                  setCurrentUser(null);
-                }}
-                className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs flex items-center justify-center gap-2 border border-slate-700 transition"
-              >
-                <LogOut size={16} /> Log Out
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Profile Detail Modal */}
       <AnimatePresence>
@@ -851,6 +820,14 @@ export default function ClientDirectory({
                     </button>
                   )}
 
+                  {/* Contact Support Option */}
+                  <button 
+                    onClick={() => { handleContactSupportWhatsApp(); setSidebarOpen(false); }}
+                    className="w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 text-slate-400 hover:bg-slate-900 hover:text-white transition"
+                  >
+                    <MessageCircle size={16} className="text-pink-500" /> Contact Support
+                  </button>
+
                   {isFemaleUser && (
                     <button 
                       onClick={() => { setReportModalOpen(true); setSidebarOpen(false); }}
@@ -937,6 +914,14 @@ export default function ClientDirectory({
                 <Settings size={16} /> Account Details
               </button>
             )}
+
+            {/* Contact Support Option */}
+            <button 
+              onClick={handleContactSupportWhatsApp}
+              className="w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 text-slate-400 hover:bg-slate-900 hover:text-white transition"
+            >
+              <MessageCircle size={16} className="text-pink-500" /> Contact Support
+            </button>
 
             {isFemaleUser && (
               <button 
