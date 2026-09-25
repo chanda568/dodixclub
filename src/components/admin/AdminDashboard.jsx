@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, Users, Flag, Video, CheckCircle, XCircle, Trash2, 
-  LogOut, RefreshCw, X, MessageSquare, MapPin, Edit3, MessageCircle, Clock 
+  LogOut, RefreshCw, X, MessageSquare, MapPin, Edit3, MessageCircle, Clock, Eye, Sparkles 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LOGO_URL } from '../../data/constants';
@@ -77,6 +77,7 @@ export default function AdminDashboard({
   const [announcements, setAnnouncements] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [selectedReportUser, setSelectedReportUser] = useState(null);
+  const [selectedCompanionModal, setSelectedCompanionModal] = useState(null);
   const [isEditingLocation, setIsEditingLocation] = useState(false);
   const [newLocationInput, setNewLocationInput] = useState('');
 
@@ -87,20 +88,13 @@ export default function AdminDashboard({
       const dataUsers = await resUsers.json();
       if (dataUsers.success && Array.isArray(dataUsers.users)) {
         setUsersDb(dataUsers.users);
-        
-        const femaleCompanions = dataUsers.users
-          .filter(u => u.gender?.toLowerCase() === 'female')
-          .map(u => ({
-            id: u._id || u.username,
-            name: u.username,
-            username: u.username,
-            category: 'Companion',
-            location: u.location || 'Lusaka',
-            phone: u.phone || 'Not Provided',
-            whatsappNumber: u.phone || 'Not Provided',
-            approved: u.activated !== false
-          }));
-        setLadies(femaleCompanions);
+      }
+
+      // Fetch companion profiles (/api/ladies)
+      const resLadies = await fetch(`${BACKEND_URL}/api/ladies`);
+      const dataLadies = await resLadies.json();
+      if (dataLadies.success && Array.isArray(dataLadies.ladies)) {
+        setLadies(dataLadies.ladies);
       }
 
       // Fetch reports
@@ -127,7 +121,7 @@ export default function AdminDashboard({
       phone = manualPhone.trim();
     }
     const cleanPhone = phone.replace(/[^0-9]/g, '');
-    const defaultMsg = encodeURIComponent(`Hello @${name || 'Member'}, this is Dodix Admin reaching out for gender verification regarding your account registration.`);
+    const defaultMsg = encodeURIComponent(`Hello @${name || 'Member'}, this is Dodix Admin reaching out regarding your account verification and profile review.`);
     window.open(`https://wa.me/${cleanPhone}?text=${defaultMsg}`, '_blank');
   };
 
@@ -233,6 +227,106 @@ export default function AdminDashboard({
   return (
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col font-sans selection:bg-pink-500 selection:text-white">
       
+      {/* Companion Profile & Video Review Modal */}
+      <AnimatePresence>
+        {selectedCompanionModal && (
+          <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="max-w-lg w-full bg-[#0b101d] border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 relative overflow-y-auto max-h-[90vh]"
+            >
+              <button 
+                onClick={() => setSelectedCompanionModal(null)}
+                className="absolute top-6 right-6 p-2 text-slate-400 hover:text-white rounded-xl bg-slate-900 border border-slate-800 transition cursor-pointer z-10"
+              >
+                <X size={20} />
+              </button>
+
+              <div className="flex items-center gap-4">
+                <div className="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-pink-500/40 shadow-lg shrink-0 bg-slate-950">
+                  <img 
+                    src={selectedCompanionModal.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80'} 
+                    alt={selectedCompanionModal.name} 
+                    className="w-full h-full object-cover" 
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-25 mix-blend-screen">
+                    <img src={LOGO_URL} alt="Watermark" className="w-16 h-16 object-contain transform rotate-[-15deg]" />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xl font-extrabold text-white">{selectedCompanionModal.name || selectedCompanionModal.username}, {selectedCompanionModal.age || '23'}</h3>
+                    <span className="bg-emerald-500/90 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
+                      <ShieldCheck size={11} /> VERIFIED
+                    </span>
+                  </div>
+                  <p className="text-xs text-pink-400 font-semibold uppercase tracking-wider">{selectedCompanionModal.category || 'VIP'} Companion</p>
+                  <p className="text-xs text-slate-400 flex items-center gap-1">
+                    <MapPin size={14} className="text-pink-500" /> {selectedCompanionModal.specificLocation || selectedCompanionModal.location}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800/80">
+                <div className="p-3 bg-slate-900 border border-slate-800/80 rounded-2xl">
+                  <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block">Rate / Price</span>
+                  <span className="text-sm font-extrabold text-emerald-400">ZMW {selectedCompanionModal.price || 'N/A'}</span>
+                </div>
+                <div className="p-3 bg-slate-900 border border-slate-800/80 rounded-2xl">
+                  <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block">Hosting Available</span>
+                  <span className="text-sm font-extrabold text-slate-200">{selectedCompanionModal.hosting || 'Yes'}</span>
+                </div>
+              </div>
+
+              {selectedCompanionModal.extraServices && (
+                <div className="space-y-1.5 p-4 bg-slate-900/60 border border-slate-800 rounded-2xl">
+                  <span className="text-xs font-bold text-slate-300">Services & Preferences Bio</span>
+                  <p className="text-xs text-slate-400 leading-relaxed">{selectedCompanionModal.extraServices}</p>
+                </div>
+              )}
+
+              {/* Promotional Verification Video Section */}
+              <div className="space-y-2 p-4 bg-purple-950/20 border border-purple-800/40 rounded-2xl">
+                <span className="text-xs font-bold text-purple-300 flex items-center gap-1.5">
+                  <Video size={15} className="text-pink-400" /> Promotional Verification Video
+                </span>
+                {selectedCompanionModal.verificationVideoUrl ? (
+                  <div className="space-y-2">
+                    <video 
+                      src={selectedCompanionModal.verificationVideoUrl} 
+                      controls 
+                      className="w-full h-48 rounded-xl object-cover bg-black border border-purple-900/50 shadow-inner"
+                    />
+                    <p className="text-[11px] text-slate-400">File: <span className="text-white font-medium">{selectedCompanionModal.verificationVideoName || 'Promotional_Clip.mp4'}</span></p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-amber-400 font-medium">No verification video clip uploaded yet by this companion.</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <button 
+                  onClick={() => {
+                    handleWhatsAppContact(selectedCompanionModal.phone, selectedCompanionModal.username || selectedCompanionModal.name);
+                  }}
+                  className="py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition cursor-pointer"
+                >
+                  <MessageCircle size={15} /> WhatsApp Contact
+                </button>
+                <button 
+                  onClick={() => setSelectedCompanionModal(null)}
+                  className="py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition border border-slate-700 cursor-pointer"
+                >
+                  Close Review
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* User Inspection & Location Edit Modal */}
       <AnimatePresence>
         {selectedReportUser && (
@@ -524,57 +618,71 @@ export default function AdminDashboard({
           </div>
         )}
 
-        {/* Tab 2: Companions */}
+        {/* Tab 2: Companions Directory & Review */}
         {activeSubTab === 'companions' && (
           <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
             <div className="flex items-center justify-between pb-4 border-b border-slate-800">
               <div>
-                <h2 className="text-base font-extrabold text-white">Companion Directory & Verification</h2>
-                <p className="text-xs text-slate-400">Review companion locations, verify on WhatsApp, or remove profiles</p>
+                <h2 className="text-base font-extrabold text-white">Companion Directory & Advertisement Review</h2>
+                <p className="text-xs text-slate-400">Review submitted photos, rates, locations, and promotional verification video clips</p>
               </div>
               <button onClick={loadBackendData} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition cursor-pointer">
                 <RefreshCw size={16} />
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {ladies.length === 0 ? (
-                <div className="col-span-full text-center py-12 text-slate-500">No companion profiles found.</div>
+                <div className="col-span-full text-center py-16 text-slate-500 text-xs">No companion listings or profiles submitted yet.</div>
               ) : (
                 ladies.map((lady) => (
-                  <div key={lady.id} className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between space-y-4 shadow-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-pink-950 border border-pink-500/30 flex items-center justify-center text-pink-400 font-black text-lg">
-                        {lady.username.charAt(0).toUpperCase()}
+                  <div key={lady._id || lady.id} className="bg-slate-900/60 border border-slate-800 rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between group hover:border-pink-500/40 transition">
+                    <div className="relative h-56 bg-slate-950 overflow-hidden">
+                      <img 
+                        src={lady.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80'} 
+                        alt={lady.name || lady.username} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition duration-500" 
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 mix-blend-screen">
+                        <img src={LOGO_URL} alt="Watermark" className="w-32 h-32 object-contain transform rotate-[-15deg]" />
                       </div>
-                      <div>
-                        <h3 className="text-sm font-bold text-white">@{lady.username}</h3>
-                        <p className="text-xs text-pink-400 font-semibold">{lady.category} • <span className="text-emerald-400 font-bold inline-flex items-center gap-0.5"><MapPin size={11} /> {lady.location || 'Lusaka'}</span></p>
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80" />
+
+                      <div className="absolute top-3 right-3">
+                        <span className="bg-emerald-500 text-slate-950 font-black text-[9px] px-2.5 py-1 rounded-full shadow flex items-center gap-1">
+                          <ShieldCheck size={11} /> {lady.category || 'VIP'}
+                        </span>
+                      </div>
+
+                      <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end">
+                        <div>
+                          <h3 className="text-white font-extrabold text-base">{lady.name || lady.username}, {lady.age || '23'}</h3>
+                          <p className="text-slate-300 text-xs flex items-center gap-1">
+                            <MapPin size={11} className="text-pink-500" /> {lady.specificLocation || lady.location}
+                          </p>
+                        </div>
+                        <div className="bg-slate-950/90 border border-slate-800 px-2.5 py-1 rounded-xl text-right">
+                          <span className="text-[8px] text-slate-400 block font-bold">RATE</span>
+                          <span className="text-emerald-400 font-black text-xs">ZMW {lady.price || '0'}</span>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-800/80">
-                      <button 
-                        onClick={() => handleWhatsAppContact(lady.phone, lady.username)}
-                        className="px-3 py-1.5 bg-emerald-950/80 hover:bg-emerald-900/80 text-emerald-300 rounded-xl text-xs font-bold border border-emerald-800/50 transition flex items-center gap-1.5 cursor-pointer shadow-sm"
-                      >
-                        <MessageCircle size={14} /> WhatsApp
-                      </button>
+                    <div className="p-4 space-y-3 flex flex-col justify-between flex-grow">
+                      <p className="text-xs text-slate-400 line-clamp-2">{lady.extraServices || 'Available for social companionship.'}</p>
 
-                      <div className="flex items-center gap-2">
+                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800">
                         <button 
-                          onClick={() => handleOpenUserInspect(lady.username)}
-                          className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 transition flex items-center gap-1.5 cursor-pointer"
+                          onClick={() => setSelectedCompanionModal(lady)}
+                          className="py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 border border-slate-700 transition cursor-pointer"
                         >
-                          <Edit3 size={14} /> Edit
+                          <Eye size={13} /> Review Profile
                         </button>
-
                         <button 
-                          onClick={() => handleDeleteUser(lady.username)}
-                          className="px-3 py-1.5 bg-red-950/60 hover:bg-red-900/80 text-red-300 rounded-xl text-xs font-bold border border-red-900/50 transition flex items-center gap-1.5 cursor-pointer shadow-sm"
-                          title="Permanently Delete Profile"
+                          onClick={() => handleWhatsAppContact(lady.phone, lady.username)}
+                          className="py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 transition cursor-pointer"
                         >
-                          <Trash2 size={14} /> Delete
+                          <MessageCircle size={13} /> WhatsApp
                         </button>
                       </div>
                     </div>
@@ -654,7 +762,7 @@ export default function AdminDashboard({
                       </button>
                       <button
                         onClick={() => handleDeleteReport(rep._id || rep.id)}
-                        className="px-3 py-1.5 bg-red-950/60 hover:bg-red-900/80 text-red-300 rounded-xl text-xs font-bold border border-red-900/50 transition flex items-center gap-1 cursor-pointer"
+                        className="px-3 py-1.5 bg-red-950/60 hover:bg-red-900/80 text-red-300 rounded-xl text-xs font-bold border border-red-900/50 transition cursor-pointer"
                       >
                         <Trash2 size={13} /> Dismiss
                       </button>
