@@ -694,15 +694,7 @@ export default function AdminDashboard({
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs table-fixed">
-                <colgroup>
-                  <col className="w-1/6" />
-                  <col className="w-1/6" />
-                  <col className="w-1/5" />
-                  <col className="w-1/4" />
-                  <col className="w-1/6" />
-                  <col className="w-1/4" />
-                </colgroup>
+              <table className="w-full text-left text-xs whitespace-nowrap">
                 <thead className="bg-slate-900 text-slate-400 uppercase tracking-wider font-bold">
                   <tr>
                     <th className="p-3.5 rounded-l-xl">Username</th>
@@ -724,19 +716,19 @@ export default function AdminDashboard({
                       const isFemale = u.gender?.toLowerCase() === 'female';
                       return (
                         <tr key={u._id || i} className="hover:bg-slate-900/40 transition">
-                          <td className="p-3.5 font-bold text-white truncate">
+                          <td className="p-3.5 font-bold text-white">
                             <div className="flex flex-col">
                               <span>@{u.username}</span>
                               <span className="text-[10px] text-pink-400 capitalize">{u.gender || 'Client'}</span>
                             </div>
                           </td>
-                          <td className="p-3.5 text-purple-400 font-bold truncate">
+                          <td className="p-3.5 text-purple-400 font-bold">
                             {u.plan || '7 Days'}
                           </td>
-                          <td className="p-3.5 text-pink-400 font-semibold truncate flex items-center gap-1">
-                            <MapPin size={12} className="shrink-0" /> <span className="truncate">{u.location || 'Lusaka'}</span>
+                          <td className="p-3.5 text-pink-400 font-semibold flex items-center gap-1">
+                            <MapPin size={12} className="shrink-0" /> <span>{u.location || 'Lusaka'}</span>
                           </td>
-                          <td className="p-3.5 truncate">
+                          <td className="p-3.5">
                             <AdminUserTimer createdAt={u.createdAt} plan={u.plan} />
                           </td>
                           <td className="p-3.5">
