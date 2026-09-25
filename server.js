@@ -46,7 +46,8 @@ const userSchema = new mongoose.Schema({
   phone: { type: String, default: '' }, // WhatsApp number for females
   plan: { type: String, default: '7 Days' }, // Subscription plan for males ('7 Days' or '30 Days')
   role: { type: String, default: 'client' },
-  activated: { type: Boolean, default: false }
+  activated: { type: Boolean, default: false },
+  createdAt: { type: Date, default: Date.now } // Registration timestamp
 });
 
 const messageSchema = new mongoose.Schema({
@@ -126,7 +127,8 @@ app.post('/api/register', async (req, res) => {
       phone: phone || '',
       plan: gender === 'Male' ? (plan || '7 Days') : 'N/A', // Save selected plan for males
       role: role || 'client',
-      activated: false
+      activated: false,
+      createdAt: new Date()
     });
 
     await newUser.save();
