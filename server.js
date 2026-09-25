@@ -13,42 +13,31 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(cors());
 
-// 1. Create standard HTTP server from Express app
 const server = createServer(app);
-
-// 2. Attach WebSocket Server to the HTTP server
 const wss = new WebSocketServer({ server });
 
-// --- MONGODB CONNECTION ---
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/dodixclub';
 
 mongoose.connect(MONGO_URI)
   .then(async () => {
     console.log('[Database] Connected to MongoDB Atlas successfully.');
-    
-    // Drop legacy index causing E11000 null duplicate key errors
     try {
       await mongoose.connection.collection('users').dropIndex('email_1');
-      console.log('[Database] Successfully dropped legacy email_1 index.');
-    } catch (e) {
-      // Index might already be gone, safe to ignore
-    }
-
+    } catch (e) {}
     await seedDefaultAdmin();
   })
   .catch(err => console.error('[Database] Connection error:', err));
 
-// --- MONGOOSE SCHEMAS & MODELS ---
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true, lowercase: true, trim: true },
   password: { type: String, required: true },
   gender: { type: String, required: true },
   location: { type: String, required: true },
-  phone: { type: String, default: '' }, // WhatsApp number for females
-  plan: { type: String, default: '7 Days' }, // Subscription plan for males ('7 Days' or '30 Days')
+  phone: { type: String, default: '' },
+  plan: { type: String, default: '7 Days' },
   role: { type: String, default: 'client' },
   activated: { type: Boolean, default: false },
-  createdAt: { type: Date, default: Date.now } // Registration timestamp
+  createdAt: { type: Date, default: Date.now }
 });
 
 const messageSchema = new mongoose.Schema({
@@ -89,40 +78,29 @@ const Message = mongoose.model('Message', messageSchema);
 const Report = mongoose.model('Report', reportSchema);
 const Companion = mongoose.model('Companion', companionSchema);
 
-// Seed default admin if database is empty
 async function seedDefaultAdmin() {
   const count = await User.countDocuments();
   if (count === 0) {
     const hashedPassword = await bcrypt.hash('password123', 10);
-    const defaultUsers = [
+    await User.insertMany([
       { username: 'admin', password: hashedPassword, gender: 'Male', location: 'Lusaka', role: 'admin', activated: true }
-    ];
-    await User.insertMany(defaultUsers);
+    ]);
     console.log('[Database] Seeded default admin into MongoDB.');
   }
 }
 
-// Track active WebSocket connections mapped by username: Map<username, WebSocket>
 const activeClients = new Map();
 
-
-// ================= EXPRESS REST API ROUTES = =================
-
-// Login route
+// --- REST API ROUTES ---
 app.post('/api/login', async (req, res) => {
   try {
     const { username, password } = req.body;
     const cleanUsername = username?.toLowerCase().trim();
-    
     const user = await User.findOne({ username: cleanUsername });
-    if (!user) {
-      return res.json({ success: false, error: "Invalid username or password." });
-    }
+    if (!user) return res.json({ success: false, error: "Invalid username or password." });
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.json({ success: false, error: "Invalid username or password." });
-    }
+    if (!isMatch) return res.json({ success: false, error: "Invalid username or password." });
     
     res.json({ success: true, user });
   } catch (err) {
@@ -130,30 +108,25 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// Register route
 app.post('/api/register', async (req, res) => {
   try {
     const { username, password, gender, location, role, phone, plan } = req.body;
-    
     if (!username || !password || !gender || !location) {
       return res.json({ success: false, error: "All fields are required." });
     }
 
     const cleanUsername = username.toLowerCase().trim();
     const existingUser = await User.findOne({ username: cleanUsername });
-    if (existingUser) {
-      return res.json({ success: false, error: "Username already exists." });
-    }
+    if (existingUser) return res.json({ success: false, error: "Username already exists." });
 
     const hashedPassword = await bcrypt.hash(password, 10);
-
     const newUser = new User({
       username: cleanUsername,
       password: hashedPassword,
       gender,
       location,
       phone: phone || '',
-      plan: gender === 'Male' ? (plan || '7 Days') : 'N/A', // Save selected plan for males
+      plan: gender === 'Male' ? (plan || '7 Days') : 'N/A',
       role: role || 'client',
       activated: false,
       createdAt: new Date()
@@ -166,7 +139,6 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-// Get all users route (for admin panel)
 app.get('/api/users', async (req, res) => {
   try {
     const users = await User.find({});
@@ -176,12 +148,10 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
-// Route to toggle user activation status
 app.post('/api/users/toggle', async (req, res) => {
   try {
     const { username } = req.body;
     const user = await User.findOne({ username: username?.toLowerCase().trim() });
-    
     if (user) {
       user.activated = !user.activated;
       await user.save();
@@ -194,25 +164,19 @@ app.post('/api/users/toggle', async (req, res) => {
   }
 });
 
-// Route to delete a user
 app.delete('/api/users/:username', async (req, res) => {
   try {
     const { username } = req.params;
     const cleanUsername = username?.toLowerCase().trim();
     const result = await User.findOneAndDelete({ username: cleanUsername });
     await Companion.findOneAndDelete({ username: cleanUsername });
-    
-    if (result) {
-      res.json({ success: true });
-    } else {
-      res.json({ success: false, error: "User not found." });
-    }
+    if (result) res.json({ success: true });
+    else res.json({ success: false, error: "User not found." });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// Route to fetch saved message history via HTTP
 app.get('/api/messages', async (req, res) => {
   try {
     const messages = await Message.find({}).sort({ timestamp: 1 });
@@ -222,13 +186,10 @@ app.get('/api/messages', async (req, res) => {
   }
 });
 
-// --- REPORT ROUTES ---
 app.post('/api/reports', async (req, res) => {
   try {
     const { reporter, targetUser, reason } = req.body;
-    if (!reporter || !targetUser || !reason) {
-      return res.json({ success: false, error: "All fields are required." });
-    }
+    if (!reporter || !targetUser || !reason) return res.json({ success: false, error: "All fields are required." });
 
     const newReport = new Report({
       reporter: reporter.toLowerCase().trim(),
@@ -236,7 +197,6 @@ app.post('/api/reports', async (req, res) => {
       reason,
       timestamp: new Date()
     });
-
     await newReport.save();
     res.json({ success: true, report: newReport });
   } catch (err) {
@@ -263,7 +223,7 @@ app.delete('/api/reports/:id', async (req, res) => {
   }
 });
 
-// --- COMPANION LISTING ROUTES ---
+// --- COMPANION ROUTES ---
 app.get('/api/ladies', async (req, res) => {
   try {
     const ladies = await Companion.find({});
@@ -281,8 +241,8 @@ app.post('/api/ladies', async (req, res) => {
     }
 
     const cleanUsername = profileData.username.toLowerCase().trim();
-    
     let companion = await Companion.findOne({ username: cleanUsername });
+    
     if (companion) {
       companion.name = profileData.name;
       companion.category = profileData.category;
@@ -313,16 +273,58 @@ app.post('/api/ladies', async (req, res) => {
   }
 });
 
+app.post('/api/ladies/approve', async (req, res) => {
+  try {
+    const { username } = req.body;
+    const cleanId = username?.toLowerCase().trim();
+    const companion = await Companion.findOne({
+      $or: [
+        { username: { $regex: new RegExp(`^${cleanId}$`, 'i') } },
+        { name: { $regex: new RegExp(`^${cleanId}$`, 'i') } }
+      ]
+    });
 
-// ================= WEBSOCKET REAL-TIME HANDLING = =================
+    if (companion) {
+      companion.approved = true;
+      companion.updatedAt = new Date();
+      await companion.save();
+      res.json({ success: true, companion });
+    } else {
+      res.status(404).json({ success: false, error: 'Companion profile not found.' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
+app.delete('/api/ladies/:identifier', async (req, res) => {
+  try {
+    const { identifier } = req.params;
+    const cleanId = identifier.toLowerCase().trim();
+    const result = await Companion.findOneAndDelete({
+      $or: [
+        { username: { $regex: new RegExp(`^${cleanId}$`, 'i') } },
+        { name: { $regex: new RegExp(`^${cleanId}$`, 'i') } }
+      ]
+    });
+
+    if (result) {
+      res.json({ success: true, message: 'Companion profile successfully removed.' });
+    } else {
+      res.status(404).json({ success: false, error: 'Companion profile not found.' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// --- WEBSOCKET HANDLING ---
 wss.on('connection', (ws) => {
   let currentUsername = null;
 
   ws.on('message', async (data) => {
     try {
       const parsed = JSON.parse(data.toString());
-
       if (parsed.type === 'auth' && parsed.username) {
         currentUsername = parsed.username.toLowerCase().trim();
         activeClients.set(currentUsername, ws);
