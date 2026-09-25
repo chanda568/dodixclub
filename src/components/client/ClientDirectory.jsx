@@ -141,11 +141,15 @@ export default function ClientDirectory({
     }
   });
 
-  // Sync companion status notifications (Approved / Rejected) from Admin actions
+  // Targeted status notification sync strictly matching THIS specific user's companion profile
   useEffect(() => {
     if (!isFemaleUser || !currentUser?.username) return;
     try {
-      const myLady = ladies.find(l => l.username?.toLowerCase() === currentUser.username.toLowerCase() || l.name?.toLowerCase() === currentUser.username.toLowerCase());
+      const myLady = ladies.find(
+        l => l.username?.toLowerCase() === currentUser.username.toLowerCase() || 
+             l.name?.toLowerCase() === currentUser.username.toLowerCase()
+      );
+      
       if (myLady) {
         const isApproved = myLady.approved !== false;
         const statusKey = `dodix_last_notified_status_${currentUser.username}`;
@@ -159,9 +163,10 @@ export default function ClientDirectory({
             id: Date.now(),
             title: isApproved ? '🎉 Advertisement Approved!' : '⚠️ Advertisement Under Review / Update Required',
             content: isApproved 
-              ? 'Great news! Your companion advertisement has been successfully approved by Dodix Admin and is now live in the Elite Directory.' 
-              : 'Your companion advertisement listing is currently pending review or requires verification updates.',
+              ? `Great news @${currentUser.username}! Your companion advertisement has been successfully approved by Dodix Admin and is now live in the Elite Directory.` 
+              : `Hello @${currentUser.username}, your companion advertisement listing is currently pending review or requires verification updates.`,
             visibility: 'female',
+            targetUsername: currentUser.username.toLowerCase(), // Strictly targets only this user
             timestamp: new Date().toLocaleString()
           };
 
@@ -171,7 +176,6 @@ export default function ClientDirectory({
             return updated;
           });
 
-          // Update local history log
           const newHistoryItem = {
             id: Date.now(),
             action: isApproved ? 'Advertisement Approved by Admin' : 'Advertisement Status Updated',
@@ -474,6 +478,10 @@ export default function ClientDirectory({
 
   const visibleAnnouncements = announcements.filter(item => {
     if (isAdminUser) return true;
+    // If it's a targeted status notification, only display it for the exact matching user
+    if (item.targetUsername) {
+      return item.targetUsername === currentUser.username?.toLowerCase();
+    }
     if (item.visibility === 'all') return true;
     if (item.visibility === 'female' && isFemaleUser) return true;
     if (item.visibility === 'male' && isMaleUser) return true;
@@ -1028,11 +1036,12 @@ export default function ClientDirectory({
                         <span className="text-[10px] uppercase font-bold tracking-wider text-pink-400">{item.timestamp}</span>
                         <div className="flex items-center gap-2">
                           <span className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full ${
+                            item.targetUsername ? 'bg-pink-950 text-pink-400 border border-pink-800/40' :
                             item.visibility === 'all' ? 'bg-purple-950 text-purple-400 border border-purple-800/40' :
                             item.visibility === 'female' ? 'bg-pink-950 text-pink-400 border border-pink-800/40' :
                             'bg-blue-950 text-blue-400 border border-blue-800/40'
                           }`}>
-                            {item.visibility === 'all' ? 'All Users' : item.visibility === 'female' ? 'Females Only' : 'Males Only'}
+                            {item.targetUsername ? 'Personal Notification' : (item.visibility === 'all' ? 'All Users' : item.visibility === 'female' ? 'Females Only' : 'Males Only')}
                           </span>
                           
                           {isAdminUser && (
