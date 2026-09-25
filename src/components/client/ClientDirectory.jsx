@@ -8,6 +8,8 @@ import { LOGO_URL } from '../../data/constants';
 import LogoLoader from '../common/LogoLoader';
 import { encryptStorageData, decryptStorageData } from '../../utils/storageEncryption';
 
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+
 export default function ClientDirectory({ 
   currentUser, setCurrentUser, ladies, setLadies, isLoading, loadingText 
 }) {
@@ -260,35 +262,37 @@ export default function ClientDirectory({
     alert("Your companion profile and verification video have been successfully saved and submitted for review!");
   };
 
-  const handleReportSubmit = (e) => {
+  const handleReportSubmit = async (e) => {
     e.preventDefault();
     if (!reportedUsername.trim() || !reportReason.trim()) {
       alert("Please fill in the details of the time waster.");
       return;
     }
 
-    const reportObject = {
-      id: Date.now(),
-      reporter: currentUser.username,
-      reportedUser: reportedUsername.trim(),
-      reason: reportReason.trim(),
-      timestamp: new Date().toISOString(),
-      status: 'Pending'
-    };
-
     try {
-      const existingReportsRaw = localStorage.getItem('dodix_reports_db');
-      const existingReports = existingReportsRaw ? (decryptStorageData(existingReportsRaw) || []) : [];
-      const updatedReports = [reportObject, ...existingReports];
-      localStorage.setItem('dodix_reports_db', encryptStorageData(updatedReports));
-    } catch (err) {
-      console.error("Error saving reports:", err);
-    }
+      const response = await fetch(`${BACKEND_URL}/api/reports`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reporter: currentUser.username,
+          targetUser: reportedUsername.trim(),
+          reason: reportReason.trim()
+        })
+      });
 
-    setReportedUsername('');
-    setReportReason('');
-    setReportModalOpen(false);
-    alert("Your report has been successfully submitted to the platform administration.");
+      const data = await response.json();
+      if (data.success) {
+        setReportedUsername('');
+        setReportReason('');
+        setReportModalOpen(false);
+        alert("Your report has been successfully submitted to the platform administration.");
+      } else {
+        alert(data.error || "Failed to submit report.");
+      }
+    } catch (err) {
+      console.error("Error submitting report to backend:", err);
+      alert("Network error. Please try again.");
+    }
   };
 
   const handleOpenWhatsApp = (lady) => {
