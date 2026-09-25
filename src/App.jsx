@@ -28,6 +28,7 @@ export default function App() {
   // Users DB fetched live from MongoDB backend
   const [usersDb, setUsersDb] = useState([]);
 
+  // Ladies / Companion Profiles DB fetched live from MongoDB backend
   const [ladies, setLadies] = useState(() => {
     const saved = localStorage.getItem('dodix_ladies_db');
     if (saved) {
@@ -68,7 +69,6 @@ export default function App() {
       if (data.success && Array.isArray(data.users)) {
         setUsersDb(data.users);
         
-        // If logged in, sync current user state with latest database record
         if (currentUser) {
           const latest = data.users.find(u => u.username?.toLowerCase() === currentUser.username?.toLowerCase());
           if (latest) {
@@ -83,10 +83,28 @@ export default function App() {
     }
   };
 
-  // Fetch users on mount and set up periodic sync interval for real-time admin status updates
+  // Fetch companion profiles from MongoDB backend so male users & admins see uploaded photos
+  const fetchLadiesFromBackend = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/ladies`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.ladies)) {
+        setLadies(data.ladies);
+        localStorage.setItem('dodix_ladies_db', encryptStorageData(data.ladies));
+      }
+    } catch (e) {
+      console.error("Error fetching ladies from backend:", e);
+    }
+  };
+
+  // Fetch users and ladies on mount and set up periodic sync interval
   useEffect(() => {
     fetchUsersFromBackend();
-    const interval = setInterval(fetchUsersFromBackend, 3000);
+    fetchLadiesFromBackend();
+    const interval = setInterval(() => {
+      fetchUsersFromBackend();
+      fetchLadiesFromBackend();
+    }, 3000);
     return () => clearInterval(interval);
   }, [currentUser?.username]);
 
@@ -98,7 +116,6 @@ export default function App() {
     }
 
     try {
-      // Send update to backend or save in local user session state
       const updatedCurrent = { ...currentUser, phone: whatsappInput.trim(), whatsappNumber: whatsappInput.trim() };
       setCurrentUser(updatedCurrent);
       sessionStorage.setItem('dodix_current_user', JSON.stringify(updatedCurrent));
@@ -165,10 +182,6 @@ export default function App() {
       }
     }
   }, [currentUser]);
-
-  useEffect(() => {
-    localStorage.setItem('dodix_ladies_db', encryptStorageData(ladies));
-  }, [ladies]);
 
   useEffect(() => {
     localStorage.setItem('dodix_messages_db', encryptStorageData(messages));
@@ -251,7 +264,6 @@ export default function App() {
             </p>
           </div>
 
-          {/* Conditional WhatsApp Number Input for Female Users awaiting activation */}
           {currentUser?.gender?.toLowerCase() === 'female' && (
             <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 text-left space-y-3">
               <div className="space-y-1">
@@ -292,6 +304,7 @@ export default function App() {
             <button 
               onClick={() => {
                 fetchUsersFromBackend();
+                fetchLadiesFromBackend();
               }}
               className="w-full py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold rounded-xl text-xs shadow-lg shadow-pink-600/20 transition flex items-center justify-center gap-2"
             >
