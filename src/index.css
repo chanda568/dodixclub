@@ -1,9 +1,6 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-@layer base {
-  body {
-    @apply min-h-screen transition-colors duration-300;
-  }
+body {
+  min-height: 100vh;
+  transition: background-color 300ms ease;
 }
