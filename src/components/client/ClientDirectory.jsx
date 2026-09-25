@@ -1,7 +1,7 @@
 // src/components/client/ClientDirectory.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
-  LogOut, MessageSquare, Sparkles, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, Crown, ShieldAlert, RefreshCw, CheckCircle, Flag, ChevronRight, Heart, CreditCard, Settings, Send, Upload, Image as ImageIcon, Video, History as HistoryIcon, Bell, Plus, Trash2, Shield 
+  LogOut, MessageSquare, Sparkles, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, Crown, ShieldAlert, RefreshCw, CheckCircle, Flag, ChevronRight, Heart, CreditCard, Settings, Send, Upload, Image as ImageIcon, Video, History as HistoryIcon, Bell, Plus, Trash2, Shield, Check
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LOGO_URL } from '../../data/constants';
@@ -34,7 +34,7 @@ export default function ClientDirectory({
   // Admin announcement form state
   const [newTitle, setNewTitle] = useState('');
   const [newContent, setNewContent] = useState('');
-  const [newVisibility, setNewVisibility] = useState('all'); // 'all', 'female', 'male'
+  const [newVisibility, setNewVisibility] = useState('all');
 
   useEffect(() => {
     try {
@@ -121,6 +121,12 @@ export default function ClientDirectory({
   const [formHosting, setFormHosting] = useState(myExistingLadyProfile?.hosting || 'Yes');
   const [formServices, setFormServices] = useState(myExistingLadyProfile?.extraServices || '');
 
+  // Interactive Sticker Editor states for face privacy masking
+  const [rawImageForSticker, setRawImageForSticker] = useState(null);
+  const [stickerPosition, setStickerPosition] = useState({ x: 50, y: 30, size: 110 }); // percentage coords & pixel size
+  const [isDraggingSticker, setIsDraggingSticker] = useState(false);
+  const stickerContainerRef = useRef(null);
+
   const [verificationVideoUrl, setVerificationVideoUrl] = useState(myExistingLadyProfile?.verificationVideoUrl || '');
   const [verificationVideoName, setVerificationVideoName] = useState(myExistingLadyProfile?.verificationVideoName || '');
 
@@ -195,9 +201,55 @@ export default function ClientDirectory({
 
     const reader = new FileReader();
     reader.onloadend = () => {
-      setFormPhoto(reader.result);
+      setRawImageForSticker(reader.result);
+      setStickerPosition({ x: 50, y: 32, size: 110 });
     };
     reader.readAsDataURL(file);
+  };
+
+  // Burn sticker onto canvas at selected coordinates
+  const handleApplyStickerAndSave = () => {
+    if (!rawImageForSticker) return;
+
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+
+      ctx.drawImage(img, 0, 0);
+
+      const stickerImg = new Image();
+      stickerImg.crossOrigin = "anonymous";
+      stickerImg.onload = () => {
+        const sX = (stickerPosition.x / 100) * canvas.width;
+        const sY = (stickerPosition.y / 100) * canvas.height;
+        const sRadius = (stickerPosition.size / 200) * Math.min(canvas.width, canvas.height);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(sX, sY, sRadius, 0, Math.PI * 2, true);
+        ctx.closePath();
+        ctx.clip();
+        ctx.drawImage(stickerImg, sX - sRadius, sY - sRadius, sRadius * 2, sRadius * 2);
+        ctx.restore();
+
+        setFormPhoto(canvas.toDataURL('image/jpeg', 0.9));
+        setRawImageForSticker(null);
+      };
+      stickerImg.src = LOGO_URL;
+    };
+    img.src = rawImageForSticker;
+  };
+
+  const handlePointerMoveOnStickerArea = (e) => {
+    if (!isDraggingSticker || !stickerContainerRef.current) return;
+    const rect = stickerContainerRef.current.getBoundingClientRect();
+    const x = Math.max(10, Math.min(90, ((e.clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(10, Math.min(90, ((e.clientY - rect.top) / rect.height) * 100));
+    setStickerPosition(prev => ({ ...prev, x, y }));
   };
 
   const handleVideoUploadSimulation = (e) => {
@@ -254,7 +306,7 @@ export default function ClientDirectory({
         }
         setLadies(updatedLadiesList);
 
-        alert("Your companion listing details and promotional video have been successfully saved and sent to Admin for review!");
+        alert("Your companion listing details and sticker-masked photo have been successfully saved and sent to Admin for review!");
       } else {
         alert(data.error || "Failed to submit profile.");
       }
@@ -384,6 +436,88 @@ export default function ClientDirectory({
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col relative selection:bg-pink-500 selection:text-white font-sans">
       {isLoading && <LogoLoader text={loadingText} />}
 
+      {/* Interactive Circular Privacy Sticker Editor Modal */}
+      <AnimatePresence>
+        {rawImageForSticker && (
+          <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="max-w-xl w-full bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={18} className="text-pink-500" />
+                  <h3 className="text-sm font-bold text-white">Privacy Sticker Editor (Position over Face)</h3>
+                </div>
+                <button onClick={() => setRawImageForSticker(null)} className="p-1.5 text-slate-400 hover:text-white rounded-lg">
+                  <X size={18} />
+                </button>
+              </div>
+
+              <p className="text-xs text-slate-400">Drag the circular sticker over your face to ensure complete privacy protection.</p>
+
+              {/* Sticker Placement Canvas Area */}
+              <div 
+                ref={stickerContainerRef}
+                onPointerDown={() => setIsDraggingSticker(true)}
+                onPointerUp={() => setIsDraggingSticker(false)}
+                onPointerMove={handlePointerMoveOnStickerArea}
+                className="relative w-full h-80 bg-black rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center select-none cursor-crosshair touch-none"
+              >
+                <img src={rawImageForSticker} alt="Raw Upload" className="max-h-full max-w-full object-contain pointer-events-none" />
+                
+                {/* Movable Circular Sticker Element */}
+                <div 
+                  style={{
+                    left: `${stickerPosition.x}%`,
+                    top: `${stickerPosition.y}%`,
+                    width: `${stickerPosition.size}px`,
+                    height: `${stickerPosition.size}px`,
+                    transform: 'translate(-50%, -50%)'
+                  }}
+                  className="absolute rounded-full overflow-hidden border-2 border-pink-500 shadow-2xl bg-slate-950/80 backdrop-blur-sm pointer-events-none flex items-center justify-center"
+                >
+                  <img src={LOGO_URL} alt="Sticker Mask" className="w-full h-full object-cover scale-110 pointer-events-none" />
+                  <div className="absolute inset-0 bg-pink-500/10 rounded-full" />
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-1">
+                <div className="flex justify-between text-xs text-slate-400">
+                  <span>Sticker Size</span>
+                  <span>{stickerPosition.size}px</span>
+                </div>
+                <input 
+                  type="range" 
+                  min="60" 
+                  max="180" 
+                  value={stickerPosition.size} 
+                  onChange={(e) => setStickerPosition(prev => ({ ...prev, size: Number(e.target.value) }))}
+                  className="w-full accent-pink-500 cursor-pointer"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button 
+                  onClick={() => setRawImageForSticker(null)}
+                  className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleApplyStickerAndSave}
+                  className="flex-1 py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold rounded-xl text-xs shadow-lg shadow-pink-600/20 transition flex items-center justify-center gap-2"
+                >
+                  <Check size={16} /> Apply Sticker & Save
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {isAccountRestricted && (
         <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 text-center shadow-2xl space-y-6">
@@ -444,9 +578,6 @@ export default function ClientDirectory({
                     alt={selectedProfile.name} 
                     className="w-full h-full object-cover" 
                   />
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-25 mix-blend-screen">
-                    <img src={LOGO_URL} alt="Watermark" className="w-16 h-16 object-contain transform rotate-[-15deg]" />
-                  </div>
                 </div>
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
@@ -935,7 +1066,7 @@ export default function ClientDirectory({
               <div className="space-y-6 max-w-3xl">
                 <div>
                   <h2 className="text-2xl font-black text-white tracking-tight">Companion Listing Management</h2>
-                  <p className="text-xs text-slate-400 mt-1">Configure your directory listing details and upload promotional advertisement media.</p>
+                  <p className="text-xs text-slate-400 mt-1">Configure your directory listing details and upload privacy sticker-masked advertisement photos.</p>
                 </div>
 
                 <form onSubmit={handleSaveLadyProfile} className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
@@ -1046,19 +1177,16 @@ export default function ClientDirectory({
 
                   <div className="space-y-2 pt-2 border-t border-slate-800">
                     <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                      <ImageIcon size={14} className="text-pink-500" /> Advertisement Photo
+                      <ImageIcon size={14} className="text-pink-500" /> Advertisement Photo with Privacy Sticker
                     </label>
                     <div className="flex items-center gap-4">
                       {formPhoto && (
                         <div className="relative w-16 h-16 rounded-2xl overflow-hidden border border-slate-800 shadow-md shrink-0 bg-slate-950">
                           <img src={formPhoto} alt="Preview" className="w-full h-full object-cover" />
-                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-25 mix-blend-screen">
-                            <img src={LOGO_URL} alt="Watermark" className="w-12 h-12 object-contain transform rotate-[-15deg]" />
-                          </div>
                         </div>
                       )}
                       <label className="px-4 py-3 bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold rounded-xl text-xs border border-slate-800 transition cursor-pointer flex items-center gap-2">
-                        <Upload size={14} /> Choose Advertisement Image
+                        <Upload size={14} /> Choose & Mask Image
                         <input type="file" accept="image/*" onChange={handleLocalImageUpload} className="hidden" />
                       </label>
                     </div>
@@ -1215,10 +1343,6 @@ export default function ClientDirectory({
                             alt={lady.name} 
                             className="w-full h-full object-cover group-hover:scale-105 transition duration-500" 
                           />
-                          
-                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-25 mix-blend-screen overflow-hidden">
-                            <img src={LOGO_URL} alt="Watermark" className="w-48 h-48 object-contain filter drop-shadow transform rotate-[-15deg]" />
-                          </div>
 
                           <div className="absolute inset-0 bg-gradient-to-t from-[#0b101d] via-transparent to-transparent opacity-80" />
 
