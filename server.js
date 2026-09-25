@@ -24,6 +24,15 @@ const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/dodixclub'
 mongoose.connect(MONGO_URI)
   .then(async () => {
     console.log('[Database] Connected to MongoDB Atlas successfully.');
+    
+    // Drop legacy index causing E11000 null duplicate key errors
+    try {
+      await mongoose.connection.collection('users').dropIndex('email_1');
+      console.log('[Database] Successfully dropped legacy email_1 index.');
+    } catch (e) {
+      // Index might already be gone, safe to ignore
+    }
+
     await seedDefaultAdmin();
   })
   .catch(err => console.error('[Database] Connection error:', err));
@@ -34,7 +43,7 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   gender: { type: String, required: true },
   location: { type: String, required: true },
-  phone: { type: String, default: '' }, // <-- Added phone field for WhatsApp verification
+  phone: { type: String, default: '' }, // Captured for WhatsApp gender verification
   role: { type: String, default: 'client' },
   activated: { type: Boolean, default: false }
 });
@@ -50,7 +59,7 @@ const messageSchema = new mongoose.Schema({
 const User = mongoose.model('User', userSchema);
 const Message = mongoose.model('Message', messageSchema);
 
-// Seed default users if database is empty
+// Seed default admin if database is empty
 async function seedDefaultAdmin() {
   const count = await User.countDocuments();
   if (count === 0) {
@@ -113,7 +122,7 @@ app.post('/api/register', async (req, res) => {
       password: hashedPassword,
       gender,
       location,
-      phone: phone || '', // <-- Capture and save phone number
+      phone: phone || '', // Save WhatsApp/phone number
       role: role || 'client',
       activated: false
     });
