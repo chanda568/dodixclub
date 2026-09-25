@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, Users, Flag, Video, CheckCircle, XCircle, Trash2, 
-  LogOut, AlertTriangle, RefreshCw, X, MessageSquare, Send, Bell, Plus, Shield, MapPin, Edit3, MessageCircle 
+  LogOut, RefreshCw, X, MessageSquare, MapPin, Edit3, MessageCircle 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LOGO_URL } from '../../data/constants';
@@ -30,13 +30,9 @@ export default function AdminDashboard({
 
   // State for announcements management
   const [announcements, setAnnouncements] = useState([]);
-  const [newTitle, setNewTitle] = useState('');
-  const [newContent, setNewContent] = useState('');
-  const [newVisibility, setNewVisibility] = useState('all');
 
   // Local state for support inbox reply
   const [selectedConversation, setSelectedConversation] = useState(null);
-  const [replyText, setReplyText] = useState('');
 
   // State for inspecting/managing a clicked user
   const [selectedReportUser, setSelectedReportUser] = useState(null);
@@ -86,7 +82,7 @@ export default function AdminDashboard({
       phone = manualPhone.trim();
     }
     const cleanPhone = phone.replace(/[^0-9]/g, '');
-    const defaultMsg = encodeURIComponent(`Hello @${name || 'Member'}, this is Dodix Admin regarding your account location update.`);
+    const defaultMsg = encodeURIComponent(`Hello @${name || 'Member'}, this is Dodix Admin reaching out for gender verification regarding your account registration.`);
     window.open(`https://wa.me/${cleanPhone}?text=${defaultMsg}`, '_blank');
   };
 
@@ -149,7 +145,6 @@ export default function AdminDashboard({
       alert("Location cannot be empty.");
       return;
     }
-    // Update locally / backend simulation
     const updated = usersDb.map(u => {
       if (u.username?.toLowerCase() === username.toLowerCase()) {
         return { ...u, location: newLocationInput.trim() };
@@ -187,8 +182,8 @@ export default function AdminDashboard({
                   <ShieldCheck size={24} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-extrabold text-white">User Control & Location</h3>
-                  <p className="text-xs text-slate-400">Inspect account details and manage relocation</p>
+                  <h3 className="text-lg font-extrabold text-white">User Control & Verification</h3>
+                  <p className="text-xs text-slate-400">Inspect account details and manage verification</p>
                 </div>
               </div>
 
@@ -201,6 +196,17 @@ export default function AdminDashboard({
                   <span className="text-slate-500 font-bold uppercase tracking-wider">Gender / Role</span>
                   <span className="text-pink-400 font-semibold capitalize">{selectedReportUser.gender || 'Client'}</span>
                 </div>
+                
+                {selectedReportUser.gender?.toLowerCase() === 'female' && (
+                  <div className="pt-2 border-t border-slate-800">
+                    <button
+                      onClick={() => handleWhatsAppContact(selectedReportUser.phone, selectedReportUser.username)}
+                      className="w-full py-2.5 bg-emerald-950/80 hover:bg-emerald-900/80 text-emerald-300 font-bold rounded-xl text-xs border border-emerald-800/50 flex items-center justify-center gap-2 transition cursor-pointer shadow-sm"
+                    >
+                      <MessageCircle size={15} /> Contact on WhatsApp for Verification
+                    </button>
+                  </div>
+                )}
                 
                 <div className="flex flex-col space-y-2 pt-2 border-t border-slate-800">
                   <div className="flex justify-between items-center text-xs">
@@ -215,7 +221,7 @@ export default function AdminDashboard({
                             setIsEditingLocation(true);
                             setNewLocationInput(selectedReportUser.location || 'Lusaka');
                           }}
-                          className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-pink-400 rounded-lg text-[10px] font-bold flex items-center gap-1 border border-slate-700 transition"
+                          className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-pink-400 rounded-lg text-[10px] font-bold flex items-center gap-1 border border-slate-700 transition cursor-pointer"
                         >
                           <Edit3 size={11} /> Edit
                         </button>
@@ -229,19 +235,19 @@ export default function AdminDashboard({
                         type="text"
                         value={newLocationInput}
                         onChange={(e) => setNewLocationInput(e.target.value)}
-                        placeholder="Enter new location (e.g. Ndola, Kitwe)"
+                        placeholder="Enter new location..."
                         className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-pink-500"
                       />
                       <div className="flex gap-2">
                         <button 
                           onClick={() => handleSaveUserLocation(selectedReportUser.username)}
-                          className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition"
+                          className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition cursor-pointer"
                         >
                           Save Location
                         </button>
                         <button 
                           onClick={() => setIsEditingLocation(false)}
-                          className="px-3 py-2 bg-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-bold transition"
+                          className="px-3 py-2 bg-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-bold transition cursor-pointer"
                         >
                           Cancel
                         </button>
@@ -261,7 +267,7 @@ export default function AdminDashboard({
               <div className="space-y-3 pt-2">
                 <button
                   onClick={() => handleToggleUserActivation(selectedReportUser.username)}
-                  className={`w-full py-3.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition ${selectedReportUser.activated !== false ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-600/20' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'}`}
+                  className={`w-full py-3.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer ${selectedReportUser.activated !== false ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-600/20' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'}`}
                 >
                   {selectedReportUser.activated !== false ? (
                     <>
@@ -276,14 +282,14 @@ export default function AdminDashboard({
 
                 <button
                   onClick={() => handleDeleteUser(selectedReportUser.username)}
-                  className="w-full py-3 bg-red-950/40 hover:bg-red-900/60 text-red-400 font-bold rounded-xl text-xs transition border border-red-900/40 flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-red-950/40 hover:bg-red-900/60 text-red-400 font-bold rounded-xl text-xs transition border border-red-900/40 flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Trash2 size={16} /> Permanently Delete User
                 </button>
 
                 <button
                   onClick={() => setSelectedReportUser(null)}
-                  className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition border border-slate-700"
+                  className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition border border-slate-700 cursor-pointer"
                 >
                   Close Window
                 </button>
@@ -320,39 +326,39 @@ export default function AdminDashboard({
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#0b101d] border border-slate-800 p-2 rounded-2xl shadow-xl">
           <button 
             onClick={() => setActiveSubTab('users')}
-            className={`py-3 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${activeSubTab === 'users' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg shadow-pink-600/20' : 'text-slate-400 hover:text-white'}`}
+            className={`py-3 px-3 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center gap-2 ${activeSubTab === 'users' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg shadow-pink-600/20' : 'text-slate-400 hover:text-white'}`}
           >
             <Users size={16} /> Users ({usersDb.length})
           </button>
           <button 
             onClick={() => setActiveSubTab('companions')}
-            className={`py-3 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${activeSubTab === 'companions' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg shadow-pink-600/20' : 'text-slate-400 hover:text-white'}`}
+            className={`py-3 px-3 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center gap-2 ${activeSubTab === 'companions' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg shadow-pink-600/20' : 'text-slate-400 hover:text-white'}`}
           >
             <Video size={16} /> Companions ({ladies.length})
           </button>
           <button 
             onClick={() => setActiveSubTab('inbox')}
-            className={`py-3 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${activeSubTab === 'inbox' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg shadow-pink-600/20' : 'text-slate-400 hover:text-white'}`}
+            className={`py-3 px-3 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center gap-2 ${activeSubTab === 'inbox' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg shadow-pink-600/20' : 'text-slate-400 hover:text-white'}`}
           >
             <MessageSquare size={16} /> Inbox ({messages.length})
           </button>
           <button 
             onClick={() => setActiveSubTab('reports')}
-            className={`py-3 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${activeSubTab === 'reports' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg shadow-pink-600/20' : 'text-slate-400 hover:text-white'}`}
+            className={`py-3 px-3 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center gap-2 ${activeSubTab === 'reports' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg shadow-pink-600/20' : 'text-slate-400 hover:text-white'}`}
           >
             <Flag size={16} /> Reports ({reports.length})
           </button>
         </div>
 
-        {/* Tab 1: Users Management (Fixed Table Layout to Prevent Jitter) */}
+        {/* Tab 1: Users Management */}
         {activeSubTab === 'users' && (
           <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
             <div className="flex items-center justify-between pb-4 border-b border-slate-800">
               <div>
                 <h2 className="text-base font-extrabold text-white">Registered Users & Client Database</h2>
-                <p className="text-xs text-slate-400">Inspect accounts, edit locations, or suspend status</p>
+                <p className="text-xs text-slate-400">Inspect accounts, verify gender via WhatsApp, or suspend status</p>
               </div>
-              <button onClick={loadBackendData} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition">
+              <button onClick={loadBackendData} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition cursor-pointer">
                 <RefreshCw size={16} />
               </button>
             </div>
@@ -360,9 +366,9 @@ export default function AdminDashboard({
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs table-fixed">
                 <colgroup>
-                  <col className="w-1/4" />
+                  <col className="w-1/5" />
                   <col className="w-1/6" />
-                  <col className="w-1/4" />
+                  <col className="w-1/5" />
                   <col className="w-1/6" />
                   <col className="w-1/4" />
                 </colgroup>
@@ -383,6 +389,7 @@ export default function AdminDashboard({
                   ) : (
                     usersDb.map((u, i) => {
                       const isActivated = u.activated !== false;
+                      const isFemale = u.gender?.toLowerCase() === 'female';
                       return (
                         <tr key={u._id || i} className="hover:bg-slate-900/40 transition">
                           <td className="p-3.5 font-bold text-white truncate">@{u.username}</td>
@@ -395,16 +402,25 @@ export default function AdminDashboard({
                               {isActivated ? 'Active' : 'Suspended'}
                             </span>
                           </td>
-                          <td className="p-3.5 text-right space-x-2 whitespace-nowrap">
+                          <td className="p-3.5 text-right space-x-1.5 whitespace-nowrap">
+                            {isFemale && (
+                              <button 
+                                onClick={() => handleWhatsAppContact(u.phone, u.username)}
+                                className="px-2.5 py-1.5 bg-emerald-950/80 hover:bg-emerald-900/80 text-emerald-300 rounded-xl text-[11px] font-bold border border-emerald-800/50 transition inline-flex items-center gap-1 cursor-pointer shadow-sm"
+                                title="Verify Gender on WhatsApp"
+                              >
+                                <MessageCircle size={13} /> WhatsApp
+                              </button>
+                            )}
                             <button 
                               onClick={() => handleOpenUserInspect(u.username)}
-                              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 transition inline-flex items-center gap-1 cursor-pointer"
+                              className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-[11px] font-bold border border-slate-700 transition inline-flex items-center gap-1 cursor-pointer"
                             >
                               <Edit3 size={13} /> Edit
                             </button>
                             <button 
                               onClick={() => handleToggleUserActivation(u.username)}
-                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${isActivated ? 'bg-amber-950/60 text-amber-400 border border-amber-800/40 hover:bg-amber-900/60' : 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-900/60'}`}
+                              className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition cursor-pointer ${isActivated ? 'bg-amber-950/60 text-amber-400 border border-amber-800/40 hover:bg-amber-900/60' : 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-900/60'}`}
                             >
                               {isActivated ? 'Suspend' : 'Activate'}
                             </button>
@@ -419,15 +435,15 @@ export default function AdminDashboard({
           </div>
         )}
 
-        {/* Tab 2: Companion Approvals & Location Management */}
+        {/* Tab 2: Companions */}
         {activeSubTab === 'companions' && (
           <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
             <div className="flex items-center justify-between pb-4 border-b border-slate-800">
               <div>
-                <h2 className="text-base font-extrabold text-white">Companion Directory & Relocation Management</h2>
+                <h2 className="text-base font-extrabold text-white">Companion Directory & Verification</h2>
                 <p className="text-xs text-slate-400">Review companion locations and manage profiles</p>
               </div>
-              <button onClick={loadBackendData} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition">
+              <button onClick={loadBackendData} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition cursor-pointer">
                 <RefreshCw size={16} />
               </button>
             </div>
@@ -450,6 +466,13 @@ export default function AdminDashboard({
 
                     <div className="flex items-center justify-between pt-3 border-t border-slate-800/80">
                       <button 
+                        onClick={() => handleWhatsAppContact(lady.phone, lady.username)}
+                        className="px-3 py-1.5 bg-emerald-950/80 hover:bg-emerald-900/80 text-emerald-300 rounded-xl text-xs font-bold border border-emerald-800/50 transition flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <MessageCircle size={14} /> Verify on WhatsApp
+                      </button>
+
+                      <button 
                         onClick={() => handleOpenUserInspect(lady.username)}
                         className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 transition flex items-center gap-1.5 cursor-pointer"
                       >
@@ -463,7 +486,7 @@ export default function AdminDashboard({
           </div>
         )}
 
-        {/* Tab 3: Admin Support Inbox */}
+        {/* Tab 3: Inbox */}
         {activeSubTab === 'inbox' && (
           <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
             <div className="flex items-center justify-between pb-4 border-b border-slate-800">
@@ -471,7 +494,7 @@ export default function AdminDashboard({
                 <h2 className="text-base font-extrabold text-white">Admin Support Inbox</h2>
                 <p className="text-xs text-slate-400">Communicate directly with platform users & clients</p>
               </div>
-              <button onClick={loadBackendData} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition">
+              <button onClick={loadBackendData} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition cursor-pointer">
                 <RefreshCw size={16} />
               </button>
             </div>
@@ -530,7 +553,7 @@ export default function AdminDashboard({
           </div>
         )}
 
-        {/* Tab 4: Time Waster Reports */}
+        {/* Tab 4: Reports */}
         {activeSubTab === 'reports' && (
           <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
             <div className="flex items-center justify-between pb-4 border-b border-slate-800">
@@ -538,7 +561,7 @@ export default function AdminDashboard({
                 <h2 className="text-base font-extrabold text-white">Time Waster & Client Reports</h2>
                 <p className="text-xs text-slate-400">Complaints submitted by verified companions</p>
               </div>
-              <button onClick={loadBackendData} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition">
+              <button onClick={loadBackendData} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition cursor-pointer">
                 <RefreshCw size={16} />
               </button>
             </div>
