@@ -217,7 +217,7 @@ export default function ClientDirectory({
     }
 
     if (!verificationVideoUrl) {
-      alert("Mandatory requirement: Please upload a verification video clip before submitting your profile.");
+      alert("Mandatory requirement: Please upload a promotional advertisement video clip before submitting your profile.");
       return;
     }
 
@@ -235,7 +235,7 @@ export default function ClientDirectory({
       hosting: formHosting,
       extraServices: formServices,
       verificationVideoUrl,
-      verificationVideoName: verificationVideoName || 'Verification_Clip.mp4',
+      verificationVideoName: verificationVideoName || 'Promotional_Clip.mp4',
       approved: myExistingLadyProfile ? myExistingLadyProfile.approved : false 
     };
 
@@ -251,7 +251,7 @@ export default function ClientDirectory({
 
     const newHistoryItem = {
       id: Date.now(),
-      action: myExistingLadyProfile ? 'Updated Companion Profile Details' : 'Created New Companion Profile',
+      action: myExistingLadyProfile ? 'Updated Companion Listing Details' : 'Created New Companion Listing',
       timestamp: new Date().toLocaleString(),
       status: updatedProfile.approved ? 'Approved' : 'Submitted / Pending Review'
     };
@@ -259,7 +259,7 @@ export default function ClientDirectory({
     setProfileHistory(updatedHistory);
     localStorage.setItem(`dodix_history_${currentUser?.username}`, encryptStorageData(updatedHistory));
 
-    alert("Your companion profile and verification video have been successfully saved and submitted for review!");
+    alert("Your companion listing details and promotional video have been successfully saved and submitted for review!");
   };
 
   const handleReportSubmit = async (e) => {
@@ -297,7 +297,7 @@ export default function ClientDirectory({
 
   const handleOpenWhatsApp = (lady) => {
     const phoneNum = lady.phone ? lady.phone.replace(/[^0-9]/g, '') : '260970000000';
-    const message = `Hello ${lady.name}, I found your profile on DodixClub and would like to connect regarding booking availability in ${lady.location}.`;
+    const message = `Hello ${lady.name}, I found your listing on DodixClub and would like to connect regarding booking availability in ${lady.location}.`;
     
     navigator.clipboard.writeText(message).catch(() => {});
 
@@ -548,7 +548,7 @@ export default function ClientDirectory({
         )}
       </AnimatePresence>
 
-      {/* Navbar - Avatar removed completely */}
+      {/* Navbar */}
       <nav className="sticky top-0 z-40 bg-[#090d16]/90 backdrop-blur-md border-b border-slate-800 px-4 sm:px-8 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button onClick={() => setSidebarOpen(true)} className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-900 border border-slate-800 transition">
@@ -922,8 +922,8 @@ export default function ClientDirectory({
             ) : (
               <div className="space-y-6 max-w-3xl">
                 <div>
-                  <h2 className="text-2xl font-black text-white tracking-tight">Companion Profile Management</h2>
-                  <p className="text-xs text-slate-400 mt-1">Configure your listing details and upload mandatory verification video clips.</p>
+                  <h2 className="text-2xl font-black text-white tracking-tight">Companion Listing Management</h2>
+                  <p className="text-xs text-slate-400 mt-1">Configure your directory listing details and upload promotional advertisement media.</p>
                 </div>
 
                 <form onSubmit={handleSaveLadyProfile} className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
@@ -1036,7 +1036,7 @@ export default function ClientDirectory({
 
                   <div className="space-y-2 pt-2 border-t border-slate-800">
                     <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                      <ImageIcon size={14} className="text-pink-500" /> Profile Photo
+                      <ImageIcon size={14} className="text-pink-500" /> Advertisement Photo
                     </label>
                     <div className="flex items-center gap-4">
                       {formPhoto && (
@@ -1048,26 +1048,26 @@ export default function ClientDirectory({
                         </div>
                       )}
                       <label className="px-4 py-3 bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold rounded-xl text-xs border border-slate-800 transition cursor-pointer flex items-center gap-2">
-                        <Upload size={14} /> Choose Image
+                        <Upload size={14} /> Choose Advertisement Image
                         <input type="file" accept="image/*" onChange={handleLocalImageUpload} className="hidden" />
                       </label>
                     </div>
                   </div>
 
                   <div className="space-y-3 pt-4 border-t border-slate-800">
-                    <div className="p-4 bg-amber-950/30 border border-amber-800/40 rounded-2xl flex items-start gap-3">
-                      <ShieldAlert size={20} className="text-amber-400 shrink-0 mt-0.5" />
+                    <div className="p-4 bg-purple-950/30 border border-purple-800/40 rounded-2xl flex items-start gap-3">
+                      <Sparkles size={20} className="text-purple-400 shrink-0 mt-0.5" />
                       <div className="space-y-1">
-                        <h4 className="text-xs font-bold text-amber-300 uppercase tracking-wider">Mandatory Verification Video</h4>
+                        <h4 className="text-xs font-bold text-purple-300 uppercase tracking-wider">Directory Advertisement Video</h4>
                         <p className="text-xs text-slate-400 leading-relaxed">
-                          You must upload a short verification video clip to prove your identity before your companion profile can be saved and reviewed.
+                          Upload a short promotional video clip to showcase your listing and attract elite clients in your directory region.
                         </p>
                       </div>
                     </div>
 
                     <div className="space-y-2">
                       <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                        <Video size={14} className="text-pink-500" /> Upload Verification Video Clip
+                        <Video size={14} className="text-pink-500" /> Upload Promotional Video Clip
                       </label>
                       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                         <label className="px-5 py-3.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-pink-600/20 transition cursor-pointer flex items-center gap-2">
@@ -1088,7 +1088,7 @@ export default function ClientDirectory({
                       type="submit" 
                       className="px-8 py-3.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-pink-600/20 transition"
                     >
-                      Save & Submit Profile
+                      Save & Submit Listing
                     </button>
                   </div>
                 </form>
