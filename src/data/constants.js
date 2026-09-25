@@ -1,5 +1,7 @@
 // src/data/constants.js
-export const LOGO_URL = "/logo.jpg";
+import logoImg from '../../logo.jpg'; // Adjust path if it's placed somewhere else
+
+export const LOGO_URL = logoImg;
 
 export const ZAMBIAN_LOCATIONS = [
   "Kabwe", 
