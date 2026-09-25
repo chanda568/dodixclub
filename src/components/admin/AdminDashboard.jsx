@@ -438,7 +438,7 @@ export default function AdminDashboard({
             <div className="flex items-center justify-between pb-4 border-b border-slate-800">
               <div>
                 <h2 className="text-base font-extrabold text-white">Companion Directory & Verification</h2>
-                <p className="text-xs text-slate-400">Review companion locations and manage profiles</p>
+                <p className="text-xs text-slate-400">Review companion locations, verify on WhatsApp, or remove profiles</p>
               </div>
               <button onClick={loadBackendData} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition cursor-pointer">
                 <RefreshCw size={16} />
@@ -461,20 +461,30 @@ export default function AdminDashboard({
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-3 border-t border-slate-800/80">
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-800/80">
                       <button 
                         onClick={() => handleWhatsAppContact(lady.phone, lady.username)}
-                        className="px-3 py-1.5 bg-emerald-950/80 hover:bg-emerald-900/80 text-emerald-300 rounded-xl text-xs font-bold border border-emerald-800/50 transition flex items-center gap-1.5 cursor-pointer"
+                        className="px-3 py-1.5 bg-emerald-950/80 hover:bg-emerald-900/80 text-emerald-300 rounded-xl text-xs font-bold border border-emerald-800/50 transition flex items-center gap-1.5 cursor-pointer shadow-sm"
                       >
-                        <MessageCircle size={14} /> Verify on WhatsApp
+                        <MessageCircle size={14} /> WhatsApp
                       </button>
 
-                      <button 
-                        onClick={() => handleOpenUserInspect(lady.username)}
-                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 transition flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <Edit3 size={14} /> Edit Location
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => handleOpenUserInspect(lady.username)}
+                          className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 transition flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Edit3 size={14} /> Edit
+                        </button>
+
+                        <button 
+                          onClick={() => handleDeleteUser(lady.username)}
+                          className="px-3 py-1.5 bg-red-950/60 hover:bg-red-900/80 text-red-300 rounded-xl text-xs font-bold border border-red-900/50 transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+                          title="Permanently Delete Profile"
+                        >
+                          <Trash2 size={14} /> Delete
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))
