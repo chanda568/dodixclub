@@ -13,7 +13,7 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
   const [gender, setGender] = useState('Female');
   const [location, setLocation] = useState('Lusaka');
   const [phone, setPhone] = useState('');
-  const [plan, setPlan] = useState('7 Days'); // Added plan state
+  const [plan, setPlan] = useState('7 Days');
   const [errorMsg, setErrorMsg] = useState('');
 
   const handleAuthSubmit = async (e) => {
@@ -44,7 +44,7 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
               gender,
               location,
               phone: phone.trim(),
-              plan: gender === 'Male' ? plan : 'N/A', // Send selected plan for males
+              plan: gender === 'Male' ? plan : 'N/A',
               role: gender === 'Female' ? 'companion' : 'client'
             })
           });
@@ -93,6 +93,12 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
     }
   };
 
+  const handleForgotPasswordWhatsApp = () => {
+    const adminPhone = "260970000000"; // Replace with your support/admin WhatsApp number
+    const msg = encodeURIComponent("Hello Dodix Admin, I forgot my account password and need assistance resetting it.");
+    window.open(`https://wa.me/${adminPhone}?text=${msg}`, '_blank');
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative text-slate-100">
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 w-full max-w-md shadow-2xl space-y-6">
@@ -135,7 +141,7 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
               <button 
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 text-slate-400 hover:text-white transition focus:outline-none"
+                className="absolute right-3 text-slate-400 hover:text-white transition focus:outline-none cursor-pointer"
               >
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
@@ -171,7 +177,6 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
                 </div>
               </div>
 
-              {/* Activation Plan Selector for Male Users */}
               {gender === 'Male' && (
                 <div className="space-y-1.5 p-3 bg-slate-800/60 border border-slate-700 rounded-2xl">
                   <label className="block font-bold text-pink-400">Choose Activation Plan</label>
@@ -218,6 +223,18 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
             {isLoading ? (loadingText || 'Processing...') : (isRegistering ? 'Create Account' : 'Sign In')}
           </button>
         </form>
+
+        {!isRegistering && (
+          <div className="text-center pt-1">
+            <button 
+              type="button"
+              onClick={handleForgotPasswordWhatsApp}
+              className="text-[11px] text-pink-400 hover:text-pink-300 underline transition cursor-pointer"
+            >
+              Forgot your password? Click here to contact Admin on WhatsApp
+            </button>
+          </div>
+        )}
 
         <div className="text-center pt-2 border-t border-slate-800">
           <button 

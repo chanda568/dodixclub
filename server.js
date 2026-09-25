@@ -194,6 +194,31 @@ app.post('/api/users/toggle', async (req, res) => {
   }
 });
 
+// Route to reset password (admin feature)
+app.post('/api/users/reset-password', async (req, res) => {
+  try {
+    const { username, newPassword } = req.body;
+    if (!username || !newPassword) {
+      return res.json({ success: false, error: "Username and new password are required." });
+    }
+
+    const cleanUsername = username.toLowerCase().trim();
+    const user = await User.findOne({ username: cleanUsername });
+    
+    if (!user) {
+      return res.json({ success: false, error: "User not found." });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    res.json({ success: true, message: "Password updated successfully." });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Route to delete a user
 app.delete('/api/users/:username', async (req, res) => {
   try {
@@ -308,6 +333,51 @@ app.post('/api/ladies', async (req, res) => {
     }
 
     res.json({ success: true, companion });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/ladies/approve', async (req, res) => {
+  try {
+    const { username } = req.body;
+    const cleanId = username?.toLowerCase().trim();
+    const companion = await Companion.findOne({
+      $or: [
+        { username: { $regex: new RegExp(`^${cleanId}$`, 'i') } },
+        { name: { $regex: new RegExp(`^${cleanId}$`, 'i') } }
+      ]
+    });
+
+    if (companion) {
+      companion.approved = true;
+      companion.updatedAt = new Date();
+      await companion.save();
+      res.json({ success: true, companion });
+    } else {
+      res.status(404).json({ success: false, error: 'Companion profile not found.' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/ladies/:identifier', async (req, res) => {
+  try {
+    const { identifier } = req.params;
+    const cleanId = identifier.toLowerCase().trim();
+    const result = await Companion.findOneAndDelete({
+      $or: [
+        { username: { $regex: new RegExp(`^${cleanId}$`, 'i') } },
+        { name: { $regex: new RegExp(`^${cleanId}$`, 'i') } }
+      ]
+    });
+
+    if (result) {
+      res.json({ success: true, message: 'Companion profile successfully removed.' });
+    } else {
+      res.status(404).json({ success: false, error: 'Companion profile not found.' });
+    }
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

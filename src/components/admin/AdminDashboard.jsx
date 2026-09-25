@@ -2,10 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, Users, Flag, Video, CheckCircle, XCircle, Trash2, 
-  LogOut, RefreshCw, X, MessageSquare, MapPin, Edit3, MessageCircle, Clock, Eye, Sparkles, Maximize2 
+  LogOut, RefreshCw, X, MessageSquare, MapPin, Edit3, MessageCircle, Clock, Eye, Sparkles, Maximize2, KeyRound, Bell, Plus 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LOGO_URL } from '../../data/constants';
+import { encryptStorageData, decryptStorageData } from '../../utils/storageEncryption';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
@@ -74,7 +75,10 @@ export default function AdminDashboard({
   const [activeSubTab, setActiveSubTab] = useState('users'); 
   const [reports, setReports] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
-  const [selectedConversation, setSelectedConversation] = useState(null);
+  const [newTitle, setNewTitle] = useState('');
+  const [newContent, setNewContent] = useState('');
+  const [newVisibility, setNewVisibility] = useState('all');
+
   const [selectedReportUser, setSelectedReportUser] = useState(null);
   const [selectedCompanionModal, setSelectedCompanionModal] = useState(null);
   const [fullScreenImage, setFullScreenImage] = useState(null);
@@ -108,8 +112,46 @@ export default function AdminDashboard({
   useEffect(() => {
     loadBackendData();
     const interval = setInterval(loadBackendData, 3000);
+
+    try {
+      const savedAnnouncements = localStorage.getItem('dodix_announcements_db');
+      if (savedAnnouncements) {
+        setAnnouncements(decryptStorageData(savedAnnouncements) || []);
+      }
+    } catch (err) {
+      console.error("Error loading announcements:", err);
+    }
+
     return () => clearInterval(interval);
   }, []);
+
+  const handleCreateAnnouncement = (e) => {
+    e.preventDefault();
+    if (!newTitle.trim() || !newContent.trim()) {
+      alert("Please provide both a title and content.");
+      return;
+    }
+    const newAnnouncement = {
+      id: Date.now(),
+      title: newTitle.trim(),
+      content: newContent.trim(),
+      visibility: newVisibility,
+      timestamp: new Date().toLocaleString()
+    };
+    const updated = [newAnnouncement, ...announcements];
+    setAnnouncements(updated);
+    localStorage.setItem('dodix_announcements_db', encryptStorageData(updated));
+    setNewTitle('');
+    setNewContent('');
+    alert("Announcement successfully published!");
+  };
+
+  const handleDeleteAnnouncement = (id) => {
+    if (!window.confirm("Delete this announcement?")) return;
+    const updated = announcements.filter(item => item.id !== id);
+    setAnnouncements(updated);
+    localStorage.setItem('dodix_announcements_db', encryptStorageData(updated));
+  };
 
   const handleWhatsAppContact = (phone, name) => {
     if (!phone || phone === 'Not Provided') {
@@ -134,7 +176,7 @@ export default function AdminDashboard({
     }
 
     const cleanPhone = phone.replace(/[^0-9]/g, '');
-    const defaultMsg = encodeURIComponent(`Hello @${cleanReporterName}, this is Dodix Admin regarding the report you submitted. We would like to ask you a few further questions.`);
+    const defaultMsg = encodeURIComponent(`Hello @${cleanReporterName}, this is Dodix Admin regarding the report you submitted.`);
     window.open(`https://wa.me/${cleanPhone}?text=${defaultMsg}`, '_blank');
   };
 
@@ -154,6 +196,31 @@ export default function AdminDashboard({
       }
     } catch (err) {
       console.error("Error toggling user activation:", err);
+    }
+  };
+
+  const handleAdminPasswordReset = async (username) => {
+    const newPassword = prompt(`Enter a new temporary password for @${username}:`);
+    if (!newPassword || newPassword.trim().length < 6) {
+      alert("Password must be at least 6 characters long.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/users/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, newPassword: newPassword.trim() })
+      });
+      const data = await response.json();
+      if (data.success) {
+        alert(`Password for @${username} has been successfully reset!`);
+      } else {
+        alert(data.error || "Failed to reset password.");
+      }
+    } catch (err) {
+      console.error("Error resetting password:", err);
+      alert("Network error connecting to server.");
     }
   };
 
@@ -217,7 +284,6 @@ export default function AdminDashboard({
         alert(`Advertisement for @${username} has been rejected and removed.`);
         setSelectedCompanionModal(null);
       } else {
-        // Fallback local filter if backend route differs
         const filtered = ladies.filter(l => l.username?.toLowerCase() !== username.toLowerCase() && l.name?.toLowerCase() !== username.toLowerCase());
         setLadies(filtered);
         alert(`Advertisement for @${username} has been rejected and removed.`);
@@ -225,7 +291,6 @@ export default function AdminDashboard({
       }
     } catch (err) {
       console.error("Error rejecting companion:", err);
-      // Fallback local filter
       const filtered = ladies.filter(l => l.username?.toLowerCase() !== username.toLowerCase() && l.name?.toLowerCase() !== username.toLowerCase());
       setLadies(filtered);
       alert(`Advertisement for @${username} has been rejected and removed.`);
@@ -510,6 +575,15 @@ export default function AdminDashboard({
                       </div>
                     </div>
                   )}
+                </div>
+
+                <div className="pt-2 border-t border-slate-800">
+                  <button
+                    onClick={() => handleAdminPasswordReset(selectedReportUser.username)}
+                    className="w-full py-2.5 bg-purple-950/80 hover:bg-purple-900/80 text-purple-300 font-bold rounded-xl text-xs border border-purple-800/50 flex items-center justify-center gap-2 transition cursor-pointer shadow-sm"
+                  >
+                    <KeyRound size={15} /> Reset User Password
+                  </button>
                 </div>
 
                 <div className="flex justify-between items-center text-xs pt-1 border-t border-slate-800">
