@@ -5,7 +5,6 @@ import { WebSocketServer, WebSocket } from 'ws';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
-import nodemailer from 'nodemailer';
 
 dotenv.config();
 
@@ -19,29 +18,6 @@ const server = createServer(app);
 
 // 2. Attach WebSocket Server to the HTTP server
 const wss = new WebSocketServer({ server });
-
-// --- GMAIL NODEMAILER TRANSPORTER SETUP ---
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465,
-  secure: true, // true for port 465
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  },
-  tls: {
-    rejectUnauthorized: false
-  }
-});
-
-// Verify SMTP connection on startup
-transporter.verify((error, success) => {
-  if (error) {
-    console.error('[Email Setup Error]:', error);
-  } else {
-    console.log('[Email Setup]: Gmail SMTP server is ready to take messages');
-  }
-});
 
 // --- MONGODB CONNECTION ---
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/dodixclub';
@@ -73,9 +49,7 @@ const userSchema = new mongoose.Schema({
   plan: { type: String, default: '7 Days' }, // Subscription plan for males ('7 Days' or '30 Days')
   role: { type: String, default: 'client' },
   activated: { type: Boolean, default: false },
-  emailOtp: { type: String, default: null },
-  emailOtpExpires: { type: Date, default: null },
-  isEmailVerified: { type: Boolean, default: false },
+  isEmailVerified: { type: Boolean, default: true }, // Default to true since email verification is removed
   createdAt: { type: Date, default: Date.now } // Registration timestamp
 });
 
@@ -123,7 +97,7 @@ async function seedDefaultAdmin() {
   if (count === 0) {
     const hashedPassword = await bcrypt.hash('password123', 10);
     const defaultUsers = [
-      { username: 'admin', password: hashedPassword, gender: 'Male', location: 'Lusaka', role: 'admin', activated: true }
+      { username: 'admin', password: hashedPassword, gender: 'Male', location: 'Lusaka', role: 'admin', activated: true, isEmailVerified: true }
     ];
     await User.insertMany(defaultUsers);
     console.log('[Database] Seeded default admin into MongoDB.');
@@ -158,63 +132,7 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// --- EMAIL OTP ROUTES ---
-
-// 1. Send Email OTP Route
-app.post('/api/send-email-otp', async (req, res) => {
-  try {
-    const { email } = req.body;
-    if (!email) {
-      return res.json({ success: false, error: "Email address is required." });
-    }
-
-    const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit code
-    const expires = new Date(Date.now() + 10 * 60 * 1000); // Valid for 10 mins
-
-    // Upsert temporary record to store OTP against the email
-    await User.findOneAndUpdate(
-      { email: email.toLowerCase().trim() },
-      { emailOtp: otp, emailOtpExpires: expires },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
-    );
-
-    // Send email via Gmail SMTP
-    await transporter.sendMail({
-      from: '"DodixClub Support" <' + process.env.EMAIL_USER + '>',
-      to: email,
-      subject: 'Your DodixClub Verification Code',
-      text: `Hello,\n\nYour verification code for DodixClub is: ${otp}\n\nThis code will expire in 10 minutes.\n\nBest regards,\nDodixClub Team`
-    });
-
-    res.json({ success: true, message: 'OTP sent successfully to your email.' });
-  } catch (err) {
-    console.error('Error sending email OTP:', err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// 2. Verify Email OTP Route
-app.post('/api/verify-email-otp', async (req, res) => {
-  try {
-    const { email, otp } = req.body;
-    const user = await User.findOne({ email: email?.toLowerCase().trim() });
-
-    if (!user || user.emailOtp !== otp || new Date() > user.emailOtpExpires) {
-      return res.json({ success: false, error: 'Invalid or expired verification code.' });
-    }
-
-    user.isEmailVerified = true;
-    user.emailOtp = null;
-    user.emailOtpExpires = null;
-    await user.save();
-
-    res.json({ success: true, message: 'Email verified successfully!' });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// Register route
+// Register route (Direct registration without email OTP)
 app.post('/api/register', async (req, res) => {
   try {
     const { username, password, email, gender, location, role, phone, plan } = req.body;
@@ -231,36 +149,21 @@ app.post('/api/register', async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Find if user record already exists via email verification flow or create new
-    let newUser = await User.findOne({ email: email?.toLowerCase().trim() });
+    const newUser = new User({
+      username: cleanUsername,
+      password: hashedPassword,
+      email: email ? email.toLowerCase().trim() : '',
+      gender,
+      location,
+      phone: phone || '',
+      plan: gender === 'Male' ? (plan || '7 Days') : 'N/A',
+      role: role || 'client',
+      activated: false,
+      isEmailVerified: true,
+      createdAt: new Date()
+    });
 
-    if (newUser) {
-      newUser.username = cleanUsername;
-      newUser.password = hashedPassword;
-      newUser.gender = gender;
-      newUser.location = location;
-      newUser.phone = phone || '';
-      newUser.plan = gender === 'Male' ? (plan || '7 Days') : 'N/A';
-      newUser.role = role || 'client';
-      newUser.activated = false;
-      newUser.createdAt = new Date();
-      await newUser.save();
-    } else {
-      newUser = new User({
-        username: cleanUsername,
-        password: hashedPassword,
-        email: email ? email.toLowerCase().trim() : '',
-        gender,
-        location,
-        phone: phone || '',
-        plan: gender === 'Male' ? (plan || '7 Days') : 'N/A',
-        role: role || 'client',
-        activated: false,
-        createdAt: new Date()
-      });
-      await newUser.save();
-    }
-
+    await newUser.save();
     res.json({ success: true, user: newUser });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
