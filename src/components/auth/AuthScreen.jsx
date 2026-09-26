@@ -11,8 +11,8 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [gender, setGender] = useState('Female');
-  const [location, setLocation] = useState('Lusaka');
+  const [gender, setGender] = useState('');
+  const [location, setLocation] = useState('');
   const [phoneInput, setPhoneInput] = useState('');
   const [plan, setPlan] = useState('7 Days');
   const [errorMsg, setErrorMsg] = useState('');
@@ -27,7 +27,17 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
       return;
     }
 
-    if (isRegistering && gender === 'Female' && (!phoneInput.trim() || phoneInput.trim().length < 9)) {
+    if (!gender) {
+      setErrorMsg('Please select your gender.');
+      return;
+    }
+
+    if (!location) {
+      setErrorMsg('Please select your location area.');
+      return;
+    }
+
+    if (gender === 'Female' && (!phoneInput.trim() || phoneInput.trim().length < 9)) {
       setErrorMsg('Please provide a valid WhatsApp number (e.g., 970000000).');
       return;
     }
@@ -45,7 +55,7 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
             password: password.trim(),
             gender,
             location,
-            phone: cleanPhone,
+            phone: gender === 'Female' ? cleanPhone : '',
             plan: gender === 'Male' ? plan : 'N/A',
             role: gender === 'Female' ? 'companion' : 'client'
           })
@@ -172,6 +182,7 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
                     onChange={(e) => setGender(e.target.value)} 
                     className="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-pink-400 font-semibold focus:outline-none focus:border-pink-500"
                   >
+                    <option value="" disabled>Select Gender</option>
                     <option value="Female">Female</option>
                     <option value="Male">Male</option>
                     <option value="Other">Other</option>
@@ -184,6 +195,7 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
                     onChange={(e) => setLocation(e.target.value)} 
                     className="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-pink-400 font-semibold focus:outline-none focus:border-pink-500"
                   >
+                    <option value="" disabled>Select Location</option>
                     {ZAMBIAN_LOCATIONS.map(loc => (
                       <option key={loc} value={loc}>{loc}</option>
                     ))}
