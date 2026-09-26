@@ -82,6 +82,7 @@ export default function AdminDashboard({
   const [selectedReportUser, setSelectedReportUser] = useState(null);
   const [selectedCompanionModal, setSelectedCompanionModal] = useState(null);
   const [fullScreenImage, setFullScreenImage] = useState(null);
+  const [fullScreenVideo, setFullScreenVideo] = useState(null); // Full screen video player state
   
   const [isFaceRevealed, setIsFaceRevealed] = useState(false);
   const [isEditingLocation, setIsEditingLocation] = useState(false);
@@ -138,7 +139,6 @@ export default function AdminDashboard({
       const resLadies = await fetch(`${BACKEND_URL}/api/ladies`);
       const dataLadies = await resLadies.json();
       if (dataLadies.success && Array.isArray(dataLadies.ladies)) {
-        // Silently ensure every lady object has both unmasked and masked photo versions cached
         const processedLadies = dataLadies.ladies.map(lady => {
           const rawPhoto = lady.originalPhoto || lady.unmaskedPhoto || lady.photo;
           return {
@@ -371,6 +371,7 @@ export default function AdminDashboard({
   return (
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col font-sans selection:bg-pink-500 selection:text-white">
       
+      {/* FULL SCREEN IMAGE MODAL */}
       <AnimatePresence>
         {fullScreenImage && (
           <div className="fixed inset-0 bg-black/95 backdrop-blur-lg z-50 flex items-center justify-center p-4">
@@ -386,6 +387,30 @@ export default function AdminDashboard({
                   src={fullScreenImage} 
                   alt="Full Size Advertisement" 
                   className="max-w-full max-h-[85vh] object-contain block"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* FULL SCREEN VIDEO MODAL */}
+      <AnimatePresence>
+        {fullScreenVideo && (
+          <div className="fixed inset-0 bg-black/95 backdrop-blur-lg z-50 flex items-center justify-center p-4">
+            <div className="relative max-w-5xl max-h-[90vh] w-full h-full flex items-center justify-center">
+              <button 
+                onClick={() => setFullScreenVideo(null)}
+                className="absolute top-4 right-4 p-3 text-white bg-slate-900/80 hover:bg-slate-800 rounded-full border border-slate-700 transition cursor-pointer z-10 shadow-xl"
+              >
+                <X size={24} />
+              </button>
+              <div className="relative max-w-full max-h-[85vh] overflow-hidden rounded-2xl shadow-2xl border border-slate-800 bg-black flex items-center justify-center p-2">
+                <video 
+                  src={fullScreenVideo} 
+                  controls 
+                  autoPlay
+                  className="max-w-full max-h-[80vh] object-contain block mx-auto"
                 />
               </div>
             </div>
@@ -439,7 +464,7 @@ export default function AdminDashboard({
                 </div>
               </div>
 
-              {/* PRIVACY TOGGLE: Instantly switches between masked and silently duplicated unmasked photo */}
+              {/* PRIVACY TOGGLE */}
               <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
@@ -458,12 +483,19 @@ export default function AdminDashboard({
                   {isFaceRevealed ? 'Showing original unmasked face photo for admin review.' : 'Showing public version with privacy sticker.'}
                 </p>
 
-                <div className="relative w-full h-48 bg-black rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center">
+                <div 
+                  onClick={() => setFullScreenImage(isFaceRevealed ? (selectedCompanionModal.originalPhoto || selectedCompanionModal.unmaskedPhoto || selectedCompanionModal.photo) : selectedCompanionModal.photo)}
+                  className="relative w-full h-48 bg-black rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center cursor-pointer group"
+                  title="Click to expand image"
+                >
                   <img 
                     src={isFaceRevealed ? (selectedCompanionModal.originalPhoto || selectedCompanionModal.unmaskedPhoto || selectedCompanionModal.photo) : selectedCompanionModal.photo} 
                     alt="Review Photo" 
-                    className="max-h-full max-w-full object-contain"
+                    className="max-h-full max-w-full object-contain group-hover:scale-105 transition"
                   />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white">
+                    <Maximize2 size={20} /> Click to Expand
+                  </div>
                 </div>
               </div>
 
@@ -485,10 +517,22 @@ export default function AdminDashboard({
                 </div>
               )}
 
+              {/* VERIFICATION VIDEO SECTION WITH FULL SCREEN WATCH BUTTON */}
               <div className="space-y-2 p-4 bg-purple-950/20 border border-purple-800/40 rounded-2xl">
-                <span className="text-xs font-bold text-purple-300 flex items-center gap-1.5">
-                  <Video size={15} className="text-pink-400" /> Promotional Verification Video
-                </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-purple-300 flex items-center gap-1.5">
+                    <Video size={15} className="text-pink-400" /> Promotional Verification Video
+                  </span>
+                  {selectedCompanionModal.verificationVideoUrl && (
+                    <button
+                      onClick={() => setFullScreenVideo(selectedCompanionModal.verificationVideoUrl)}
+                      className="px-2.5 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-[10px] font-bold flex items-center gap-1 transition cursor-pointer shadow"
+                    >
+                      <Maximize2 size={12} /> Watch Fullscreen
+                    </button>
+                  )}
+                </div>
+
                 {selectedCompanionModal.verificationVideoUrl ? (
                   <div className="space-y-2">
                     <div className="w-full bg-black rounded-xl overflow-hidden border border-purple-900/50 flex items-center justify-center">
