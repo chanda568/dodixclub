@@ -28,10 +28,7 @@ export default function ClientDirectory({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProfile, setSelectedProfile] = useState(null);
 
-  // Admin users state with real-time last seen tracking
   const [allUsers, setAllUsers] = useState([]);
-
-  // News and Announcements state
   const [announcements, setAnnouncements] = useState([]);
 
   // Admin announcement form state
@@ -39,7 +36,7 @@ export default function ClientDirectory({
   const [newContent, setNewContent] = useState('');
   const [newVisibility, setNewVisibility] = useState('all');
 
-  // Heartbeat / Last Seen tracker for current user
+  // HEARTBEAT SYNC: Logs immediate online presence upon any active session
   useEffect(() => {
     if (!currentUser?.username) return;
 
@@ -74,7 +71,7 @@ export default function ClientDirectory({
     };
 
     updateLastSeen();
-    const interval = setInterval(updateLastSeen, 15000); // Heartbeat every 15 seconds
+    const interval = setInterval(updateLastSeen, 10000); // 10-second heartbeat
     return () => clearInterval(interval);
   }, [currentUser]);
 
@@ -116,7 +113,7 @@ export default function ClientDirectory({
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
 
-    if (diffMins < 2) return 'Active now';
+    if (diffMins < 5) return 'Active now';
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     return `${diffDays}d ago`;

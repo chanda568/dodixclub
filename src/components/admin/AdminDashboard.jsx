@@ -85,6 +85,7 @@ export default function AdminDashboard({
   const [isEditingLocation, setIsEditingLocation] = useState(false);
   const [newLocationInput, setNewLocationInput] = useState('');
 
+  // Fixed threshold: 5 minutes window for live online status
   const formatLastSeenDetail = (isoString) => {
     if (!isoString) return { isOnline: false, text: 'Offline' };
     const lastSeenDate = new Date(isoString);
@@ -92,7 +93,7 @@ export default function AdminDashboard({
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMins / 60);
 
-    if (diffMins < 2) {
+    if (diffMins < 5) {
       return { isOnline: true, text: 'Online (Active now)' };
     }
 
@@ -110,7 +111,28 @@ export default function AdminDashboard({
       const resUsers = await fetch(`${BACKEND_URL}/api/users`);
       const dataUsers = await resUsers.json();
       if (dataUsers.success && Array.isArray(dataUsers.users)) {
-        setUsersDb(dataUsers.users);
+        // Merge with local storage lastSeen data so heartbeats persist
+        const localSaved = localStorage.getItem('dodix_users_db');
+        let localUsersMap = {};
+        if (localSaved) {
+          try {
+            const decryptedLocal = decryptStorageData(localSaved) || [];
+            decryptedLocal.forEach(u => {
+              if (u.username && u.lastSeen) {
+                localUsersMap[u.username.toLowerCase()] = u.lastSeen;
+              }
+            });
+          } catch (e) {
+            console.error("Error decrypting local users db:", e);
+          }
+        }
+
+        const mergedUsers = dataUsers.users.map(u => ({
+          ...u,
+          lastSeen: localUsersMap[u.username?.toLowerCase()] || u.lastSeen || new Date().toISOString() // Fallback to current if active session
+        }));
+
+        setUsersDb(mergedUsers);
       }
 
       const resLadies = await fetch(`${BACKEND_URL}/api/ladies`);
@@ -144,34 +166,6 @@ export default function AdminDashboard({
 
     return () => clearInterval(interval);
   }, []);
-
-  const handleCreateAnnouncement = (e) => {
-    e.preventDefault();
-    if (!newTitle.trim() || !newContent.trim()) {
-      alert("Please provide both a title and content.");
-      return;
-    }
-    const newAnnouncement = {
-      id: Date.now(),
-      title: newTitle.trim(),
-      content: newContent.trim(),
-      visibility: newVisibility,
-      timestamp: new Date().toISOString()
-    };
-    const updated = [newAnnouncement, ...announcements];
-    setAnnouncements(updated);
-    localStorage.setItem('dodix_announcements_db', encryptStorageData(updated));
-    setNewTitle('');
-    setNewContent('');
-    alert("Announcement successfully published!");
-  };
-
-  const handleDeleteAnnouncement = (id) => {
-    if (!window.confirm("Delete this announcement?")) return;
-    const updated = announcements.filter(item => item.id !== id);
-    setAnnouncements(updated);
-    localStorage.setItem('dodix_announcements_db', encryptStorageData(updated));
-  };
 
   const handleWhatsAppContact = (phone, name) => {
     if (!phone || phone === 'Not Provided') {
@@ -303,18 +297,9 @@ export default function AdminDashboard({
         loadBackendData();
         alert(`Advertisement for @${username} has been rejected and removed.`);
         setSelectedCompanionModal(null);
-      } else {
-        const filtered = ladies.filter(l => l.username?.toLowerCase() !== username.toLowerCase() && l.name?.toLowerCase() !== username.toLowerCase());
-        setLadies(filtered);
-        alert(`Advertisement for @${username} has been rejected and removed.`);
-        setSelectedCompanionModal(null);
       }
     } catch (err) {
       console.error("Error rejecting companion:", err);
-      const filtered = ladies.filter(l => l.username?.toLowerCase() !== username.toLowerCase() && l.name?.toLowerCase() !== username.toLowerCase());
-      setLadies(filtered);
-      alert(`Advertisement for @${username} has been rejected and removed.`);
-      setSelectedCompanionModal(null);
     }
   };
 
@@ -708,7 +693,7 @@ export default function AdminDashboard({
                 <h2 className="text-base font-extrabold text-white">Registered Users & Client Database</h2>
                 <p className="text-xs text-slate-400">Inspect accounts, view real-time online status / exact last seen, registration & expiry countdown</p>
               </div>
-              <button onClick={loadBackendData} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition cursor-pointer">
+              <button onClick={loadBackendData} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition cursor-pointer" title="Refresh Users">
                 <RefreshCw size={16} />
               </button>
             </div>
