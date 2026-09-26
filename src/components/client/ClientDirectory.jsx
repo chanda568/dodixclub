@@ -54,15 +54,8 @@ export default function ClientDirectory({
           {
             id: 2,
             title: 'Exclusive Notice for Female Companions',
-            content: 'Mandatory verification video clips must be updated regularly. Please check your profile tab to verify your status.',
+            content: 'Mandatory verification video clips must be updated regularly. You can post up to 5 advertisements daily.',
             visibility: 'female',
-            timestamp: new Date().toISOString()
-          },
-          {
-            id: 3,
-            title: 'Elite Member Guidelines & Etiquette',
-            content: 'Remember to respect scheduled bookings and review our code of conduct regarding platform time wasters.',
-            visibility: 'male',
             timestamp: new Date().toISOString()
           }
         ];
@@ -112,20 +105,28 @@ export default function ClientDirectory({
     window.open(`https://wa.me/${adminPhone}?text=${supportMsg}`, '_blank');
   };
 
-  const myExistingLadyProfile = ladies.find(
-    l => l.name?.toLowerCase() === currentUser?.username?.toLowerCase() || l.username?.toLowerCase() === currentUser?.username?.toLowerCase()
-  );
+  // Calculate ads posted today by this user
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
 
-  const [formName, setFormName] = useState(myExistingLadyProfile?.name || currentUser?.username || '');
-  const [formCategory, setFormCategory] = useState(myExistingLadyProfile?.category || 'VIP');
-  const [formPrice, setFormPrice] = useState(myExistingLadyProfile?.price || '');
-  const [formLocation, setFormLocation] = useState(myExistingLadyProfile?.location || userLockedLocation);
-  const [formSpecific, setFormSpecific] = useState(myExistingLadyProfile?.specificLocation || '');
-  const [formPhone, setFormPhone] = useState(myExistingLadyProfile?.phone || '');
-  const [formPhoto, setFormPhoto] = useState(myExistingLadyProfile?.photo || '');
-  const [formAge, setFormAge] = useState(myExistingLadyProfile?.age || '23');
-  const [formHosting, setFormHosting] = useState(myExistingLadyProfile?.hosting || 'Yes');
-  const [formServices, setFormServices] = useState(myExistingLadyProfile?.extraServices || '');
+  const todaysUserAds = ladies.filter(l => {
+    const isOwner = l.username?.toLowerCase() === currentUser?.username?.toLowerCase() || l.name?.toLowerCase() === currentUser?.username?.toLowerCase();
+    const adDate = l.createdAt ? new Date(l.createdAt) : new Date(0);
+    return isOwner && adDate >= todayStart;
+  });
+
+  const adsRemaining = Math.max(0, 5 - todaysUserAds.length);
+
+  const [formName, setFormName] = useState(currentUser?.username || '');
+  const [formCategory, setFormCategory] = useState('VIP');
+  const [formPrice, setFormPrice] = useState('');
+  const [formLocation, setFormLocation] = useState(userLockedLocation);
+  const [formSpecific, setFormSpecific] = useState('');
+  const [formPhone, setFormPhone] = useState('');
+  const [formPhoto, setFormPhoto] = useState('');
+  const [formAge, setFormAge] = useState('23');
+  const [formHosting, setFormHosting] = useState('Yes');
+  const [formServices, setFormServices] = useState('');
 
   // Compact Interactive Sticker Editor states for face privacy masking
   const [rawImageForSticker, setRawImageForSticker] = useState(null);
@@ -133,120 +134,19 @@ export default function ClientDirectory({
   const [isDraggingSticker, setIsDraggingSticker] = useState(false);
   const stickerContainerRef = useRef(null);
 
-  const [verificationVideoUrl, setVerificationVideoUrl] = useState(myExistingLadyProfile?.verificationVideoUrl || '');
-  const [verificationVideoName, setVerificationVideoName] = useState(myExistingLadyProfile?.verificationVideoName || '');
+  const [verificationVideoUrl, setVerificationVideoUrl] = useState('');
+  const [verificationVideoName, setVerificationVideoName] = useState('');
 
   const [profileHistory, setProfileHistory] = useState(() => {
     try {
       const saved = localStorage.getItem(`dodix_history_${currentUser?.username}`);
       return saved ? (decryptStorageData(saved) || []) : [
-        { id: 1, action: 'Profile Initialized', timestamp: new Date().toISOString(), status: 'Pending Review' }
+        { id: 1, action: 'Profile Initialized', timestamp: new Date().toISOString(), status: 'Ready' }
       ];
     } catch {
       return [];
     }
   });
-
-  useEffect(() => {
-    if (!isFemaleUser || !currentUser?.username) return;
-    try {
-      const myLady = ladies.find(
-        l => l.username?.toLowerCase() === currentUser.username.toLowerCase() || 
-             l.name?.toLowerCase() === currentUser.username.toLowerCase()
-      );
-      
-      if (myLady) {
-        const isApproved = myLady.approved !== false;
-        const statusKey = `dodix_last_notified_status_${currentUser.username}`;
-        const lastStatus = localStorage.getItem(statusKey);
-        const currentStatusStr = isApproved ? 'APPROVED' : 'PENDING';
-
-        if (lastStatus !== currentStatusStr) {
-          localStorage.setItem(statusKey, currentStatusStr);
-          
-          const statusAnnouncement = {
-            id: Date.now(),
-            title: isApproved ? '🎉 Advertisement Approved!' : '⚠️ Advertisement Under Review / Update Required',
-            content: isApproved 
-              ? `Great news @${currentUser.username}! Your companion advertisement has been successfully approved by Dodix Admin and is now live in the Elite Directory.` 
-              : `Hello @${currentUser.username}, your companion advertisement listing is currently pending review or requires verification updates.`,
-            visibility: 'female',
-            targetUsername: currentUser.username.toLowerCase(),
-            timestamp: new Date().toISOString()
-          };
-
-          setAnnouncements(prev => {
-            const updated = [statusAnnouncement, ...prev];
-            localStorage.setItem('dodix_announcements_db', encryptStorageData(updated));
-            return updated;
-          });
-
-          const newHistoryItem = {
-            id: Date.now(),
-            action: isApproved ? 'Advertisement Approved by Admin' : 'Advertisement Status Updated',
-            timestamp: new Date().toISOString(),
-            status: isApproved ? 'Approved' : 'Pending Review'
-          };
-          setProfileHistory(prev => {
-            const updatedHistory = [newHistoryItem, ...prev];
-            localStorage.setItem(`dodix_history_${currentUser?.username}`, encryptStorageData(updatedHistory));
-            return updatedHistory;
-          });
-        }
-      }
-    } catch (err) {
-      console.error("Error syncing status notification:", err);
-    }
-  }, [ladies, currentUser, isFemaleUser]);
-
-  useEffect(() => {
-    const checkUserStatus = () => {
-      try {
-        const rawUsers = localStorage.getItem('dodix_users_db');
-        if (rawUsers && currentUser?.username && !isAdminUser) {
-          const usersDb = decryptStorageData(rawUsers) || [];
-          const freshUserData = usersDb.find(
-            u => u.username?.toLowerCase() === currentUser.username?.toLowerCase()
-          );
-
-          if (freshUserData && freshUserData.activated === false) {
-            sessionStorage.removeItem('dodix_current_user');
-            setCurrentUser(null);
-            alert("Your account has been suspended by an administrator.");
-            window.location.reload();
-          }
-        }
-      } catch (err) {
-        console.error("Error checking user status sync:", err);
-      }
-    };
-
-    const interval = setInterval(checkUserStatus, 3000);
-    return () => clearInterval(interval);
-  }, [currentUser, setCurrentUser, isAdminUser]);
-
-  const handleSyncAccountStatus = () => {
-    try {
-      const rawUsers = localStorage.getItem('dodix_users_db');
-      if (rawUsers) {
-        const usersDb = decryptStorageData(rawUsers) || [];
-        const latestUserData = usersDb.find(u => u.username?.toLowerCase() === currentUser.username?.toLowerCase());
-        
-        if (latestUserData) {
-          setCurrentUser(latestUserData);
-          sessionStorage.setItem('dodix_current_user', encryptStorageData(latestUserData));
-          
-          if (latestUserData.activated === true) {
-            window.location.reload();
-          } else {
-            alert("Account is still pending admin activation or suspended.");
-          }
-        }
-      }
-    } catch (err) {
-      console.error("Sync error:", err);
-    }
-  };
 
   const handleLocalImageUpload = (e) => {
     const file = e.target.files[0];
@@ -320,17 +220,23 @@ export default function ClientDirectory({
 
   const handleSaveLadyProfile = async (e) => {
     e.preventDefault();
+
+    if (adsRemaining <= 0) {
+      alert("You have reached your daily limit of 5 advertisements per day. Please try again tomorrow.");
+      return;
+    }
+
     if (!formPhone || !formPrice) {
       alert("Please fill in your phone number and rate/price.");
       return;
     }
 
     if (!verificationVideoUrl) {
-      alert("Mandatory requirement: Please upload a promotional advertisement video clip before submitting your profile.");
+      alert("Mandatory requirement: Please upload a promotional advertisement video clip before submitting your ad.");
       return;
     }
 
-    const updatedProfile = {
+    const newAdData = {
       username: currentUser.username,
       name: formName || currentUser.username,
       category: formCategory,
@@ -338,7 +244,7 @@ export default function ClientDirectory({
       location: formLocation,
       specificLocation: formSpecific,
       phone: formPhone,
-      photo: formPhoto || myExistingLadyProfile?.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80',
+      photo: formPhoto || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80',
       age: formAge,
       hosting: formHosting,
       extraServices: formServices,
@@ -350,37 +256,30 @@ export default function ClientDirectory({
       const response = await fetch(`${BACKEND_URL}/api/ladies`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedProfile)
+        body: JSON.stringify(newAdData)
       });
       const data = await response.json();
 
       if (data.success) {
-        let updatedLadiesList = [];
-        if (myExistingLadyProfile) {
-          updatedLadiesList = ladies.map(l => l.username?.toLowerCase() === currentUser.username?.toLowerCase() ? { ...data.companion, id: data.companion._id } : l);
-        } else {
-          updatedLadiesList = [{ ...data.companion, id: data.companion._id }, ...ladies];
-        }
-        setLadies(updatedLadiesList);
-
-        alert("Your companion listing details and sticker-masked photo have been successfully saved and sent to Admin for review!");
+        setLadies([data.companion, ...ladies]);
+        alert(`Advertisement successfully posted! You have ${adsRemaining - 1} ad(s) remaining for today.`);
+        
+        const newHistoryItem = {
+          id: Date.now(),
+          action: `Published Advertisement (${6 - adsRemaining}/5)`,
+          timestamp: new Date().toISOString(),
+          status: 'Active / Published'
+        };
+        const updatedHistory = [newHistoryItem, ...profileHistory];
+        setProfileHistory(updatedHistory);
+        localStorage.setItem(`dodix_history_${currentUser?.username}`, encryptStorageData(updatedHistory));
       } else {
-        alert(data.error || "Failed to submit profile.");
+        alert(data.error || "Failed to post advertisement.");
       }
     } catch (err) {
-      console.error("Error submitting profile to backend:", err);
+      console.error("Error posting ad to backend:", err);
       alert("Network error connecting to server.");
     }
-
-    const newHistoryItem = {
-      id: Date.now(),
-      action: myExistingLadyProfile ? 'Updated Companion Listing Details' : 'Created New Companion Listing',
-      timestamp: new Date().toISOString(),
-      status: 'Submitted / Pending Review'
-    };
-    const updatedHistory = [newHistoryItem, ...profileHistory];
-    setProfileHistory(updatedHistory);
-    localStorage.setItem(`dodix_history_${currentUser?.username}`, encryptStorageData(updatedHistory));
   };
 
   const handleReportSubmit = async (e) => {
@@ -448,7 +347,7 @@ export default function ClientDirectory({
 
           <div className="space-y-3">
             <button
-              onClick={handleSyncAccountStatus}
+              onClick={() => window.location.reload()}
               className="w-full py-3.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-pink-600/20 transition"
             >
               <RefreshCw size={16} /> Sync & Check Activation Status
@@ -772,7 +671,7 @@ export default function ClientDirectory({
                         onClick={() => { setActiveTab('myprofile'); setSidebarOpen(false); }}
                         className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 transition ${activeTab === 'myprofile' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
                       >
-                        <User size={16} /> My Companion Profile
+                        <User size={16} /> Post Advertisement ({adsRemaining}/5 left)
                       </button>
                       <button 
                         onClick={() => { setActiveTab('history'); setSidebarOpen(false); }}
@@ -866,7 +765,7 @@ export default function ClientDirectory({
                   onClick={() => setActiveTab('myprofile')}
                   className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition ${activeTab === 'myprofile' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg shadow-pink-600/20' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
                 >
-                  <User size={16} /> My Companion Profile
+                  <User size={16} /> Post Advertisement ({adsRemaining}/5 left)
                 </button>
                 <button 
                   onClick={() => setActiveTab('history')}
@@ -1082,7 +981,7 @@ export default function ClientDirectory({
               <div className="space-y-6 max-w-3xl">
                 <div>
                   <h2 className="text-2xl font-black text-white tracking-tight">Companion Activity History</h2>
-                  <p className="text-xs text-slate-400 mt-1">Track your profile updates, submissions, and review logs.</p>
+                  <p className="text-xs text-slate-400 mt-1">Track your daily advertisement submissions and logs.</p>
                 </div>
 
                 <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-4">
@@ -1104,7 +1003,7 @@ export default function ClientDirectory({
                             </span>
                             <h4 className="text-xs font-bold text-white">{item.action}</h4>
                           </div>
-                          <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold uppercase ${item.status === 'Approved' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/40' : 'bg-amber-950 text-amber-400 border border-amber-800/40'}`}>
+                          <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold uppercase ${item.status === 'Active / Published' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/40' : 'bg-amber-950 text-amber-400 border border-amber-800/40'}`}>
                             {item.status}
                           </span>
                         </div>
@@ -1115,9 +1014,15 @@ export default function ClientDirectory({
               </div>
             ) : (
               <div className="space-y-6 max-w-3xl">
-                <div>
-                  <h2 className="text-2xl font-black text-white tracking-tight">Companion Listing Management</h2>
-                  <p className="text-xs text-slate-400 mt-1">Configure your directory listing details and upload privacy sticker-masked advertisement photos.</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-black text-white tracking-tight">Post Advertisement</h2>
+                    <p className="text-xs text-slate-400 mt-1">Configure your directory listing details and upload privacy sticker-masked advertisement photos.</p>
+                  </div>
+                  <div className="bg-pink-950/60 border border-pink-800/50 px-4 py-2 rounded-2xl text-center shadow-md">
+                    <span className="text-[10px] text-pink-300 uppercase font-bold block">Ads Remaining Today</span>
+                    <span className="text-sm font-extrabold text-white">{adsRemaining} / 5</span>
+                  </div>
                 </div>
 
                 <form onSubmit={handleSaveLadyProfile} className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
@@ -1280,9 +1185,10 @@ export default function ClientDirectory({
                   <div className="pt-4 border-t border-slate-800 flex justify-end">
                     <button 
                       type="submit" 
-                      className="px-8 py-3.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-pink-600/20 transition"
+                      disabled={adsRemaining <= 0}
+                      className="px-8 py-3.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-pink-600/20 transition disabled:opacity-50"
                     >
-                      Save & Submit Listing
+                      {adsRemaining > 0 ? 'Post New Advertisement' : 'Daily Limit Reached (5/5)'}
                     </button>
                   </div>
                 </form>

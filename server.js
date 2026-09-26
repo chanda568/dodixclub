@@ -49,8 +49,8 @@ const userSchema = new mongoose.Schema({
   plan: { type: String, default: '7 Days' }, // Subscription plan for males ('7 Days' or '30 Days')
   role: { type: String, default: 'client' },
   activated: { type: Boolean, default: false },
-  isEmailVerified: { type: Boolean, default: true }, // Default to true since email verification is removed
-  createdAt: { type: Date, default: Date.now } // Registration timestamp
+  isEmailVerified: { type: Boolean, default: true },
+  createdAt: { type: Date, default: Date.now }
 });
 
 const messageSchema = new mongoose.Schema({
@@ -68,8 +68,9 @@ const reportSchema = new mongoose.Schema({
   timestamp: { type: Date, default: Date.now }
 });
 
+// Updated Companion/Ad Schema allowing multiple ads per user
 const companionSchema = new mongoose.Schema({
-  username: { type: String, required: true, unique: true, lowercase: true, trim: true },
+  username: { type: String, required: true, lowercase: true, trim: true },
   name: { type: String, required: true },
   category: { type: String, default: 'VIP' },
   price: { type: String, required: true },
@@ -83,6 +84,7 @@ const companionSchema = new mongoose.Schema({
   verificationVideoUrl: { type: String, default: '' },
   verificationVideoName: { type: String, default: '' },
   approved: { type: Boolean, default: true },
+  createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
 
@@ -229,7 +231,7 @@ app.delete('/api/users/:username', async (req, res) => {
     const { username } = req.params;
     const cleanUsername = username?.toLowerCase().trim();
     const result = await User.findOneAndDelete({ username: cleanUsername });
-    await Companion.findOneAndDelete({ username: cleanUsername });
+    await Companion.deleteMany({ username: cleanUsername });
     
     if (result) {
       res.json({ success: true });
@@ -292,10 +294,10 @@ app.delete('/api/reports/:id', async (req, res) => {
   }
 });
 
-// --- COMPANION LISTING ROUTES ---
+// --- COMPANION ADVERTISEMENT LISTING ROUTES (Max 5 ads per day) ---
 app.get('/api/ladies', async (req, res) => {
   try {
-    const ladies = await Companion.find({});
+    const ladies = await Companion.find({}).sort({ createdAt: -1 });
     res.json({ success: true, ladies });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -310,33 +312,33 @@ app.post('/api/ladies', async (req, res) => {
     }
 
     const cleanUsername = profileData.username.toLowerCase().trim();
-    
-    let companion = await Companion.findOne({ username: cleanUsername });
-    if (companion) {
-      companion.name = profileData.name;
-      companion.category = profileData.category;
-      companion.price = profileData.price;
-      companion.location = profileData.location;
-      companion.specificLocation = profileData.specificLocation;
-      companion.phone = profileData.phone;
-      companion.photo = profileData.photo;
-      companion.age = profileData.age;
-      companion.hosting = profileData.hosting;
-      companion.extraServices = profileData.extraServices;
-      companion.verificationVideoUrl = profileData.verificationVideoUrl;
-      companion.verificationVideoName = profileData.verificationVideoName;
-      companion.updatedAt = new Date();
-      await companion.save();
-    } else {
-      companion = new Companion({
-        ...profileData,
-        username: cleanUsername,
-        approved: true
+
+    // Check how many ads this user has posted today (start of current day)
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const todayAdsCount = await Companion.countDocuments({
+      username: cleanUsername,
+      createdAt: { $gte: startOfDay }
+    });
+
+    if (todayAdsCount >= 5) {
+      return res.json({ 
+        success: false, 
+        error: "Daily limit reached! You can post a maximum of 5 advertisements per day." 
       });
-      await companion.save();
     }
 
-    res.json({ success: true, companion });
+    const newCompanionAd = new Companion({
+      ...profileData,
+      username: cleanUsername,
+      approved: true,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+
+    await newCompanionAd.save();
+    res.json({ success: true, companion: newCompanionAd });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -344,14 +346,20 @@ app.post('/api/ladies', async (req, res) => {
 
 app.post('/api/ladies/approve', async (req, res) => {
   try {
-    const { username } = req.body;
-    const cleanId = username?.toLowerCase().trim();
-    const companion = await Companion.findOne({
-      $or: [
-        { username: { $regex: new RegExp(`^${cleanId}$`, 'i') } },
-        { name: { $regex: new RegExp(`^${cleanId}$`, 'i') } }
-      ]
-    });
+    const { username, id } = req.body;
+    let companion = null;
+
+    if (id) {
+      companion = await Companion.findById(id);
+    } else if (username) {
+      const cleanId = username.toLowerCase().trim();
+      companion = await Companion.findOne({
+        $or: [
+          { username: { $regex: new RegExp(`^${cleanId}$`, 'i') } },
+          { name: { $regex: new RegExp(`^${cleanId}$`, 'i') } }
+        ]
+      });
+    }
     
     if (companion) {
       companion.approved = true;
@@ -359,7 +367,7 @@ app.post('/api/ladies/approve', async (req, res) => {
       await companion.save();
       res.json({ success: true, companion });
     } else {
-      res.status(404).json({ success: false, error: 'Companion profile not found.' });
+      res.status(404).json({ success: false, error: 'Companion advertisement not found.' });
     }
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -370,17 +378,26 @@ app.delete('/api/ladies/:identifier', async (req, res) => {
   try {
     const { identifier } = req.params;
     const cleanId = identifier.toLowerCase().trim();
-    const result = await Companion.findOneAndDelete({
-      $or: [
-        { username: { $regex: new RegExp(`^${cleanId}$`, 'i') } },
-        { name: { $regex: new RegExp(`^${cleanId}$`, 'i') } }
-      ]
-    });
+    
+    // Try deleting by MongoDB _id first, or by username/name
+    let result = null;
+    if (mongoose.Types.ObjectId.isValid(cleanId)) {
+      result = await Companion.findByIdAndDelete(cleanId);
+    }
+    
+    if (!result) {
+      result = await Companion.findOneAndDelete({
+        $or: [
+          { username: { $regex: new RegExp(`^${cleanId}$`, 'i') } },
+          { name: { $regex: new RegExp(`^${cleanId}$`, 'i') } }
+        ]
+      });
+    }
 
     if (result) {
-      res.json({ success: true, message: 'Companion profile successfully removed.' });
+      res.json({ success: true, message: 'Companion advertisement successfully removed.' });
     } else {
-      res.status(404).json({ success: false, error: 'Companion profile not found.' });
+      res.status(404).json({ success: false, error: 'Companion advertisement not found.' });
     }
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
