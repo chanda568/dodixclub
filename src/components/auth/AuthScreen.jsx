@@ -250,7 +250,7 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
               onClick={handleForgotPasswordWhatsApp}
               className="text-[11px] text-pink-400 hover:text-pink-300 underline transition cursor-pointer"
             >
-              Forgot your password? Click here to contact Admin on WhatsApp
+              Forgot your password?
             </button>
           </div>
         )}
