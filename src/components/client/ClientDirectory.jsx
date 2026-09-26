@@ -1,7 +1,7 @@
 // src/components/client/ClientDirectory.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  LogOut, MessageSquare, Sparkles, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, Crown, ShieldAlert, RefreshCw, CheckCircle, Flag, ChevronRight, Heart, CreditCard, Settings, Send, Upload, Image as ImageIcon, Video, History as HistoryIcon, Bell, Plus, Trash2, Shield, Check, MessageCircle
+  LogOut, MessageSquare, Sparkles, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, Crown, ShieldAlert, RefreshCw, CheckCircle, Flag, ChevronRight, Heart, CreditCard, Settings, Send, Upload, Image as ImageIcon, Video, History as HistoryIcon, Bell, Plus, Trash2, Shield, Check, MessageCircle, Activity, Circle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LOGO_URL } from '../../data/constants';
@@ -28,6 +28,9 @@ export default function ClientDirectory({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProfile, setSelectedProfile] = useState(null);
 
+  // Admin users state with real-time last seen tracking
+  const [allUsers, setAllUsers] = useState([]);
+
   // News and Announcements state
   const [announcements, setAnnouncements] = useState([]);
 
@@ -35,6 +38,45 @@ export default function ClientDirectory({
   const [newTitle, setNewTitle] = useState('');
   const [newContent, setNewContent] = useState('');
   const [newVisibility, setNewVisibility] = useState('all');
+
+  // Heartbeat / Last Seen tracker for current user
+  useEffect(() => {
+    if (!currentUser?.username) return;
+
+    const updateLastSeen = () => {
+      try {
+        const usersDbKey = 'dodix_users_db';
+        const savedUsers = localStorage.getItem(usersDbKey);
+        let usersList = savedUsers ? (decryptStorageData(savedUsers) || []) : [];
+
+        const nowIso = new Date().toISOString();
+        const userIndex = usersList.findIndex(u => u.username?.toLowerCase() === currentUser.username.toLowerCase());
+
+        if (userIndex !== -1) {
+          usersList[userIndex].lastSeen = nowIso;
+        } else {
+          usersList.push({
+            username: currentUser.username,
+            gender: currentUser.gender || 'Client',
+            role: currentUser.role || 'client',
+            location: currentUser.location || 'Lusaka',
+            createdAt: currentUser.createdAt || nowIso,
+            activated: currentUser.activated ?? true,
+            lastSeen: nowIso
+          });
+        }
+
+        localStorage.setItem(usersDbKey, encryptStorageData(usersList));
+        setAllUsers(usersList);
+      } catch (err) {
+        console.error("Error updating last seen heartbeat:", err);
+      }
+    };
+
+    updateLastSeen();
+    const interval = setInterval(updateLastSeen, 30000); // Heartbeat every 30 seconds
+    return () => clearInterval(interval);
+  }, [currentUser]);
 
   useEffect(() => {
     try {
@@ -66,6 +108,19 @@ export default function ClientDirectory({
       console.error("Error loading announcements:", err);
     }
   }, []);
+
+  const formatLastSeen = (isoString) => {
+    if (!isoString) return 'Offline';
+    const diffMs = new Date() - new Date(isoString);
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 2) return 'Active now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
+  };
 
   const handleCreateAnnouncement = (e) => {
     e.preventDefault();
@@ -841,79 +896,130 @@ export default function ClientDirectory({
         </aside>
 
         <main className="flex-1 overflow-hidden">
-          {activeTab === 'news' ? (
-            <div className="space-y-6 max-w-3xl">
+          {isAdminUser && activeTab === 'news' ? (
+            <div className="space-y-6 max-w-5xl">
               <div>
-                <h2 className="text-2xl font-black text-white tracking-tight">
-                  {isAdminUser ? 'Admin Announcement Management' : 'News & Announcements'}
-                </h2>
-                <p className="text-xs text-slate-400 mt-1">
-                  {isAdminUser ? 'Create and manage announcements across visibility tiers (All, Females Only, Males Only).' : 'Important updates and status broadcasts from platform administration.'}
-                </p>
+                <h2 className="text-2xl font-black text-white tracking-tight">Admin Command Center & User Last Seen</h2>
+                <p className="text-xs text-slate-400 mt-1">Monitor user activity in real-time, last seen statuses, and platform announcements.</p>
               </div>
 
-              {isAdminUser && (
-                <form onSubmit={handleCreateAnnouncement} className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-4">
-                  <div className="flex items-center gap-2 pb-2 border-b border-slate-800">
-                    <Shield size={18} className="text-pink-500" />
-                    <h3 className="text-sm font-extrabold text-white">Broadcast New Announcement</h3>
+              {/* Real-time Last Seen Table Overview for Admin */}
+              <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 shadow-xl space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <Activity size={18} className="text-pink-500" />
+                    <h3 className="text-sm font-extrabold text-white">Registered Users Real-Time Last Seen</h3>
                   </div>
+                  <span className="text-[10px] uppercase font-bold tracking-wider bg-slate-900 text-slate-400 px-3 py-1 rounded-xl border border-slate-800">
+                    Live Heartbeat Active
+                  </span>
+                </div>
 
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="text-slate-500 uppercase text-[10px] tracking-wider border-b border-slate-800/80">
+                        <th className="pb-3 px-3">Username</th>
+                        <th className="pb-3 px-3">Role / Gender</th>
+                        <th className="pb-3 px-3">Location</th>
+                        <th className="pb-3 px-3">Real-Time Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/50">
+                      {allUsers.length === 0 ? (
+                        <tr>
+                          <td colSpan="4" className="text-center py-8 text-slate-500">No active user records found in storage.</td>
+                        </tr>
+                      ) : (
+                        allUsers.map((u, idx) => {
+                          const statusStr = formatLastSeen(u.lastSeen);
+                          const isOnline = statusStr === 'Active now';
+                          return (
+                            <tr key={idx} className="hover:bg-slate-900/55 transition">
+                              <td className="py-3 px-3 font-bold text-white flex items-center gap-2">
+                                <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-600'}`} />
+                                @{u.username}
+                              </td>
+                              <td className="py-3 px-3 text-pink-400 font-semibold uppercase text-[10px]">{u.gender || u.role || 'User'}</td>
+                              <td className="py-3 px-3 text-slate-300">{u.location || 'Lusaka'}</td>
+                              <td className="py-3 px-3">
+                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold ${isOnline ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/40' : 'bg-slate-900 text-slate-400 border border-slate-800'}`}>
+                                  {statusStr}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Announcement Creator Form */}
+              <form onSubmit={handleCreateAnnouncement} className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b border-slate-800">
+                  <Shield size={18} className="text-pink-500" />
+                  <h3 className="text-sm font-extrabold text-white">Broadcast New Announcement</h3>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">Announcement Title</label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. System Maintenance Notice" 
+                    value={newTitle} 
+                    onChange={(e) => setNewTitle(e.target.value)} 
+                    className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition" 
+                    required 
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-300">Announcement Title</label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. System Maintenance Notice" 
-                      value={newTitle} 
-                      onChange={(e) => setNewTitle(e.target.value)} 
-                      className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition" 
-                      required 
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-300">Target Audience Visibility</label>
-                      <select 
-                        value={newVisibility} 
-                        onChange={(e) => setNewVisibility(e.target.value)} 
-                        className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
-                      >
-                        <option value="all">Visible to All Users</option>
-                        <option value="female">Visible Only to Females</option>
-                        <option value="male">Visible Only to Males</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-300">Announcement Content</label>
-                    <textarea 
-                      rows="3" 
-                      placeholder="Write message details here..." 
-                      value={newContent} 
-                      onChange={(e) => setNewContent(e.target.value)} 
-                      className="w-full p-4 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition resize-none" 
-                      required 
-                    />
-                  </div>
-
-                  <div className="flex justify-end pt-2">
-                    <button 
-                      type="submit" 
-                      className="px-6 py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-pink-600/20 transition flex items-center gap-2"
+                    <label className="text-xs font-semibold text-slate-300">Target Audience Visibility</label>
+                    <select 
+                      value={newVisibility} 
+                      onChange={(e) => setNewVisibility(e.target.value)} 
+                      className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
                     >
-                      <Plus size={16} /> Publish Announcement
-                    </button>
+                      <option value="all">Visible to All Users</option>
+                      <option value="female">Visible Only to Females</option>
+                      <option value="male">Visible Only to Males</option>
+                    </select>
                   </div>
-                </form>
-              )}
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">Announcement Content</label>
+                  <textarea 
+                    rows="3" 
+                    placeholder="Write message details here..." 
+                    value={newContent} 
+                    onChange={(e) => setNewContent(e.target.value)} 
+                    className="w-full p-4 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition resize-none" 
+                    required 
+                  />
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button 
+                    type="submit" 
+                    className="px-6 py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-pink-600/20 transition flex items-center gap-2"
+                  >
+                    <Plus size={16} /> Publish Announcement
+                  </button>
+                </div>
+              </form>
+            </div>
+          ) : activeTab === 'news' ? (
+            <div className="space-y-6 max-w-3xl">
+              <div>
+                <h2 className="text-2xl font-black text-white tracking-tight">News & Announcements</h2>
+                <p className="text-xs text-slate-400 mt-1">Important updates and status broadcasts from platform administration.</p>
+              </div>
 
               <div className="space-y-4 pt-2">
-                <h3 className="text-xs font-extrabold uppercase tracking-widest text-slate-500 px-1">
-                  {isAdminUser ? 'All Active Announcements' : 'Your Feed & Status Updates'}
-                </h3>
-
                 {visibleAnnouncements.length === 0 ? (
                   <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-12 text-center space-y-3">
                     <Bell size={24} className="mx-auto text-slate-500" />
@@ -933,26 +1039,9 @@ export default function ClientDirectory({
                             minute: '2-digit'
                           }) : 'Just now'}
                         </span>
-                        <div className="flex items-center gap-2">
-                          <span className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full ${
-                            item.targetUsername ? 'bg-pink-950 text-pink-400 border border-pink-800/40' :
-                            item.visibility === 'all' ? 'bg-purple-950 text-purple-400 border border-purple-800/40' :
-                            item.visibility === 'female' ? 'bg-pink-950 text-pink-400 border border-pink-800/40' :
-                            'bg-blue-950 text-blue-400 border border-blue-800/40'
-                          }`}>
-                            {item.targetUsername ? 'Personal Notification' : (item.visibility === 'all' ? 'All Users' : item.visibility === 'female' ? 'Females Only' : 'Males Only')}
-                          </span>
-                          
-                          {isAdminUser && (
-                            <button 
-                              onClick={() => handleDeleteAnnouncement(item.id)}
-                              className="p-1.5 bg-red-950/60 hover:bg-red-900/60 text-red-400 border border-red-900/40 rounded-lg transition"
-                              title="Delete Announcement"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          )}
-                        </div>
+                        <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-purple-950 text-purple-400 border border-purple-800/40">
+                          Announcement
+                        </span>
                       </div>
                       <h3 className="text-base font-extrabold text-white">{item.title}</h3>
                       <p className="text-xs text-slate-300 leading-relaxed">{item.content}</p>
