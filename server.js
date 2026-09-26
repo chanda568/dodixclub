@@ -444,7 +444,8 @@ app.post('/api/ladies/approve', async (req, res) => {
         { name: { $regex: new RegExp(`^${cleanId}$`, 'i') } }
       ]
     });
-
+    
+// OTP route ready
     if (companion) {
       companion.approved = true;
       companion.updatedAt = new Date();
