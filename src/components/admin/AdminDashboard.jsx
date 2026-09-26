@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, Users, Flag, Video, CheckCircle, XCircle, Trash2, 
-  LogOut, RefreshCw, X, MessageSquare, MapPin, Edit3, MessageCircle, Clock, Eye, Sparkles, Maximize2, KeyRound, Bell, Plus, Activity 
+  LogOut, RefreshCw, X, MessageSquare, MapPin, Edit3, MessageCircle, Clock, Eye, Sparkles, Maximize2, KeyRound, Bell, Plus, Activity, Lock, Unlock 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LOGO_URL } from '../../data/constants';
@@ -82,6 +82,10 @@ export default function AdminDashboard({
   const [selectedReportUser, setSelectedReportUser] = useState(null);
   const [selectedCompanionModal, setSelectedCompanionModal] = useState(null);
   const [fullScreenImage, setFullScreenImage] = useState(null);
+  
+  // Privacy Toggle for Admin Face Reveal vs Hidden
+  const [isFaceRevealed, setIsFaceRevealed] = useState(false);
+
   const [isEditingLocation, setIsEditingLocation] = useState(false);
   const [newLocationInput, setNewLocationInput] = useState('');
 
@@ -405,6 +409,40 @@ export default function AdminDashboard({
                   <p className="text-xs text-slate-400 flex items-center gap-1">
                     <MapPin size={14} className="text-pink-500" /> {selectedCompanionModal.specificLocation || selectedCompanionModal.location}
                   </p>
+                </div>
+              </div>
+
+              {/* PRIVACY TOGGLE: Choose Face Hidden or Face Revealed */}
+              <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                    {isFaceRevealed ? <Unlock size={15} className="text-amber-400" /> : <Lock size={15} className="text-pink-500" />}
+                    Admin Privacy View Mode
+                  </span>
+                  <button 
+                    onClick={() => setIsFaceRevealed(!isFaceRevealed)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-md ${isFaceRevealed ? 'bg-amber-600 hover:bg-amber-500 text-white' : 'bg-pink-600 hover:bg-pink-500 text-white'}`}
+                  >
+                    {isFaceRevealed ? '🔓 Face Revealed (Original)' : '🔒 Face Hidden (Sticker On)'}
+                  </button>
+                </div>
+
+                <p className="text-[11px] text-slate-400">
+                  {isFaceRevealed ? 'You are currently viewing the original unmasked image.' : 'The companion face is safely hidden behind the Dodix privacy sticker for public safety.'}
+                </p>
+
+                {/* Simulated/Preview Photo Box with or without Sticker */}
+                <div className="relative w-full h-48 bg-black rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center">
+                  <img 
+                    src={selectedCompanionModal.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80'} 
+                    alt="Review Photo" 
+                    className="max-h-full max-w-full object-contain"
+                  />
+                  {!isFaceRevealed && (
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full border-2 border-pink-500 overflow-hidden shadow-2xl bg-slate-950 flex items-center justify-center">
+                      <img src={LOGO_URL} alt="Sticker" className="w-full h-full object-cover scale-110" />
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -833,7 +871,10 @@ export default function AdminDashboard({
                         <div className="space-y-2 pt-2 border-t border-slate-800">
                           <div className="grid grid-cols-2 gap-2">
                             <button 
-                              onClick={() => setSelectedCompanionModal(lady)}
+                              onClick={() => {
+                                setIsFaceRevealed(false); // Default to face hidden by sticker
+                                setSelectedCompanionModal(lady);
+                              }}
                               className="py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 border border-slate-700 transition cursor-pointer"
                             >
                               <Eye size={13} /> Review
