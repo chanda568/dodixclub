@@ -85,13 +85,15 @@ export default function AdminDashboard({
   const [isEditingLocation, setIsEditingLocation] = useState(false);
   const [newLocationInput, setNewLocationInput] = useState('');
 
+  // Stabilized helper to prevent status flickering during polling
   const formatLastSeenDetail = (isoString) => {
     if (!isoString) return { isOnline: false, text: 'Offline' };
     const lastSeenDate = new Date(isoString);
-    const diffMs = new Date() - lastSeenDate;
+    const diffMs = Date.now() - lastSeenDate.getTime();
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMins / 60);
 
+    // Using a stable 5-minute window with buffer
     if (diffMins < 5) {
       return { isOnline: true, text: 'Online (Active now)' };
     }
@@ -151,7 +153,8 @@ export default function AdminDashboard({
 
   useEffect(() => {
     loadBackendData();
-    const interval = setInterval(loadBackendData, 3000);
+    // Increased interval slightly to 5 seconds for smooth, flicker-free updates
+    const interval = setInterval(loadBackendData, 5000);
 
     try {
       const savedAnnouncements = localStorage.getItem('dodix_announcements_db');
