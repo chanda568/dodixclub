@@ -236,6 +236,8 @@ export default function ClientDirectory({
       return;
     }
 
+    const cleanPhone = `260${formPhone.trim().replace(/^0+/, '')}`;
+
     const newAdData = {
       username: currentUser.username,
       name: formName || currentUser.username,
@@ -243,7 +245,7 @@ export default function ClientDirectory({
       price: formPrice,
       location: formLocation,
       specificLocation: formSpecific,
-      phone: formPhone,
+      phone: cleanPhone,
       photo: formPhoto || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80',
       age: formAge,
       hosting: formHosting,
@@ -1093,7 +1095,7 @@ export default function ClientDirectory({
                           required
                           placeholder="970000000" 
                           value={formPhone} 
-                          onChange={(e) => setPhoneInput(e.target.value.replace(/\D/g, ''))} 
+                          onChange={(e) => setFormPhone(e.target.value.replace(/\D/g, ''))} 
                           className="w-full px-3 py-3 bg-transparent text-xs text-slate-200 focus:outline-none" 
                         />
                       </div>
