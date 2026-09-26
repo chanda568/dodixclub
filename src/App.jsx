@@ -60,6 +60,13 @@ export default function App() {
     }
   };
 
+  const handleOpenSupportWhatsApp = () => {
+    const adminPhone = "260965039645"; // Admin Support number
+    const username = currentUser?.username || 'Member';
+    const msg = encodeURIComponent(`Hello Dodix Support, my account (@${username}) is pending activation. Please assist with reviewing and activating my account.`);
+    window.open(`https://wa.me/${adminPhone}?text=${msg}`, '_blank');
+  };
+
   const fetchUsersFromBackend = async () => {
     if (!currentUser) return;
     try {
@@ -297,11 +304,18 @@ export default function App() {
 
           <div className="space-y-3 pt-2">
             <button 
+              onClick={handleOpenSupportWhatsApp}
+              className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <MessageCircle size={15} /> Support Center (WhatsApp Activation Query)
+            </button>
+
+            <button 
               onClick={() => {
                 fetchUsersFromBackend();
                 fetchLadiesFromBackend();
               }}
-              className="w-full py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-bold rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer"
             >
               <RefreshCw size={14} /> Sync & Check Status
             </button>

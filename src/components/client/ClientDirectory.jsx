@@ -421,15 +421,22 @@ export default function ClientDirectory({
 
           <div className="space-y-3">
             <button
+              onClick={handleContactSupportWhatsApp}
+              className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
+            >
+              <MessageCircle size={16} /> Support Center (WhatsApp Activation Query)
+            </button>
+
+            <button
               onClick={() => window.location.reload()}
-              className="w-full py-3.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
+              className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition cursor-pointer"
             >
               <RefreshCw size={16} /> Sync & Check Activation Status
             </button>
 
             <button
               onClick={() => setCurrentUser(null)}
-              className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold rounded-xl text-xs flex items-center justify-center gap-2 border border-slate-800 transition cursor-pointer"
+              className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs flex items-center justify-center gap-2 border border-slate-700 transition cursor-pointer"
             >
               <LogOut size={16} /> Log Out
             </button>
