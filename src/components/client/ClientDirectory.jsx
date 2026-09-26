@@ -35,6 +35,7 @@ export default function ClientDirectory({
   const [newContent, setNewContent] = useState('');
   const [newVisibility, setNewVisibility] = useState('all');
 
+  // Stabilized Last Seen Heartbeat (Prevents flickering)
   useEffect(() => {
     if (!currentUser?.username) return;
 
@@ -48,7 +49,12 @@ export default function ClientDirectory({
         const userIndex = usersList.findIndex(u => u.username?.toLowerCase() === currentUser.username.toLowerCase());
 
         if (userIndex !== -1) {
-          usersList[userIndex].lastSeen = nowIso;
+          const lastTime = new Date(usersList[userIndex].lastSeen || 0).getTime();
+          if (Date.now() - lastTime > 5000) {
+            usersList[userIndex].lastSeen = nowIso;
+            localStorage.setItem(usersDbKey, encryptStorageData(usersList));
+            setAllUsers(usersList);
+          }
         } else {
           usersList.push({
             username: currentUser.username,
@@ -59,19 +65,18 @@ export default function ClientDirectory({
             activated: currentUser.activated ?? true,
             lastSeen: nowIso
           });
+          localStorage.setItem(usersDbKey, encryptStorageData(usersList));
+          setAllUsers(usersList);
         }
-
-        localStorage.setItem(usersDbKey, encryptStorageData(usersList));
-        setAllUsers(usersList);
       } catch (err) {
         console.error("Error updating last seen heartbeat:", err);
       }
     };
 
     updateLastSeen();
-    const interval = setInterval(updateLastSeen, 10000);
+    const interval = setInterval(updateLastSeen, 15000); // 15s interval for stable syncing
     return () => clearInterval(interval);
-  }, [currentUser]);
+  }, [currentUser?.username]);
 
   useEffect(() => {
     try {
@@ -111,7 +116,7 @@ export default function ClientDirectory({
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
 
-    if (diffMins < 5) return 'Active now';
+    if (diffMins < 2) return 'Active now'; // Stable window
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     return `${diffDays}d ago`;
