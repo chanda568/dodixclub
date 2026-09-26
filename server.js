@@ -34,6 +34,14 @@ mongoose.connect(MONGO_URI)
       // Index might already be gone, safe to ignore
     }
 
+    // Drop legacy unique companion username index if it exists
+    try {
+      await mongoose.connection.collection('companions').dropIndex('username_1');
+      console.log('[Database] Successfully dropped legacy unique username_1 index from companions collection.');
+    } catch (e) {
+      // Safe to ignore if already gone
+    }
+
     await seedDefaultAdmin();
   })
   .catch(err => console.error('[Database] Connection error:', err));
@@ -83,7 +91,7 @@ const companionSchema = new mongoose.Schema({
   extraServices: { type: String, default: '' },
   verificationVideoUrl: { type: String, default: '' },
   verificationVideoName: { type: String, default: '' },
-  approved: { type: Boolean, default: true },
+  approved: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
@@ -111,6 +119,17 @@ const activeClients = new Map();
 
 
 // ================= EXPRESS REST API ROUTES = =================
+
+// Check username availability route
+app.get('/api/check-username/:username', async (req, res) => {
+  try {
+    const cleanUsername = req.params.username.toLowerCase().trim();
+    const existingUser = await User.findOne({ username: cleanUsername });
+    res.json({ success: true, available: !existingUser });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 // Login route
 app.post('/api/login', async (req, res) => {
@@ -332,7 +351,7 @@ app.post('/api/ladies', async (req, res) => {
     const newCompanionAd = new Companion({
       ...profileData,
       username: cleanUsername,
-      approved: true,
+      approved: false,
       createdAt: new Date(),
       updatedAt: new Date()
     });
@@ -379,7 +398,6 @@ app.delete('/api/ladies/:identifier', async (req, res) => {
     const { identifier } = req.params;
     const cleanId = identifier.toLowerCase().trim();
     
-    // Try deleting by MongoDB _id first, or by username/name
     let result = null;
     if (mongoose.Types.ObjectId.isValid(cleanId)) {
       result = await Companion.findByIdAndDelete(cleanId);

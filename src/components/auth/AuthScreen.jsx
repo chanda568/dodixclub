@@ -17,7 +17,7 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
   const [plan, setPlan] = useState('7 Days');
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Direct Registration (No OTP required)
+  // Direct Registration with 100% Unique Username Validation
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
@@ -45,8 +45,18 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
     const cleanUsername = username.trim().toLowerCase();
     const cleanPhone = `260${phoneInput.trim().replace(/^0+/, '')}`;
 
-    triggerLoadingAction('Creating Account...', async () => {
+    triggerLoadingAction('Checking Username & Creating Account...', async () => {
       try {
+        // 1. Instant check against database for 100% uniqueness
+        const checkRes = await fetch(`${BACKEND_URL}/api/check-username/${encodeURIComponent(cleanUsername)}`);
+        const checkData = await checkRes.json();
+
+        if (checkData.success && !checkData.available) {
+          setErrorMsg(`The username "${username}" is already taken! Please enter a different username.`);
+          return;
+        }
+
+        // 2. Proceed with registration
         const response = await fetch(`${BACKEND_URL}/api/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
