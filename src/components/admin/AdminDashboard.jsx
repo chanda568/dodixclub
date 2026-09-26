@@ -733,7 +733,7 @@ export default function AdminDashboard({
                           <td className="p-3.5">
                             {lastSeenInfo.isOnline ? (
                               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-800/50 text-[10px] font-extrabold shadow-sm">
-                                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> Online
+                                <span className="w-2 h-2 rounded-full bg-emerald-400" /> Online
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900 text-slate-400 border border-slate-800 text-[10px] font-semibold">
