@@ -85,7 +85,6 @@ export default function AdminDashboard({
   const [isEditingLocation, setIsEditingLocation] = useState(false);
   const [newLocationInput, setNewLocationInput] = useState('');
 
-  // Stabilized helper to prevent status flickering during polling
   const formatLastSeenDetail = (isoString) => {
     if (!isoString) return { isOnline: false, text: 'Offline' };
     const lastSeenDate = new Date(isoString);
@@ -93,7 +92,6 @@ export default function AdminDashboard({
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMins / 60);
 
-    // Using a stable 5-minute window with buffer
     if (diffMins < 5) {
       return { isOnline: true, text: 'Online (Active now)' };
     }
@@ -153,7 +151,6 @@ export default function AdminDashboard({
 
   useEffect(() => {
     loadBackendData();
-    // Increased interval slightly to 5 seconds for smooth, flicker-free updates
     const interval = setInterval(loadBackendData, 5000);
 
     try {
@@ -694,6 +691,7 @@ export default function AdminDashboard({
                 <thead className="bg-slate-900 text-slate-400 uppercase tracking-wider font-bold">
                   <tr>
                     <th className="p-3.5 rounded-l-xl">Username</th>
+                    <th className="p-3.5">Gender</th>
                     <th className="p-3.5">Plan</th>
                     <th className="p-3.5">Location</th>
                     <th className="p-3.5">Registration & Expiry</th>
@@ -705,7 +703,7 @@ export default function AdminDashboard({
                 <tbody className="divide-y divide-slate-900">
                   {usersDb.length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="text-center py-8 text-slate-500">No registered users found.</td>
+                      <td colSpan="8" className="text-center py-8 text-slate-500">No registered users found.</td>
                     </tr>
                   ) : (
                     usersDb.map((u, i) => {
@@ -716,10 +714,12 @@ export default function AdminDashboard({
                       return (
                         <tr key={u._id || i} className="hover:bg-slate-900/40 transition">
                           <td className="p-3.5 font-bold text-white">
-                            <div className="flex flex-col">
-                              <span>@{u.username}</span>
-                              <span className="text-[10px] text-pink-400 capitalize">{u.gender || 'Client'}</span>
-                            </div>
+                            @{u.username}
+                          </td>
+                          <td className="p-3.5">
+                            <span className="text-pink-400 font-semibold capitalize text-xs">
+                              {u.gender || 'Client'}
+                            </span>
                           </td>
                           <td className="p-3.5 text-purple-400 font-bold">
                             {u.plan || '7 Days'}
