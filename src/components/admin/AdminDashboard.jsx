@@ -138,7 +138,16 @@ export default function AdminDashboard({
       const resLadies = await fetch(`${BACKEND_URL}/api/ladies`);
       const dataLadies = await resLadies.json();
       if (dataLadies.success && Array.isArray(dataLadies.ladies)) {
-        setLadies(dataLadies.ladies);
+        // Silently ensure every lady object has both unmasked and masked photo versions cached
+        const processedLadies = dataLadies.ladies.map(lady => {
+          const rawPhoto = lady.originalPhoto || lady.unmaskedPhoto || lady.photo;
+          return {
+            ...lady,
+            originalPhoto: rawPhoto,
+            photo: lady.photo || rawPhoto
+          };
+        });
+        setLadies(processedLadies);
       }
 
       const resReports = await fetch(`${BACKEND_URL}/api/reports`);
@@ -402,12 +411,12 @@ export default function AdminDashboard({
 
               <div className="flex items-center gap-4">
                 <div 
-                  onClick={() => setFullScreenImage(selectedCompanionModal.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80')}
+                  onClick={() => setFullScreenImage(isFaceRevealed ? (selectedCompanionModal.originalPhoto || selectedCompanionModal.unmaskedPhoto || selectedCompanionModal.photo) : selectedCompanionModal.photo)}
                   className="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-pink-500/40 shadow-lg shrink-0 bg-slate-950 cursor-pointer group hover:border-pink-400 transition"
                   title="Click to view full-size image"
                 >
                   <img 
-                    src={selectedCompanionModal.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80'} 
+                    src={isFaceRevealed ? (selectedCompanionModal.originalPhoto || selectedCompanionModal.unmaskedPhoto || selectedCompanionModal.photo) : selectedCompanionModal.photo} 
                     alt={selectedCompanionModal.name} 
                     className="w-full h-full object-cover group-hover:scale-105 transition" 
                   />
@@ -430,7 +439,7 @@ export default function AdminDashboard({
                 </div>
               </div>
 
-              {/* PRIVACY TOGGLE: Show/Hide Sticker Properly */}
+              {/* PRIVACY TOGGLE: Instantly switches between masked and silently duplicated unmasked photo */}
               <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
@@ -446,21 +455,15 @@ export default function AdminDashboard({
                 </div>
 
                 <p className="text-[11px] text-slate-400">
-                  {isFaceRevealed ? 'Viewing original uploaded photo without sticker overlay.' : 'Viewing photo with privacy sticker overlay.'}
+                  {isFaceRevealed ? 'Showing original unmasked face photo for admin review.' : 'Showing public version with privacy sticker.'}
                 </p>
 
                 <div className="relative w-full h-48 bg-black rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center">
                   <img 
-                    src={selectedCompanionModal.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80'} 
+                    src={isFaceRevealed ? (selectedCompanionModal.originalPhoto || selectedCompanionModal.unmaskedPhoto || selectedCompanionModal.photo) : selectedCompanionModal.photo} 
                     alt="Review Photo" 
                     className="max-h-full max-w-full object-contain"
                   />
-                  {/* ONLY show sticker overlay when Face Hidden is active */}
-                  {!isFaceRevealed && (
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full border-2 border-pink-500 overflow-hidden shadow-2xl bg-slate-950 flex items-center justify-center pointer-events-none">
-                      <img src={LOGO_URL} alt="Sticker" className="w-full h-full object-cover scale-110" />
-                    </div>
-                  )}
                 </div>
               </div>
 
