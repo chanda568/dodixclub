@@ -211,11 +211,34 @@ export default function ClientDirectory({
 
   const handleVideoUploadSimulation = (e) => {
     const file = e.target.files[0];
-    if (file) {
+    if (!file) return;
+
+    if (!file.type.startsWith('video/')) {
+      alert("Please upload a valid video file.");
+      return;
+    }
+
+    const videoElement = document.createElement('video');
+    videoElement.preload = 'metadata';
+
+    videoElement.onloadedmetadata = function() {
+      window.URL.revokeObjectURL(videoElement.src);
+      const duration = videoElement.duration;
+      const minDuration = 100; // 1 minute 40 seconds = 100 seconds
+
+      if (duration < minDuration) {
+        alert(`Video duration is too short (${Math.floor(duration)} seconds). Minimum required duration is 1 minute 40 seconds.`);
+        setVerificationVideoUrl('');
+        setVerificationVideoName('');
+        return;
+      }
+
       const videoUrl = URL.createObjectURL(file);
       setVerificationVideoUrl(videoUrl);
       setVerificationVideoName(file.name);
-    }
+    };
+
+    videoElement.src = URL.createObjectURL(file);
   };
 
   const handleSaveLadyProfile = async (e) => {
@@ -232,7 +255,7 @@ export default function ClientDirectory({
     }
 
     if (!verificationVideoUrl) {
-      alert("Mandatory requirement: Please upload a promotional advertisement video clip before submitting your ad.");
+      alert("Mandatory requirement: Please upload a verification video clip of at least 1 minute 40 seconds before submitting your ad.");
       return;
     }
 
@@ -1146,25 +1169,25 @@ export default function ClientDirectory({
                     <div className="p-4 bg-purple-950/30 border border-purple-800/40 rounded-2xl flex items-start gap-3">
                       <Sparkles size={20} className="text-purple-400 shrink-0 mt-0.5" />
                       <div className="space-y-1">
-                        <h4 className="text-xs font-bold text-purple-300 uppercase tracking-wider">Directory Advertisement Video</h4>
+                        <h4 className="text-xs font-bold text-purple-300 uppercase tracking-wider">Mandatory Verification Video (Min 1m 40s)</h4>
                         <p className="text-xs text-slate-400 leading-relaxed">
-                          Upload a short promotional video clip to showcase your listing and attract elite clients in your directory region.
+                          Upload a verification video clip (at least 1 minute 40 seconds / 100 seconds). This is mandatory for submission but is strictly kept confidential and only visible to administrators for review.
                         </p>
                       </div>
                     </div>
 
                     <div className="space-y-2">
                       <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                        <Video size={14} className="text-pink-500" /> Upload Promotional Video Clip
+                        <Video size={14} className="text-pink-500" /> Upload Verification Video File (.mp4/.mov)
                       </label>
                       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                         <label className="px-5 py-3.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-pink-600/20 transition cursor-pointer flex items-center gap-2">
-                          <Upload size={14} /> Upload Video File (.mp4/.mov)
+                          <Upload size={14} /> Upload Video File
                           <input type="file" accept="video/*" onChange={handleVideoUploadSimulation} className="hidden" />
                         </label>
                         {verificationVideoUrl && (
                           <div className="flex items-center gap-2 text-xs text-emerald-400 font-semibold bg-slate-900 px-3 py-2 rounded-xl border border-slate-800">
-                            <CheckCircle size={14} /> {verificationVideoName || 'Video Uploaded'}
+                            <CheckCircle size={14} /> {verificationVideoName || 'Video Verified (1m 40s+)'}
                           </div>
                         )}
                       </div>
