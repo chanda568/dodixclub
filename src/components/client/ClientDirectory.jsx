@@ -54,7 +54,7 @@ export default function ClientDirectory({
           {
             id: 2,
             title: 'Exclusive Notice for Female Companions',
-            content: 'Mandatory verification video clips must be updated regularly. You can post up to 5 advertisements daily.',
+            content: 'Mandatory advertisement video clips must be updated regularly. You can post up to 5 advertisements daily.',
             visibility: 'female',
             timestamp: new Date().toISOString()
           }
@@ -255,7 +255,7 @@ export default function ClientDirectory({
     }
 
     if (!verificationVideoUrl) {
-      alert("Mandatory requirement: Please upload a verification video clip of at least 1 minute 40 seconds before submitting your ad.");
+      alert("Mandatory requirement: Please upload an advertisement video of at least 1 minute 40 seconds before submitting your ad.");
       return;
     }
 
@@ -1169,16 +1169,16 @@ export default function ClientDirectory({
                     <div className="p-4 bg-purple-950/30 border border-purple-800/40 rounded-2xl flex items-start gap-3">
                       <Sparkles size={20} className="text-purple-400 shrink-0 mt-0.5" />
                       <div className="space-y-1">
-                        <h4 className="text-xs font-bold text-purple-300 uppercase tracking-wider">Mandatory Verification Video (Min 1m 40s)</h4>
+                        <h4 className="text-xs font-bold text-purple-300 uppercase tracking-wider">Upload an advertisement video and attract good clients</h4>
                         <p className="text-xs text-slate-400 leading-relaxed">
-                          Upload a verification video clip (at least 1 minute 40 seconds / 100 seconds). This is mandatory for submission but is strictly kept confidential and only visible to administrators for review.
+                          Upload an advertisement video (at least 1 minute 40 seconds / 100 seconds) to showcase your profile and attract good clients.
                         </p>
                       </div>
                     </div>
 
                     <div className="space-y-2">
                       <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                        <Video size={14} className="text-pink-500" /> Upload Verification Video File (.mp4/.mov)
+                        <Video size={14} className="text-pink-500" /> Upload Advertisement Video File (.mp4/.mov)
                       </label>
                       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                         <label className="px-5 py-3.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-pink-600/20 transition cursor-pointer flex items-center gap-2">
@@ -1187,7 +1187,7 @@ export default function ClientDirectory({
                         </label>
                         {verificationVideoUrl && (
                           <div className="flex items-center gap-2 text-xs text-emerald-400 font-semibold bg-slate-900 px-3 py-2 rounded-xl border border-slate-800">
-                            <CheckCircle size={14} /> {verificationVideoName || 'Video Verified (1m 40s+)'}
+                            <CheckCircle size={14} /> {verificationVideoName || 'Video Uploaded (1m 40s+)'}
                           </div>
                         )}
                       </div>
