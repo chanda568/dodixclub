@@ -83,9 +83,7 @@ export default function AdminDashboard({
   const [selectedCompanionModal, setSelectedCompanionModal] = useState(null);
   const [fullScreenImage, setFullScreenImage] = useState(null);
   
-  // Privacy Toggle for Admin Face Reveal vs Hidden
   const [isFaceRevealed, setIsFaceRevealed] = useState(false);
-
   const [isEditingLocation, setIsEditingLocation] = useState(false);
   const [newLocationInput, setNewLocationInput] = useState('');
 
@@ -278,7 +276,27 @@ export default function AdminDashboard({
       const data = await response.json();
       if (data.success) {
         loadBackendData();
-        alert(`Advertisement for @${username} has been successfully approved!`);
+
+        try {
+          const savedAnnouncements = localStorage.getItem('dodix_announcements_db');
+          let currentAnnouncements = savedAnnouncements ? (decryptStorageData(savedAnnouncements) || []) : [];
+          
+          const approvalNotification = {
+            id: Date.now(),
+            title: '🎉 Advertisement Approved!',
+            content: `Great news @${username}! Your advertisement listing has been reviewed and approved by administration. It is now live in the Elite Directory.`,
+            visibility: 'female',
+            targetUsername: username.toLowerCase(),
+            timestamp: new Date().toISOString()
+          };
+
+          const updatedAnnouncements = [approvalNotification, ...currentAnnouncements];
+          localStorage.setItem('dodix_announcements_db', encryptStorageData(updatedAnnouncements));
+        } catch (notifErr) {
+          console.error("Error creating approval notification storage item:", notifErr);
+        }
+
+        alert(`Advertisement for @${username} has been successfully approved, and the companion has been notified!`);
         setSelectedCompanionModal(null);
       } else {
         alert(data.error || "Failed to approve companion.");
@@ -412,7 +430,7 @@ export default function AdminDashboard({
                 </div>
               </div>
 
-              {/* PRIVACY TOGGLE: Choose Face Hidden or Face Revealed */}
+              {/* PRIVACY TOGGLE: Show/Hide Sticker Properly */}
               <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
@@ -428,18 +446,18 @@ export default function AdminDashboard({
                 </div>
 
                 <p className="text-[11px] text-slate-400">
-                  {isFaceRevealed ? 'You are currently viewing the original unmasked image.' : 'The companion face is safely hidden behind the Dodix privacy sticker for public safety.'}
+                  {isFaceRevealed ? 'Viewing original uploaded photo without sticker overlay.' : 'Viewing photo with privacy sticker overlay.'}
                 </p>
 
-                {/* Simulated/Preview Photo Box with or without Sticker */}
                 <div className="relative w-full h-48 bg-black rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center">
                   <img 
                     src={selectedCompanionModal.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80'} 
                     alt="Review Photo" 
                     className="max-h-full max-w-full object-contain"
                   />
+                  {/* ONLY show sticker overlay when Face Hidden is active */}
                   {!isFaceRevealed && (
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full border-2 border-pink-500 overflow-hidden shadow-2xl bg-slate-950 flex items-center justify-center">
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full border-2 border-pink-500 overflow-hidden shadow-2xl bg-slate-950 flex items-center justify-center pointer-events-none">
                       <img src={LOGO_URL} alt="Sticker" className="w-full h-full object-cover scale-110" />
                     </div>
                   )}
@@ -489,7 +507,7 @@ export default function AdminDashboard({
                   onClick={() => handleApproveCompanion(selectedCompanionModal.username || selectedCompanionModal.name)}
                   className="py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
                 >
-                  <CheckCircle size={15} /> Approve Ad
+                  <CheckCircle size={15} /> Approve Ad & Notify
                 </button>
                 <button 
                   onClick={() => handleRejectCompanion(selectedCompanionModal.username || selectedCompanionModal.name)}
@@ -872,7 +890,7 @@ export default function AdminDashboard({
                           <div className="grid grid-cols-2 gap-2">
                             <button 
                               onClick={() => {
-                                setIsFaceRevealed(false); // Default to face hidden by sticker
+                                setIsFaceRevealed(false);
                                 setSelectedCompanionModal(lady);
                               }}
                               className="py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 border border-slate-700 transition cursor-pointer"
