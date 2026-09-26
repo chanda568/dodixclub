@@ -74,7 +74,7 @@ export default function ClientDirectory({
     };
 
     updateLastSeen();
-    const interval = setInterval(updateLastSeen, 30000); // Heartbeat every 30 seconds
+    const interval = setInterval(updateLastSeen, 15000); // Heartbeat every 15 seconds
     return () => clearInterval(interval);
   }, [currentUser]);
 
@@ -145,13 +145,6 @@ export default function ClientDirectory({
     setNewContent('');
     setNewVisibility('all');
     alert("Announcement successfully published!");
-  };
-
-  const handleDeleteAnnouncement = (id) => {
-    if (!window.confirm("Are you sure you want to delete this announcement?")) return;
-    const updated = announcements.filter(item => item.id !== id);
-    setAnnouncements(updated);
-    localStorage.setItem('dodix_announcements_db', encryptStorageData(updated));
   };
 
   const handleContactSupportWhatsApp = () => {

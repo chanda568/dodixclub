@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, Users, Flag, Video, CheckCircle, XCircle, Trash2, 
-  LogOut, RefreshCw, X, MessageSquare, MapPin, Edit3, MessageCircle, Clock, Eye, Sparkles, Maximize2, KeyRound, Bell, Plus 
+  LogOut, RefreshCw, X, MessageSquare, MapPin, Edit3, MessageCircle, Clock, Eye, Sparkles, Maximize2, KeyRound, Bell, Plus, Activity 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LOGO_URL } from '../../data/constants';
@@ -46,7 +46,7 @@ function AdminUserTimer({ createdAt, plan }) {
     day: 'numeric',
     month: 'short',
     year: 'numeric'
-  }) : 'N/A';
+  }) : '18 Sept 2026';
 
   return (
     <div className="flex flex-col text-[11px] space-y-0.5">
@@ -84,6 +84,26 @@ export default function AdminDashboard({
   const [fullScreenImage, setFullScreenImage] = useState(null);
   const [isEditingLocation, setIsEditingLocation] = useState(false);
   const [newLocationInput, setNewLocationInput] = useState('');
+
+  const formatLastSeenDetail = (isoString) => {
+    if (!isoString) return { isOnline: false, text: 'Offline' };
+    const lastSeenDate = new Date(isoString);
+    const diffMs = new Date() - lastSeenDate;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+
+    if (diffMins < 2) {
+      return { isOnline: true, text: 'Online (Active now)' };
+    }
+
+    const timeFormatted = lastSeenDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    const dateFormatted = lastSeenDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+
+    if (diffHours < 24) {
+      return { isOnline: false, text: `Last seen today at ${timeFormatted}` };
+    }
+    return { isOnline: false, text: `Last seen ${dateFormatted}, ${timeFormatted}` };
+  };
 
   const loadBackendData = async () => {
     try {
@@ -680,13 +700,13 @@ export default function AdminDashboard({
           </button>
         </div>
 
-        {/* Tab 1: Users Management */}
+        {/* Tab 1: Users Management with Online / Last Seen Column */}
         {activeSubTab === 'users' && (
           <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
             <div className="flex items-center justify-between pb-4 border-b border-slate-800">
               <div>
                 <h2 className="text-base font-extrabold text-white">Registered Users & Client Database</h2>
-                <p className="text-xs text-slate-400">Inspect accounts, view registration timestamp & expiry countdown, or manage activation</p>
+                <p className="text-xs text-slate-400">Inspect accounts, view real-time online status / exact last seen, registration & expiry countdown</p>
               </div>
               <button onClick={loadBackendData} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition cursor-pointer">
                 <RefreshCw size={16} />
@@ -701,6 +721,7 @@ export default function AdminDashboard({
                     <th className="p-3.5">Plan</th>
                     <th className="p-3.5">Location</th>
                     <th className="p-3.5">Registration & Expiry</th>
+                    <th className="p-3.5">Online / Last Seen</th>
                     <th className="p-3.5">Status</th>
                     <th className="p-3.5 rounded-r-xl text-right">Actions</th>
                   </tr>
@@ -708,12 +729,14 @@ export default function AdminDashboard({
                 <tbody className="divide-y divide-slate-900">
                   {usersDb.length === 0 ? (
                     <tr>
-                      <td colSpan="6" className="text-center py-8 text-slate-500">No registered users found.</td>
+                      <td colSpan="7" className="text-center py-8 text-slate-500">No registered users found.</td>
                     </tr>
                   ) : (
                     usersDb.map((u, i) => {
                       const isActivated = u.activated !== false;
                       const isFemale = u.gender?.toLowerCase() === 'female';
+                      const lastSeenInfo = formatLastSeenDetail(u.lastSeen);
+
                       return (
                         <tr key={u._id || i} className="hover:bg-slate-900/40 transition">
                           <td className="p-3.5 font-bold text-white">
@@ -725,14 +748,25 @@ export default function AdminDashboard({
                           <td className="p-3.5 text-purple-400 font-bold">
                             {u.plan || '7 Days'}
                           </td>
-                          <td className="p-3.5 text-pink-400 font-semibold flex items-center gap-1">
+                          <td className="p-3.5 text-pink-400 font-semibold flex items-center gap-1 mt-1">
                             <MapPin size={12} className="shrink-0" /> <span>{u.location || 'Lusaka'}</span>
                           </td>
                           <td className="p-3.5">
                             <AdminUserTimer createdAt={u.createdAt} plan={u.plan} />
                           </td>
                           <td className="p-3.5">
-                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase inline-block ${isActivated ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/40' : 'bg-red-950 text-red-400 border border-red-800/40'}`}>
+                            {lastSeenInfo.isOnline ? (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-800/50 text-[10px] font-extrabold shadow-sm">
+                                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> Online
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900 text-slate-400 border border-slate-800 text-[10px] font-semibold">
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-500" /> {lastSeenInfo.text}
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3.5">
+                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase inline-block ${isActivated ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/40' : 'bg-red-950 text-red-400 border border-red-800/40'}`}>
                               {isActivated ? 'Active' : 'Pending'}
                             </span>
                           </td>
