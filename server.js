@@ -131,7 +131,7 @@ app.get('/api/check-username/:username', async (req, res) => {
   }
 });
 
-// Login route
+// Login route with specific username/password error handling
 app.post('/api/login', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -139,12 +139,12 @@ app.post('/api/login', async (req, res) => {
     
     const user = await User.findOne({ username: cleanUsername });
     if (!user) {
-      return res.json({ success: false, error: "Invalid username or password." });
+      return res.json({ success: false, error: "Username does not exist. Please check or register." });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.json({ success: false, error: "Invalid username or password." });
+      return res.json({ success: false, error: "Incorrect password. Please try again." });
     }
     
     res.json({ success: true, user });

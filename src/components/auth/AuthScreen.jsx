@@ -84,7 +84,7 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
     });
   };
 
-  // Standard Login
+  // Standard Login with specific error messages
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
