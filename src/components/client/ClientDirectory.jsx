@@ -159,7 +159,6 @@ export default function ClientDirectory({
 
   const adsRemaining = Math.max(0, 5 - todaysUserAds.length);
 
-  // FIXED: Prevent username/gender collision
   const initialName = currentUser?.username && !['female', 'lady', 'client'].includes(currentUser.username.toLowerCase()) 
     ? currentUser.username 
     : '';
@@ -401,6 +400,7 @@ export default function ClientDirectory({
 
   const isMaleUser = !isFemaleUser && !isAdminUser;
   const isPendingActivation = isMaleUser && currentUser?.activated === false;
+  const wasEverActivated = currentUser?.wasActivatedBefore === true;
 
   if (isPendingActivation) {
     return (
@@ -411,9 +411,11 @@ export default function ClientDirectory({
           </div>
 
           <div className="space-y-2">
-            <h2 className="text-xl font-extrabold text-white">Account Awaiting Activation</h2>
+            <h2 className="text-xl font-extrabold text-white">
+              {wasEverActivated ? 'Account Suspended' : 'Account Pending Activation'}
+            </h2>
             <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-              Your account (<span className="text-pink-400 font-semibold">{currentUser.username}</span>) has been successfully created. Male user accounts require package activation and administrative approval before gaining full access.
+              Your account (<span className="text-pink-400 font-semibold">{currentUser.username}</span>) has been successfully created. {wasEverActivated ? 'Your account has been suspended by administration.' : 'Male user accounts require package activation and administrative approval before gaining full access.'}
             </p>
           </div>
 

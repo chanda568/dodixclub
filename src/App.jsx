@@ -45,7 +45,6 @@ export default function App() {
 
   const socketRef = useRef(null);
 
-  // Clean Logout Handler
   const handleLogout = () => {
     sessionStorage.removeItem('dodix_current_user');
     if (socketRef.current) {
@@ -71,7 +70,8 @@ export default function App() {
         
         const latest = data.users.find(u => u.username?.toLowerCase() === currentUser?.username?.toLowerCase());
         if (latest) {
-          const merged = { ...currentUser, ...latest };
+          const wasEverActivated = currentUser.wasActivatedBefore || latest.wasActivatedBefore || latest.activated === true;
+          const merged = { ...currentUser, ...latest, wasActivatedBefore: wasEverActivated };
           setCurrentUser(merged);
           sessionStorage.setItem('dodix_current_user', JSON.stringify(merged));
         }
@@ -237,6 +237,8 @@ export default function App() {
   const isUserActive = currentUser.activated === true || currentUser.role === 'admin';
   
   if (!isUserActive) {
+    const wasEverActivated = currentUser.wasActivatedBefore === true;
+
     return (
       <div className="min-h-screen bg-[#090d16] text-slate-100 flex items-center justify-center p-4 font-sans selection:bg-pink-500 selection:text-white">
         <div className="max-w-md w-full bg-[#0b101d] border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 text-center relative">
@@ -245,9 +247,15 @@ export default function App() {
           </div>
 
           <div>
-            <h2 className="text-lg font-extrabold text-white">Account Suspended / Pending</h2>
+            <h2 className="text-lg font-extrabold text-white">
+              {wasEverActivated ? 'Account Suspended' : 'Account Pending Activation'}
+            </h2>
             <p className="text-xs text-slate-400 mt-1">
-              Your account (<span className="text-pink-400 font-semibold">@{currentUser?.username}</span>) has been suspended or is awaiting admin activation.
+              {wasEverActivated ? (
+                <>Your account (<span className="text-pink-400 font-semibold">@{currentUser?.username}</span>) has been suspended by administration.</>
+              ) : (
+                <>Your account (<span className="text-pink-400 font-semibold">@{currentUser?.username}</span>) is awaiting admin activation.</>
+              )}
             </p>
           </div>
 
@@ -293,7 +301,7 @@ export default function App() {
                 fetchUsersFromBackend();
                 fetchLadiesFromBackend();
               }}
-              className="w-full py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2"
+              className="w-full py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
             >
               <RefreshCw size={14} /> Sync & Check Status
             </button>
