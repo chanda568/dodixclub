@@ -128,9 +128,9 @@ export default function ClientDirectory({
   const [formHosting, setFormHosting] = useState('Yes');
   const [formServices, setFormServices] = useState('');
 
-  // Compact Interactive Sticker Editor states for face privacy masking
+  // Compact Interactive Sticker Editor states (Locked to size 62)
   const [rawImageForSticker, setRawImageForSticker] = useState(null);
-  const [stickerPosition, setStickerPosition] = useState({ x: 50, y: 30, size: 65 });
+  const [stickerPosition, setStickerPosition] = useState({ x: 50, y: 30, size: 62 });
   const [isDraggingSticker, setIsDraggingSticker] = useState(false);
   const stickerContainerRef = useRef(null);
 
@@ -160,7 +160,7 @@ export default function ClientDirectory({
     const reader = new FileReader();
     reader.onloadend = () => {
       setRawImageForSticker(reader.result);
-      setStickerPosition({ x: 50, y: 30, size: 65 });
+      setStickerPosition({ x: 50, y: 30, size: 62 });
     };
     reader.readAsDataURL(file);
   };
@@ -183,7 +183,7 @@ export default function ClientDirectory({
       stickerImg.onload = () => {
         const sX = (stickerPosition.x / 100) * canvas.width;
         const sY = (stickerPosition.y / 100) * canvas.height;
-        const sRadius = (stickerPosition.size / 200) * Math.min(canvas.width, canvas.height);
+        const sRadius = (62 / 200) * Math.min(canvas.width, canvas.height);
 
         ctx.save();
         ctx.beginPath();
@@ -250,6 +250,7 @@ export default function ClientDirectory({
       extraServices: formServices,
       verificationVideoUrl,
       verificationVideoName: verificationVideoName || 'Promotional_Clip.mp4',
+      approved: false // Requires admin approval before becoming visible to clients
     };
 
     try {
@@ -262,13 +263,13 @@ export default function ClientDirectory({
 
       if (data.success) {
         setLadies([data.companion, ...ladies]);
-        alert(`Advertisement successfully posted! You have ${adsRemaining - 1} ad(s) remaining for today.`);
+        alert(`Advertisement successfully submitted! It will be visible to clients after admin review and approval.`);
         
         const newHistoryItem = {
           id: Date.now(),
-          action: `Published Advertisement (${6 - adsRemaining}/5)`,
+          action: `Submitted Advertisement (${6 - adsRemaining}/5)`,
           timestamp: new Date().toISOString(),
-          status: 'Active / Published'
+          status: 'Pending Admin Approval'
         };
         const updatedHistory = [newHistoryItem, ...profileHistory];
         setProfileHistory(updatedHistory);
@@ -369,7 +370,8 @@ export default function ClientDirectory({
     );
   }
 
-  const approvedLadies = ladies.filter(l => l.approved !== false);
+  // Only approved listings are visible to clients
+  const approvedLadies = ladies.filter(l => l.approved === true);
   const filteredLadies = approvedLadies.filter(l => {
     const matchesLoc = l.location === userLockedLocation;
     const matchesCat = selectedCategory === 'All' || l.category === selectedCategory;
@@ -393,7 +395,7 @@ export default function ClientDirectory({
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col relative selection:bg-pink-500 selection:text-white font-sans">
       {isLoading && <LogoLoader text={loadingText} />}
 
-      {/* Interactive Compact Circular Privacy Sticker Editor Modal */}
+      {/* Interactive Compact Circular Privacy Sticker Editor Modal (Locked to 62px) */}
       <AnimatePresence>
         {rawImageForSticker && (
           <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
@@ -428,8 +430,8 @@ export default function ClientDirectory({
                   style={{
                     left: `${stickerPosition.x}%`,
                     top: `${stickerPosition.y}%`,
-                    width: `${stickerPosition.size}px`,
-                    height: `${stickerPosition.size}px`,
+                    width: `62px`,
+                    height: `62px`,
                     transform: 'translate(-50%, -50%)'
                   }}
                   className="absolute rounded-full overflow-hidden border-2 border-pink-500 shadow-2xl bg-slate-950/80 backdrop-blur-sm pointer-events-none flex items-center justify-center"
@@ -437,21 +439,6 @@ export default function ClientDirectory({
                   <img src={LOGO_URL} alt="Sticker Mask" className="w-full h-full object-cover scale-110 pointer-events-none" />
                   <div className="absolute inset-0 bg-pink-500/10 rounded-full" />
                 </div>
-              </div>
-
-              <div className="space-y-2 pt-1">
-                <div className="flex justify-between text-xs text-slate-400">
-                  <span>Sticker Size</span>
-                  <span>{stickerPosition.size}px</span>
-                </div>
-                <input 
-                  type="range" 
-                  min="40" 
-                  max="90" 
-                  value={stickerPosition.size} 
-                  onChange={(e) => setStickerPosition(prev => ({ ...prev, size: Number(e.target.value) }))}
-                  className="w-full accent-pink-500 cursor-pointer"
-                />
               </div>
 
               <div className="flex gap-3 pt-2">
@@ -1003,7 +990,7 @@ export default function ClientDirectory({
                             </span>
                             <h4 className="text-xs font-bold text-white">{item.action}</h4>
                           </div>
-                          <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold uppercase ${item.status === 'Active / Published' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/40' : 'bg-amber-950 text-amber-400 border border-amber-800/40'}`}>
+                          <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold uppercase ${item.status === 'Approved' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/40' : 'bg-amber-950 text-amber-400 border border-amber-800/40'}`}>
                             {item.status}
                           </span>
                         </div>
@@ -1106,7 +1093,7 @@ export default function ClientDirectory({
                           required
                           placeholder="970000000" 
                           value={formPhone} 
-                          onChange={(e) => setFormPhone(e.target.value.replace(/\D/g, ''))} 
+                          onChange={(e) => setPhoneInput(e.target.value.replace(/\D/g, ''))} 
                           className="w-full px-3 py-3 bg-transparent text-xs text-slate-200 focus:outline-none" 
                         />
                       </div>
@@ -1188,7 +1175,7 @@ export default function ClientDirectory({
                       disabled={adsRemaining <= 0}
                       className="px-8 py-3.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-pink-600/20 transition disabled:opacity-50"
                     >
-                      {adsRemaining > 0 ? 'Post New Advertisement' : 'Daily Limit Reached (5/5)'}
+                      {adsRemaining > 0 ? 'Submit Advertisement for Approval' : 'Daily Limit Reached (5/5)'}
                     </button>
                   </div>
                 </form>
