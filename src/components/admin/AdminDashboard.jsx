@@ -85,7 +85,6 @@ export default function AdminDashboard({
   const [isEditingLocation, setIsEditingLocation] = useState(false);
   const [newLocationInput, setNewLocationInput] = useState('');
 
-  // Fixed threshold: 5 minutes window for live online status
   const formatLastSeenDetail = (isoString) => {
     if (!isoString) return { isOnline: false, text: 'Offline' };
     const lastSeenDate = new Date(isoString);
@@ -111,7 +110,6 @@ export default function AdminDashboard({
       const resUsers = await fetch(`${BACKEND_URL}/api/users`);
       const dataUsers = await resUsers.json();
       if (dataUsers.success && Array.isArray(dataUsers.users)) {
-        // Merge with local storage lastSeen data so heartbeats persist
         const localSaved = localStorage.getItem('dodix_users_db');
         let localUsersMap = {};
         if (localSaved) {
@@ -129,7 +127,7 @@ export default function AdminDashboard({
 
         const mergedUsers = dataUsers.users.map(u => ({
           ...u,
-          lastSeen: localUsersMap[u.username?.toLowerCase()] || u.lastSeen || new Date().toISOString() // Fallback to current if active session
+          lastSeen: localUsersMap[u.username?.toLowerCase()] || u.lastSeen || new Date().toISOString()
         }));
 
         setUsersDb(mergedUsers);
@@ -342,7 +340,6 @@ export default function AdminDashboard({
   return (
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col font-sans selection:bg-pink-500 selection:text-white">
       
-      {/* Full-Size Image Lightbox Modal */}
       <AnimatePresence>
         {fullScreenImage && (
           <div className="fixed inset-0 bg-black/95 backdrop-blur-lg z-50 flex items-center justify-center p-4">
@@ -365,7 +362,6 @@ export default function AdminDashboard({
         )}
       </AnimatePresence>
 
-      {/* Companion Profile & Advertisement Review Modal */}
       <AnimatePresence>
         {selectedCompanionModal && (
           <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
@@ -430,7 +426,6 @@ export default function AdminDashboard({
                 </div>
               )}
 
-              {/* Promotional Verification Video Section */}
               <div className="space-y-2 p-4 bg-purple-950/20 border border-purple-800/40 rounded-2xl">
                 <span className="text-xs font-bold text-purple-300 flex items-center gap-1.5">
                   <Video size={15} className="text-pink-400" /> Promotional Verification Video
@@ -451,17 +446,16 @@ export default function AdminDashboard({
                 )}
               </div>
 
-              {/* Approve & Reject Advertisement Buttons */}
               <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800">
                 <button 
                   onClick={() => handleApproveCompanion(selectedCompanionModal.username || selectedCompanionModal.name)}
-                  className="py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition cursor-pointer"
+                  className="py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
                 >
                   <CheckCircle size={15} /> Approve Ad
                 </button>
                 <button 
                   onClick={() => handleRejectCompanion(selectedCompanionModal.username || selectedCompanionModal.name)}
-                  className="py-3 bg-red-600 hover:bg-red-500 text-white font-black rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-red-600/20 transition cursor-pointer"
+                  className="py-3 bg-red-600 hover:bg-red-500 text-white font-black rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
                 >
                   <XCircle size={15} /> Reject Ad
                 </button>
@@ -482,7 +476,6 @@ export default function AdminDashboard({
         )}
       </AnimatePresence>
 
-      {/* User Inspection & Location Edit Modal */}
       <AnimatePresence>
         {selectedReportUser && (
           <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
@@ -602,7 +595,7 @@ export default function AdminDashboard({
               <div className="space-y-3 pt-2">
                 <button
                   onClick={() => handleToggleUserActivation(selectedReportUser.username)}
-                  className={`w-full py-3.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer ${selectedReportUser.activated !== false ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-600/20' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'}`}
+                  className={`w-full py-3.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer ${selectedReportUser.activated !== false ? 'bg-red-600 hover:bg-red-500 text-white' : 'bg-emerald-600 hover:bg-emerald-500 text-white'}`}
                 >
                   {selectedReportUser.activated !== false ? (
                     <>
@@ -634,7 +627,6 @@ export default function AdminDashboard({
         )}
       </AnimatePresence>
 
-      {/* Admin Header */}
       <header className="px-6 py-4 bg-slate-950/80 backdrop-blur-md border-b border-slate-800/80 sticky top-0 z-40 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <img src={LOGO_URL} alt="Dodix Logo" className="w-10 h-10 rounded-2xl object-cover shadow-lg border border-pink-500/30" />
@@ -654,38 +646,34 @@ export default function AdminDashboard({
         </button>
       </header>
 
-      {/* Main Admin Area */}
       <main className="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 space-y-6">
-        
-        {/* Navigation Tabs */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#0b101d] border border-slate-800 p-2 rounded-2xl shadow-xl">
           <button 
             onClick={() => setActiveSubTab('users')}
-            className={`py-3 px-3 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center gap-2 ${activeSubTab === 'users' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg shadow-pink-600/20' : 'text-slate-400 hover:text-white'}`}
+            className={`py-3 px-3 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center gap-2 ${activeSubTab === 'users' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
           >
             <Users size={16} /> Users ({usersDb.length})
           </button>
           <button 
             onClick={() => setActiveSubTab('companions')}
-            className={`py-3 px-3 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center gap-2 ${activeSubTab === 'companions' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg shadow-pink-600/20' : 'text-slate-400 hover:text-white'}`}
+            className={`py-3 px-3 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center gap-2 ${activeSubTab === 'companions' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
           >
             <Video size={16} /> Companions ({ladies.length})
           </button>
           <button 
             onClick={() => setActiveSubTab('inbox')}
-            className={`py-3 px-3 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center gap-2 ${activeSubTab === 'inbox' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg shadow-pink-600/20' : 'text-slate-400 hover:text-white'}`}
+            className={`py-3 px-3 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center gap-2 ${activeSubTab === 'inbox' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
           >
             <MessageSquare size={16} /> Inbox ({messages.length})
           </button>
           <button 
             onClick={() => setActiveSubTab('reports')}
-            className={`py-3 px-3 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center gap-2 ${activeSubTab === 'reports' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg shadow-pink-600/20' : 'text-slate-400 hover:text-white'}`}
+            className={`py-3 px-3 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center gap-2 ${activeSubTab === 'reports' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
           >
             <Flag size={16} /> Reports ({reports.length})
           </button>
         </div>
 
-        {/* Tab 1: Users Management with Online / Last Seen Column */}
         {activeSubTab === 'users' && (
           <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
             <div className="flex items-center justify-between pb-4 border-b border-slate-800">
@@ -788,7 +776,6 @@ export default function AdminDashboard({
           </div>
         )}
 
-        {/* Tab 2: Companions Directory & Advertisement Moderation */}
         {activeSubTab === 'companions' && (
           <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
             <div className="flex items-center justify-between pb-4 border-b border-slate-800">
@@ -859,13 +846,13 @@ export default function AdminDashboard({
                           <div className="grid grid-cols-2 gap-2">
                             <button 
                               onClick={() => handleApproveCompanion(lady.username || lady.name)}
-                              className="py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 transition cursor-pointer"
+                              className="py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md transition cursor-pointer"
                             >
                               <CheckCircle size={13} /> Approve
                             </button>
                             <button 
                               onClick={() => handleRejectCompanion(lady.username || lady.name)}
-                              className="py-2 bg-red-600 hover:bg-red-500 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md shadow-red-600/20 transition cursor-pointer"
+                              className="py-2 bg-red-600 hover:bg-red-500 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md transition cursor-pointer"
                             >
                               <XCircle size={13} /> Reject
                             </button>
@@ -880,7 +867,6 @@ export default function AdminDashboard({
           </div>
         )}
 
-        {/* Tab 3: Inbox */}
         {activeSubTab === 'inbox' && (
           <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
             <div className="flex items-center justify-between pb-4 border-b border-slate-800">
@@ -896,7 +882,6 @@ export default function AdminDashboard({
           </div>
         )}
 
-        {/* Tab 4: Reports */}
         {activeSubTab === 'reports' && (
           <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
             <div className="flex items-center justify-between pb-4 border-b border-slate-800">

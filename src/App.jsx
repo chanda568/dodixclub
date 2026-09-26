@@ -15,7 +15,6 @@ import ClientDirectory from './components/client/ClientDirectory';
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
 export default function App() {
-  // Age Verification State
   const [isAgeVerified, setIsAgeVerified] = useState(() => {
     return sessionStorage.getItem('dodix_age_verified') === 'true';
   });
@@ -25,10 +24,7 @@ export default function App() {
     return saved ? JSON.parse(saved) : null;
   });
 
-  // Users DB fetched live from MongoDB backend
   const [usersDb, setUsersDb] = useState([]);
-
-  // Ladies / Companion Profiles DB fetched live from MongoDB backend
   const [ladies, setLadies] = useState(() => {
     const saved = localStorage.getItem('dodix_ladies_db');
     if (saved) {
@@ -41,18 +37,22 @@ export default function App() {
     return DEFAULT_LADIES_DB;
   });
 
-  // Messages state (synced with server via WebSockets)
   const [messages, setMessages] = useState(DEFAULT_MESSAGES_DB);
-
   const [isLoading, setIsLoading] = useState(false);
   const [loadingText, setLoadingText] = useState('Loading...');
-
-  // State for female WhatsApp companion verification input on pending screen
   const [whatsappInput, setWhatsappInput] = useState('');
   const [isSubmittedWhatsApp, setIsSubmittedWhatsApp] = useState(false);
 
-  // WebSocket reference to maintain a persistent connection across re-renders
   const socketRef = useRef(null);
+
+  // Clean Logout Handler
+  const handleLogout = () => {
+    sessionStorage.removeItem('dodix_current_user');
+    if (socketRef.current) {
+      socketRef.current.close();
+    }
+    setCurrentUser(null);
+  };
 
   const handleAgeVerification = (verified) => {
     if (verified) {
@@ -61,21 +61,19 @@ export default function App() {
     }
   };
 
-  // Fetch all users from MongoDB backend
   const fetchUsersFromBackend = async () => {
+    if (!currentUser) return;
     try {
       const res = await fetch(`${BACKEND_URL}/api/users`);
       const data = await res.json();
       if (data.success && Array.isArray(data.users)) {
         setUsersDb(data.users);
         
-        if (currentUser) {
-          const latest = data.users.find(u => u.username?.toLowerCase() === currentUser.username?.toLowerCase());
-          if (latest) {
-            const merged = { ...currentUser, ...latest };
-            setCurrentUser(merged);
-            sessionStorage.setItem('dodix_current_user', JSON.stringify(merged));
-          }
+        const latest = data.users.find(u => u.username?.toLowerCase() === currentUser?.username?.toLowerCase());
+        if (latest) {
+          const merged = { ...currentUser, ...latest };
+          setCurrentUser(merged);
+          sessionStorage.setItem('dodix_current_user', JSON.stringify(merged));
         }
       }
     } catch (e) {
@@ -83,7 +81,6 @@ export default function App() {
     }
   };
 
-  // Fetch companion profiles from MongoDB backend so male users & admins see uploaded photos
   const fetchLadiesFromBackend = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/ladies`);
@@ -97,14 +94,16 @@ export default function App() {
     }
   };
 
-  // Fetch users and ladies on mount and set up periodic sync interval
   useEffect(() => {
+    if (!currentUser) return;
+
     fetchUsersFromBackend();
     fetchLadiesFromBackend();
     const interval = setInterval(() => {
       fetchUsersFromBackend();
       fetchLadiesFromBackend();
     }, 3000);
+
     return () => clearInterval(interval);
   }, [currentUser?.username]);
 
@@ -127,7 +126,6 @@ export default function App() {
     }
   };
 
-  // Fetch initial message history from Node.js server and open WebSocket on login
   useEffect(() => {
     if (currentUser) {
       sessionStorage.setItem('dodix_current_user', JSON.stringify(currentUser));
@@ -147,7 +145,6 @@ export default function App() {
       socketRef.current = ws;
 
       ws.onopen = () => {
-        console.log('[WS] Connected to server');
         ws.send(JSON.stringify({ type: 'auth', username: currentUser.username }));
       };
 
@@ -164,10 +161,6 @@ export default function App() {
         } catch (err) {
           console.error('[WS] Error parsing incoming message:', err);
         }
-      };
-
-      ws.onclose = () => {
-        console.log('[WS] Disconnected from server');
       };
 
       return () => {
@@ -204,17 +197,13 @@ export default function App() {
         recipient: recipient,
         text: text
       }));
-    } else {
-      console.error("WebSocket is not connected.");
     }
   };
 
-  // 1. Enforce Age Verification First
   if (!isAgeVerified) {
     return <AgeGate onVerify={handleAgeVerification} />;
   }
 
-  // 2. Enforce Authentication Screen if no user logged in
   if (!currentUser) {
     return (
       <AuthScreen 
@@ -226,12 +215,11 @@ export default function App() {
     );
   }
 
-  // 3. Admin Dashboard Route
   if (currentUser.role === 'admin' || currentUser.username?.toLowerCase() === 'admin') {
     return (
       <AdminDashboard 
         currentUser={currentUser}
-        setCurrentUser={setCurrentUser}
+        setCurrentUser={handleLogout}
         usersDb={usersDb}
         setUsersDb={setUsersDb}
         ladies={ladies}
@@ -246,7 +234,6 @@ export default function App() {
     );
   }
 
-  // 4. Check live activation status from database
   const isUserActive = currentUser.activated === true || currentUser.role === 'admin';
   
   if (!isUserActive) {
@@ -271,7 +258,7 @@ export default function App() {
                   <MessageCircle size={14} className="text-emerald-400" /> Companion Verification Required
                 </h3>
                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                  Please provide your WhatsApp number below. Our admin team will use this number to verify your profile and activate your account.
+                  Please provide your WhatsApp number below for profile review and activation.
                 </p>
               </div>
 
@@ -291,7 +278,7 @@ export default function App() {
                   />
                   <button 
                     type="submit"
-                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-emerald-600/20 transition flex items-center justify-center gap-2"
+                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-lg transition"
                   >
                     Submit WhatsApp for Verification
                   </button>
@@ -306,17 +293,14 @@ export default function App() {
                 fetchUsersFromBackend();
                 fetchLadiesFromBackend();
               }}
-              className="w-full py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold rounded-xl text-xs shadow-lg shadow-pink-600/20 transition flex items-center justify-center gap-2"
+              className="w-full py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2"
             >
               <RefreshCw size={14} /> Sync & Check Status
             </button>
 
             <button 
-              onClick={() => {
-                sessionStorage.removeItem('dodix_current_user');
-                setCurrentUser(null);
-              }}
-              className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition border border-slate-700 flex items-center justify-center gap-2"
+              onClick={handleLogout}
+              className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition border border-slate-700 flex items-center justify-center gap-2 cursor-pointer"
             >
               <LogOut size={14} /> Log Out
             </button>
@@ -326,11 +310,10 @@ export default function App() {
     );
   }
 
-  // 5. Client / Companion Directory Route (Only accessible when activated)
   return (
     <ClientDirectory 
       currentUser={currentUser}
-      setCurrentUser={setCurrentUser}
+      setCurrentUser={handleLogout}
       ladies={ladies}
       setLadies={setLadies}
       messages={messages}

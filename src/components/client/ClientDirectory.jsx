@@ -31,12 +31,10 @@ export default function ClientDirectory({
   const [allUsers, setAllUsers] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
 
-  // Admin announcement form state
   const [newTitle, setNewTitle] = useState('');
   const [newContent, setNewContent] = useState('');
   const [newVisibility, setNewVisibility] = useState('all');
 
-  // HEARTBEAT SYNC: Logs immediate online presence upon any active session
   useEffect(() => {
     if (!currentUser?.username) return;
 
@@ -71,7 +69,7 @@ export default function ClientDirectory({
     };
 
     updateLastSeen();
-    const interval = setInterval(updateLastSeen, 10000); // 10-second heartbeat
+    const interval = setInterval(updateLastSeen, 10000);
     return () => clearInterval(interval);
   }, [currentUser]);
 
@@ -145,12 +143,11 @@ export default function ClientDirectory({
   };
 
   const handleContactSupportWhatsApp = () => {
-    const adminPhone = "260965039645"; // Admin Help Center Number
+    const adminPhone = "260965039645";
     const supportMsg = encodeURIComponent("Hello Dodix Support, I need assistance with my account/subscription.");
     window.open(`https://wa.me/${adminPhone}?text=${supportMsg}`, '_blank');
   };
 
-  // Calculate ads posted today by this user
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
@@ -162,7 +159,12 @@ export default function ClientDirectory({
 
   const adsRemaining = Math.max(0, 5 - todaysUserAds.length);
 
-  const [formName, setFormName] = useState(currentUser?.username || '');
+  // FIXED: Prevent username/gender collision
+  const initialName = currentUser?.username && !['female', 'lady', 'client'].includes(currentUser.username.toLowerCase()) 
+    ? currentUser.username 
+    : '';
+
+  const [formName, setFormName] = useState(initialName);
   const [formCategory, setFormCategory] = useState('VIP');
   const [formPrice, setFormPrice] = useState('');
   const [formLocation, setFormLocation] = useState(userLockedLocation);
@@ -173,7 +175,6 @@ export default function ClientDirectory({
   const [formHosting, setFormHosting] = useState('Yes');
   const [formServices, setFormServices] = useState('');
 
-  // Compact Interactive Sticker Editor states (Locked to size 62)
   const [rawImageForSticker, setRawImageForSticker] = useState(null);
   const [stickerPosition, setStickerPosition] = useState({ x: 50, y: 30, size: 62 });
   const [isDraggingSticker, setIsDraggingSticker] = useState(false);
@@ -269,7 +270,7 @@ export default function ClientDirectory({
     videoElement.onloadedmetadata = function() {
       window.URL.revokeObjectURL(videoElement.src);
       const duration = videoElement.duration;
-      const minDuration = 100; // 1 minute 40 seconds = 100 seconds
+      const minDuration = 100;
 
       if (duration < minDuration) {
         alert(`Video duration is too short (${Math.floor(duration)} seconds). Minimum required duration is 1 minute 40 seconds.`);
@@ -320,7 +321,7 @@ export default function ClientDirectory({
       extraServices: formServices,
       verificationVideoUrl,
       verificationVideoName: verificationVideoName || 'Promotional_Clip.mp4',
-      approved: false // Requires admin approval before becoming visible to clients
+      approved: false
     };
 
     try {
@@ -419,18 +420,14 @@ export default function ClientDirectory({
           <div className="space-y-3">
             <button
               onClick={() => window.location.reload()}
-              className="w-full py-3.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-pink-600/20 transition"
+              className="w-full py-3.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
             >
               <RefreshCw size={16} /> Sync & Check Activation Status
             </button>
 
             <button
-              onClick={() => {
-                sessionStorage.removeItem('dodix_current_user');
-                setCurrentUser(null);
-                window.location.reload();
-              }}
-              className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold rounded-xl text-xs flex items-center justify-center gap-2 border border-slate-800 transition"
+              onClick={() => setCurrentUser(null)}
+              className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold rounded-xl text-xs flex items-center justify-center gap-2 border border-slate-800 transition cursor-pointer"
             >
               <LogOut size={16} /> Log Out
             </button>
@@ -440,7 +437,6 @@ export default function ClientDirectory({
     );
   }
 
-  // Only approved listings are visible to clients
   const approvedLadies = ladies.filter(l => l.approved === true);
   const filteredLadies = approvedLadies.filter(l => {
     const matchesLoc = l.location === userLockedLocation;
@@ -465,7 +461,6 @@ export default function ClientDirectory({
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col relative selection:bg-pink-500 selection:text-white font-sans">
       {isLoading && <LogoLoader text={loadingText} />}
 
-      {/* Interactive Compact Circular Privacy Sticker Editor Modal (Locked to 62px) */}
       <AnimatePresence>
         {rawImageForSticker && (
           <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
@@ -480,7 +475,7 @@ export default function ClientDirectory({
                   <Sparkles size={18} className="text-pink-500" />
                   <h3 className="text-sm font-bold text-white">Privacy Sticker Editor (Position over Face)</h3>
                 </div>
-                <button onClick={() => setRawImageForSticker(null)} className="p-1.5 text-slate-400 hover:text-white rounded-lg">
+                <button onClick={() => setRawImageForSticker(null)} className="p-1.5 text-slate-400 hover:text-white rounded-lg cursor-pointer">
                   <X size={18} />
                 </button>
               </div>
@@ -514,13 +509,13 @@ export default function ClientDirectory({
               <div className="flex gap-3 pt-2">
                 <button 
                   onClick={() => setRawImageForSticker(null)}
-                  className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition"
+                  className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button 
                   onClick={handleApplyStickerAndSave}
-                  className="flex-1 py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold rounded-xl text-xs shadow-lg shadow-pink-600/20 transition flex items-center justify-center gap-2"
+                  className="flex-1 py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Check size={16} /> Apply Sticker & Save
                 </button>
@@ -530,7 +525,6 @@ export default function ClientDirectory({
         )}
       </AnimatePresence>
 
-      {/* Profile Detail Modal */}
       <AnimatePresence>
         {selectedProfile && !isFemaleUser && !isAdminUser && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
@@ -542,7 +536,7 @@ export default function ClientDirectory({
             >
               <button 
                 onClick={() => setSelectedProfile(null)}
-                className="absolute top-6 right-6 p-2 text-slate-400 hover:text-white rounded-xl bg-slate-900 border border-slate-800 transition z-10"
+                className="absolute top-6 right-6 p-2 text-slate-400 hover:text-white rounded-xl bg-slate-900 border border-slate-800 transition cursor-pointer z-10"
               >
                 <X size={20} />
               </button>
@@ -593,7 +587,7 @@ export default function ClientDirectory({
                     setSelectedProfile(null);
                     handleOpenWhatsApp(selectedProfile);
                   }}
-                  className="py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition"
+                  className="py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
                 >
                   <MessageSquare size={16} /> Contact via WhatsApp
                 </button>
@@ -603,7 +597,6 @@ export default function ClientDirectory({
         )}
       </AnimatePresence>
 
-      {/* Report Modal */}
       <AnimatePresence>
         {reportModalOpen && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
@@ -623,7 +616,7 @@ export default function ClientDirectory({
                     <p className="text-xs text-slate-400">Submit details directly to administration</p>
                   </div>
                 </div>
-                <button onClick={() => setReportModalOpen(false)} className="p-2 text-slate-400 hover:text-white rounded-lg transition">
+                <button onClick={() => setReportModalOpen(false)} className="p-2 text-slate-400 hover:text-white rounded-lg transition cursor-pointer">
                   <X size={20} />
                 </button>
               </div>
@@ -654,10 +647,10 @@ export default function ClientDirectory({
                 </div>
 
                 <div className="flex gap-3 pt-2">
-                  <button type="button" onClick={() => setReportModalOpen(false)} className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition">
+                  <button type="button" onClick={() => setReportModalOpen(false)} className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition cursor-pointer">
                     Cancel
                   </button>
-                  <button type="submit" className="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-red-600/20 transition flex items-center justify-center gap-2">
+                  <button type="submit" className="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
                     <Flag size={14} /> Submit Report
                   </button>
                 </div>
@@ -667,10 +660,9 @@ export default function ClientDirectory({
         )}
       </AnimatePresence>
 
-      {/* Navbar */}
       <nav className="sticky top-0 z-40 bg-[#090d16]/90 backdrop-blur-md border-b border-slate-800 px-4 sm:px-8 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button onClick={() => setSidebarOpen(true)} className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-900 border border-slate-800 transition">
+          <button onClick={() => setSidebarOpen(true)} className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-900 border border-slate-800 transition cursor-pointer">
             <Menu size={20} />
           </button>
           <div>
@@ -683,18 +675,14 @@ export default function ClientDirectory({
 
         <div className="flex items-center gap-3">
           <button 
-            onClick={() => {
-              sessionStorage.removeItem('dodix_current_user');
-              setCurrentUser(null);
-            }}
-            className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-red-400 border border-slate-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+            onClick={() => setCurrentUser(null)}
+            className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-red-400 border border-slate-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
           >
             <LogOut size={16} /> <span className="hidden sm:inline">Logout</span>
           </button>
         </div>
       </nav>
 
-      {/* Sidebar Drawer */}
       <AnimatePresence>
         {sidebarOpen && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex">
@@ -707,7 +695,7 @@ export default function ClientDirectory({
               <div className="space-y-6">
                 <div className="flex items-center justify-between pb-4 border-b border-slate-800">
                   <span className="font-black text-sm text-white">DODIXCLUB</span>
-                  <button onClick={() => setSidebarOpen(false)} className="p-2 text-slate-400 hover:text-white rounded-lg">
+                  <button onClick={() => setSidebarOpen(false)} className="p-2 text-slate-400 hover:text-white rounded-lg cursor-pointer">
                     <X size={18} />
                   </button>
                 </div>
@@ -716,7 +704,7 @@ export default function ClientDirectory({
                   {!isFemaleUser && !isAdminUser && (
                     <button 
                       onClick={() => { setActiveTab('directory'); setSidebarOpen(false); }}
-                      className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 transition ${activeTab === 'directory' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+                      className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'directory' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
                     >
                       <Compass size={16} /> Elite Directory
                     </button>
@@ -726,13 +714,13 @@ export default function ClientDirectory({
                     <>
                       <button 
                         onClick={() => { setActiveTab('myprofile'); setSidebarOpen(false); }}
-                        className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 transition ${activeTab === 'myprofile' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+                        className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'myprofile' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
                       >
                         <User size={16} /> Post Advertisement ({adsRemaining}/5 left)
                       </button>
                       <button 
                         onClick={() => { setActiveTab('history'); setSidebarOpen(false); }}
-                        className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 transition ${activeTab === 'history' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+                        className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'history' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
                       >
                         <HistoryIcon size={16} /> History
                       </button>
@@ -741,7 +729,7 @@ export default function ClientDirectory({
 
                   <button 
                     onClick={() => { setActiveTab('news'); setSidebarOpen(false); }}
-                    className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 transition ${activeTab === 'news' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+                    className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'news' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
                   >
                     <Bell size={16} /> {isAdminUser ? 'Manage Announcements' : 'News & Announcements'}
                   </button>
@@ -749,7 +737,7 @@ export default function ClientDirectory({
                   {!isFemaleUser && !isAdminUser && (
                     <button 
                       onClick={() => { setActiveTab('favorites'); setSidebarOpen(false); }}
-                      className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 transition ${activeTab === 'favorites' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+                      className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'favorites' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
                     >
                       <Heart size={16} /> Favorites
                     </button>
@@ -758,7 +746,7 @@ export default function ClientDirectory({
                   {!isFemaleUser && !isAdminUser && (
                     <button 
                       onClick={() => { setActiveTab('subscription'); setSidebarOpen(false); }}
-                      className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 transition ${activeTab === 'subscription' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+                      className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'subscription' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
                     >
                       <CreditCard size={16} /> Subscription Status
                     </button>
@@ -767,7 +755,7 @@ export default function ClientDirectory({
                   {!isAdminUser && (
                     <button 
                       onClick={() => { setActiveTab('settings'); setSidebarOpen(false); }}
-                      className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 transition ${activeTab === 'settings' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+                      className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'settings' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
                     >
                       <Settings size={16} /> Account Details
                     </button>
@@ -775,7 +763,7 @@ export default function ClientDirectory({
 
                   <button 
                     onClick={() => { handleContactSupportWhatsApp(); setSidebarOpen(false); }}
-                    className="w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 text-slate-400 hover:bg-slate-900 hover:text-white transition"
+                    className="w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 text-slate-400 hover:bg-slate-900 hover:text-white transition cursor-pointer"
                   >
                     <MessageCircle size={16} className="text-pink-500" /> Contact Support
                   </button>
@@ -783,7 +771,7 @@ export default function ClientDirectory({
                   {isFemaleUser && (
                     <button 
                       onClick={() => { setReportModalOpen(true); setSidebarOpen(false); }}
-                      className="w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 text-red-400 hover:bg-red-950/40 border border-red-900/30 transition mt-2"
+                      className="w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 text-red-400 hover:bg-red-950/40 border border-red-900/30 transition mt-2 cursor-pointer"
                     >
                       <Flag size={16} /> Report Time Waster
                     </button>
@@ -810,7 +798,7 @@ export default function ClientDirectory({
             {!isFemaleUser && !isAdminUser && (
               <button 
                 onClick={() => setActiveTab('directory')}
-                className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition ${activeTab === 'directory' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg shadow-pink-600/20' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+                className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'directory' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
               >
                 <Compass size={16} /> Elite Directory
               </button>
@@ -820,13 +808,13 @@ export default function ClientDirectory({
               <>
                 <button 
                   onClick={() => setActiveTab('myprofile')}
-                  className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition ${activeTab === 'myprofile' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg shadow-pink-600/20' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+                  className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'myprofile' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
                 >
                   <User size={16} /> Post Advertisement ({adsRemaining}/5 left)
                 </button>
                 <button 
                   onClick={() => setActiveTab('history')}
-                  className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition ${activeTab === 'history' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg shadow-pink-600/20' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+                  className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'history' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
                 >
                   <HistoryIcon size={16} /> History
                 </button>
@@ -835,7 +823,7 @@ export default function ClientDirectory({
 
             <button 
               onClick={() => setActiveTab('news')}
-              className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition ${activeTab === 'news' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg shadow-pink-600/20' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+              className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'news' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
             >
               <Bell size={16} /> {isAdminUser ? 'Manage Announcements' : 'News & Announcements'}
             </button>
@@ -843,7 +831,7 @@ export default function ClientDirectory({
             {!isFemaleUser && !isAdminUser && (
               <button 
                 onClick={() => setActiveTab('favorites')}
-                className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition ${activeTab === 'favorites' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg shadow-pink-600/20' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+                className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'favorites' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
               >
                 <Heart size={16} /> Favorites
               </button>
@@ -852,7 +840,7 @@ export default function ClientDirectory({
             {!isFemaleUser && !isAdminUser && (
               <button 
                 onClick={() => setActiveTab('subscription')}
-                className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition ${activeTab === 'subscription' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg shadow-pink-600/20' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+                className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'subscription' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
               >
                 <CreditCard size={16} /> Subscription Status
               </button>
@@ -861,7 +849,7 @@ export default function ClientDirectory({
             {!isAdminUser && (
               <button 
                 onClick={() => setActiveTab('settings')}
-                className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition ${activeTab === 'settings' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg shadow-pink-600/20' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+                className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'settings' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
               >
                 <Settings size={16} /> Account Details
               </button>
@@ -869,7 +857,7 @@ export default function ClientDirectory({
 
             <button 
               onClick={handleContactSupportWhatsApp}
-              className="w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 text-slate-400 hover:bg-slate-900 hover:text-white transition"
+              className="w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 text-slate-400 hover:bg-slate-900 hover:text-white transition cursor-pointer"
             >
               <MessageCircle size={16} className="text-pink-500" /> Contact Support
             </button>
@@ -877,7 +865,7 @@ export default function ClientDirectory({
             {isFemaleUser && (
               <button 
                 onClick={() => setReportModalOpen(true)}
-                className="w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 text-red-400 hover:bg-red-950/40 border border-red-900/30 transition mt-4"
+                className="w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 text-red-400 hover:bg-red-950/40 border border-red-900/30 transition mt-4 cursor-pointer"
               >
                 <Flag size={16} /> Report Time Waster
               </button>
@@ -893,7 +881,6 @@ export default function ClientDirectory({
                 <p className="text-xs text-slate-400 mt-1">Monitor user activity in real-time, last seen statuses, and platform announcements.</p>
               </div>
 
-              {/* Real-time Last Seen Table Overview for Admin */}
               <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 shadow-xl space-y-4">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                   <div className="flex items-center gap-2">
@@ -946,7 +933,6 @@ export default function ClientDirectory({
                 </div>
               </div>
 
-              {/* Announcement Creator Form */}
               <form onSubmit={handleCreateAnnouncement} className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-4">
                 <div className="flex items-center gap-2 pb-2 border-b border-slate-800">
                   <Shield size={18} className="text-pink-500" />
@@ -995,7 +981,7 @@ export default function ClientDirectory({
                 <div className="flex justify-end pt-2">
                   <button 
                     type="submit" 
-                    className="px-6 py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-pink-600/20 transition flex items-center gap-2"
+                    className="px-6 py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center gap-2 cursor-pointer"
                   >
                     <Plus size={16} /> Publish Announcement
                   </button>
@@ -1260,7 +1246,7 @@ export default function ClientDirectory({
                         <Video size={14} className="text-pink-500" /> Upload Advertisement Video File (.mp4/.mov)
                       </label>
                       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                        <label className="px-5 py-3.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-pink-600/20 transition cursor-pointer flex items-center gap-2">
+                        <label className="px-5 py-3.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg transition cursor-pointer flex items-center gap-2">
                           <Upload size={14} /> Upload Video File
                           <input type="file" accept="video/*" onChange={handleVideoUploadSimulation} className="hidden" />
                         </label>
@@ -1277,7 +1263,7 @@ export default function ClientDirectory({
                     <button 
                       type="submit" 
                       disabled={adsRemaining <= 0}
-                      className="px-8 py-3.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-pink-600/20 transition disabled:opacity-50"
+                      className="px-8 py-3.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg transition disabled:opacity-50 cursor-pointer"
                     >
                       {adsRemaining > 0 ? 'Submit Advertisement for Approval' : 'Daily Limit Reached (5/5)'}
                     </button>
@@ -1367,7 +1353,7 @@ export default function ClientDirectory({
                       <button 
                         key={cat} 
                         onClick={() => setSelectedCategory(cat)} 
-                        className={`px-4 py-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap ${selectedCategory === cat ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-md' : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'}`}
+                        className={`px-4 py-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${selectedCategory === cat ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-md' : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'}`}
                       >
                         {cat}
                       </button>
@@ -1427,13 +1413,13 @@ export default function ClientDirectory({
                           <div className="grid grid-cols-2 gap-2 pt-3 border-t border-slate-800/60">
                             <button 
                               onClick={() => setSelectedProfile(lady)}
-                              className="py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 border border-slate-800 transition"
+                              className="py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 border border-slate-800 transition cursor-pointer"
                             >
                               <User size={14} className="text-slate-400" /> View Profile
                             </button>
                             <button 
                               onClick={() => handleOpenWhatsApp(lady)}
-                              className="py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-600/20 transition"
+                              className="py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-lg transition cursor-pointer"
                             >
                               <MessageSquare size={14} /> WhatsApp
                             </button>
