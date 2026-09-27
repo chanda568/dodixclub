@@ -74,7 +74,7 @@ export default function ClientDirectory({
     };
 
     updateLastSeen();
-    const interval = setInterval(updateLastSeen, 15000); // 15s interval for stable syncing
+    const interval = setInterval(updateLastSeen, 15000);
     return () => clearInterval(interval);
   }, [currentUser?.username]);
 
@@ -116,7 +116,7 @@ export default function ClientDirectory({
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
 
-    if (diffMins < 2) return 'Active now'; // Stable window
+    if (diffMins < 2) return 'Active now';
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     return `${diffDays}d ago`;
@@ -174,11 +174,14 @@ export default function ClientDirectory({
   const [formLocation, setFormLocation] = useState(userLockedLocation);
   const [formSpecific, setFormSpecific] = useState('');
   const [formPhone, setFormPhone] = useState('');
-  const [formPhoto, setFormPhoto] = useState('');
+  const [formPhoto, setFormPhoto] = useState('');         // Masked public version
+  const [originalPhoto, setOriginalPhoto] = useState(''); // Clean unmasked version for admin
   const [formAge, setFormAge] = useState('23');
   const [formHosting, setFormHosting] = useState('Yes');
   const [formServices, setFormServices] = useState('');
 
+  // 2-Step Companion Upload & Masking Flow States
+  const [uploadStep, setUploadStep] = useState(1); // Step 1: Clean Photo, Step 2: Masking / Sticker Editor
   const [rawImageForSticker, setRawImageForSticker] = useState(null);
   const [stickerPosition, setStickerPosition] = useState({ x: 50, y: 30, size: 62 });
   const [isDraggingSticker, setIsDraggingSticker] = useState(false);
@@ -198,7 +201,8 @@ export default function ClientDirectory({
     }
   });
 
-  const handleLocalImageUpload = (e) => {
+  // STEP 1: Capture clean original unmasked photo instantly
+  const handleCleanPhotoUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
@@ -209,7 +213,9 @@ export default function ClientDirectory({
 
     const reader = new FileReader();
     reader.onloadend = () => {
-      setRawImageForSticker(reader.result);
+      const base64 = reader.result;
+      setOriginalPhoto(base64); // Securely store clean unmasked photo for admin!
+      setRawImageForSticker(base64); // Pass to sticker editor for step 2
       setStickerPosition({ x: 50, y: 30, size: 62 });
     };
     reader.readAsDataURL(file);
@@ -243,8 +249,9 @@ export default function ClientDirectory({
         ctx.drawImage(stickerImg, sX - sRadius, sY - sRadius, sRadius * 2, sRadius * 2);
         ctx.restore();
 
-        setFormPhoto(canvas.toDataURL('image/jpeg', 0.9));
+        setFormPhoto(canvas.toDataURL('image/jpeg', 0.9)); // Masked public version
         setRawImageForSticker(null);
+        setUploadStep(2); // Move to sticker confirmation / next stage
       };
       stickerImg.src = LOGO_URL;
     };
@@ -304,6 +311,11 @@ export default function ClientDirectory({
       return;
     }
 
+    if (!formPhoto) {
+      alert("Please upload and mask your advertisement photo.");
+      return;
+    }
+
     if (!verificationVideoUrl) {
       alert("Mandatory requirement: Please upload an advertisement video of at least 1 minute 40 seconds before submitting your ad.");
       return;
@@ -319,7 +331,9 @@ export default function ClientDirectory({
       location: formLocation,
       specificLocation: formSpecific,
       phone: cleanPhone,
-      photo: formPhoto || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80',
+      photo: formPhoto,             // Public masked photo
+      originalPhoto: originalPhoto, // Clean unmasked photo for admin review
+      unmaskedPhoto: originalPhoto, // Fallback alias
       age: formAge,
       hosting: formHosting,
       extraServices: formServices,
@@ -475,6 +489,7 @@ export default function ClientDirectory({
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col relative selection:bg-pink-500 selection:text-white font-sans">
       {isLoading && <LogoLoader text={loadingText} />}
 
+      {/* STICKER EDITOR MODAL */}
       <AnimatePresence>
         {rawImageForSticker && (
           <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
@@ -487,14 +502,14 @@ export default function ClientDirectory({
               <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                 <div className="flex items-center gap-2">
                   <Sparkles size={18} className="text-pink-500" />
-                  <h3 className="text-sm font-bold text-white">Privacy Sticker Editor (Position over Face)</h3>
+                  <h3 className="text-sm font-bold text-white">Step 2: Position Privacy Sticker over Face</h3>
                 </div>
                 <button onClick={() => setRawImageForSticker(null)} className="p-1.5 text-slate-400 hover:text-white rounded-lg cursor-pointer">
                   <X size={18} />
                 </button>
               </div>
 
-              <p className="text-xs text-slate-400">Drag the circular sticker over your face to ensure complete privacy protection.</p>
+              <p className="text-xs text-slate-400">Drag the circular sticker over your face to ensure complete privacy protection for your public advertisement.</p>
 
               <div 
                 ref={stickerContainerRef}
@@ -525,13 +540,13 @@ export default function ClientDirectory({
                   onClick={() => setRawImageForSticker(null)}
                   className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition cursor-pointer"
                 >
-                  Cancel
+                  Back
                 </button>
                 <button 
                   onClick={handleApplyStickerAndSave}
                   className="flex-1 py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <Check size={16} /> Apply Sticker & Save
+                  <Check size={16} /> Next: Save Masked Photo ✓
                 </button>
               </div>
             </motion.div>
@@ -1108,7 +1123,7 @@ export default function ClientDirectory({
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-2xl font-black text-white tracking-tight">Post Advertisement</h2>
-                    <p className="text-xs text-slate-400 mt-1">Configure your directory listing details and upload privacy sticker-masked advertisement photos.</p>
+                    <p className="text-xs text-slate-400 mt-1">Step 1: Upload clean unmasked photo. Step 2: Mask image with privacy sticker.</p>
                   </div>
                   <div className="bg-pink-950/60 border border-pink-800/50 px-4 py-2 rounded-2xl text-center shadow-md">
                     <span className="text-[10px] text-pink-300 uppercase font-bold block">Ads Remaining Today</span>
@@ -1227,20 +1242,37 @@ export default function ClientDirectory({
                     />
                   </div>
 
-                  <div className="space-y-2 pt-2 border-t border-slate-800">
+                  {/* 2-STEP MEDIA UPLOAD & MASKING SECTION */}
+                  <div className="space-y-3 pt-2 border-t border-slate-800">
                     <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                      <ImageIcon size={14} className="text-pink-500" /> Advertisement Photo with Privacy Sticker
+                      <ImageIcon size={14} className="text-pink-500" /> Step 1 & 2: Clean Photo Upload & Privacy Masking
                     </label>
-                    <div className="flex items-center gap-4">
+
+                    <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl space-y-3">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div className="space-y-1">
+                          <span className="text-xs font-bold text-white block">Upload Clean Original Photo</span>
+                          <span className="text-[11px] text-slate-400 block">
+                            {originalPhoto ? '✅ Clean original captured for admin review.' : '⚠️ Required: Upload clean unmasked photo first.'}
+                          </span>
+                        </div>
+                        <label className="px-4 py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold rounded-xl text-xs transition cursor-pointer flex items-center gap-2 shadow">
+                          <Upload size={14} /> Choose & Upload Clean Photo
+                          <input type="file" accept="image/*" onChange={handleCleanPhotoUpload} className="hidden" />
+                        </label>
+                      </div>
+
                       {formPhoto && (
-                        <div className="relative w-16 h-16 rounded-2xl overflow-hidden border border-slate-800 shadow-md shrink-0 bg-slate-950">
-                          <img src={formPhoto} alt="Preview" className="w-full h-full object-cover" />
+                        <div className="flex items-center gap-3 pt-2 border-t border-slate-800/80">
+                          <div className="relative w-14 h-14 rounded-xl overflow-hidden border border-slate-700 bg-black shrink-0">
+                            <img src={formPhoto} alt="Masked Preview" className="w-full h-full object-cover" />
+                          </div>
+                          <div className="flex-1">
+                            <span className="text-xs font-bold text-emerald-400 block">Privacy Mask Applied Successfully!</span>
+                            <span className="text-[10px] text-slate-400">Public directory will display the sticker version; admins have the clean original.</span>
+                          </div>
                         </div>
                       )}
-                      <label className="px-4 py-3 bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold rounded-xl text-xs border border-slate-800 transition cursor-pointer flex items-center gap-2">
-                        <Upload size={14} /> Choose & Mask Image
-                        <input type="file" accept="image/*" onChange={handleLocalImageUpload} className="hidden" />
-                      </label>
                     </div>
                   </div>
 
