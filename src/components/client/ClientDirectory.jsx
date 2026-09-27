@@ -448,7 +448,7 @@ export default function ClientDirectory({
               <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                 <div className="flex items-center gap-2">
                   <Sparkles size={18} className="text-pink-500" />
-                  <h3 className="text-sm font-bold text-white">Step 2: Position Privacy Sticker over Face</h3>
+                  <h3 className="text-sm font-bold text-white">Position Privacy Sticker over Face</h3>
                 </div>
                 <button onClick={() => setRawImageForSticker(null)} className="p-1.5 text-slate-400 hover:text-white rounded-lg cursor-pointer">
                   <X size={18} />
@@ -492,7 +492,7 @@ export default function ClientDirectory({
                   onClick={handleApplyStickerAndSave}
                   className="flex-1 py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <Check size={16} /> Next: Save Masked Photo ✓
+                  <Check size={16} /> Save Masked Photo ✓
                 </button>
               </div>
             </motion.div>
@@ -1017,7 +1017,7 @@ export default function ClientDirectory({
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-2xl font-black text-white tracking-tight">Post Advertisement</h2>
-                    <p className="text-xs text-slate-400 mt-1">Step 1: Upload clean unmasked photo. Step 2: Mask image with privacy sticker.</p>
+                    <p className="text-xs text-slate-400 mt-1">Upload your photo and position the privacy sticker over your face.</p>
                   </div>
                   <div className="bg-pink-950/60 border border-pink-800/50 px-4 py-2 rounded-2xl text-center shadow-md">
                     <span className="text-[10px] text-pink-300 uppercase font-bold block">Ads Remaining Today</span>
@@ -1131,22 +1131,22 @@ export default function ClientDirectory({
                     />
                   </div>
 
-                  {/* 2-STEP MEDIA UPLOAD & MASKING SECTION */}
+                  {/* MEDIA UPLOAD & MASKING SECTION */}
                   <div className="space-y-3 pt-2 border-t border-slate-800">
                     <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                      <ImageIcon size={14} className="text-pink-500" /> Step 1 & 2: Clean Photo Upload & Privacy Masking
+                      <ImageIcon size={14} className="text-pink-500" /> Photo Upload & Privacy Masking
                     </label>
 
                     <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl space-y-3">
                       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div className="space-y-1">
-                          <span className="text-xs font-bold text-white block">Upload Clean Original Photo</span>
+                          <span className="text-xs font-bold text-white block">Upload Photo</span>
                           <span className="text-[11px] text-slate-400 block">
-                            {originalPhoto ? '✅ Clean original captured for admin review.' : '⚠️ Required: Upload clean unmasked photo first.'}
+                            {originalPhoto ? '✅ Photo captured for review.' : '⚠️ Required: Upload photo first.'}
                           </span>
                         </div>
                         <label className="px-4 py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold rounded-xl text-xs transition cursor-pointer flex items-center gap-2 shadow">
-                          <Upload size={14} /> Choose & Upload Clean Photo
+                          <Upload size={14} /> Choose & Upload Photo
                           <input type="file" accept="image/*" onChange={handleCleanPhotoUpload} className="hidden" />
                         </label>
                       </div>
@@ -1158,7 +1158,7 @@ export default function ClientDirectory({
                           </div>
                           <div className="flex-1">
                             <span className="text-xs font-bold text-emerald-400 block">Privacy Mask Applied Successfully!</span>
-                            <span className="text-[10px] text-slate-400">Public directory will display the sticker version; admins have the clean original.</span>
+                            <span className="text-[10px] text-slate-400">Public directory will display the sticker version; admins have the original.</span>
                           </div>
                         </div>
                       )}
