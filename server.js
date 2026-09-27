@@ -76,7 +76,7 @@ const reportSchema = new mongoose.Schema({
   timestamp: { type: Date, default: Date.now }
 });
 
-// Updated Companion/Ad Schema allowing multiple ads per user
+// Updated Companion/Ad Schema allowing multiple ads per user and unmasked photo storage
 const companionSchema = new mongoose.Schema({
   username: { type: String, required: true, lowercase: true, trim: true },
   name: { type: String, required: true },
@@ -85,7 +85,9 @@ const companionSchema = new mongoose.Schema({
   location: { type: String, required: true },
   specificLocation: { type: String, default: '' },
   phone: { type: String, required: true },
-  photo: { type: String, default: '' },
+  photo: { type: String, default: '' },             // Masked public version with privacy sticker
+  originalPhoto: { type: String, default: '' },    // Clean unmasked version for admin review
+  unmaskedPhoto: { type: String, default: '' },    // Fallback unmasked version
   age: { type: String, default: '23' },
   hosting: { type: String, default: 'Yes' },
   extraServices: { type: String, default: '' },
