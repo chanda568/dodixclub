@@ -302,7 +302,7 @@ export default function ClientDirectory({
     tempVideo.src = objUrl;
   };
 
-  // Confirm Trim Selection (Automatically trims or sets 15s window)
+  // Confirm Trim Selection
   const handleConfirmTrim = () => {
     if (!rawVideoFile) return;
 
@@ -542,13 +542,8 @@ export default function ClientDirectory({
                     ref={previewVideoRef}
                     src={rawVideoObjectUrl} 
                     controls 
+                    playsInline
                     className="max-h-full max-w-full object-contain"
-                    onTimeUpdate={(e) => {
-                      if (e.target.currentTime >= trimStartTime + 15) {
-                        e.target.currentTime = trimStartTime;
-                        e.target.pause();
-                      }
-                    }}
                   />
                 )}
               </div>
