@@ -8,7 +8,8 @@ import { LOGO_URL } from '../../data/constants';
 import LogoLoader from '../common/LogoLoader';
 import { encryptStorageData, decryptStorageData } from '../../utils/storageEncryption';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+// Sanitize BACKEND_URL by removing trailing slashes
+const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000').replace(/\/+$/, '');
 
 export default function ClientDirectory({ 
   currentUser, setCurrentUser, ladies, setLadies, isLoading, loadingText 
@@ -35,7 +36,6 @@ export default function ClientDirectory({
   const [newContent, setNewContent] = useState('');
   const [newVisibility, setNewVisibility] = useState('all');
 
-  // Stabilized Last Seen Heartbeat (Prevents flickering)
   useEffect(() => {
     if (!currentUser?.username) return;
 
@@ -922,58 +922,6 @@ export default function ClientDirectory({
                 <p className="text-xs text-slate-400 mt-1">Monitor user activity in real-time, last seen statuses, and platform announcements.</p>
               </div>
 
-              <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 shadow-xl space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                  <div className="flex items-center gap-2">
-                    <Activity size={18} className="text-pink-500" />
-                    <h3 className="text-sm font-extrabold text-white">Registered Users Real-Time Last Seen</h3>
-                  </div>
-                  <span className="text-[10px] uppercase font-bold tracking-wider bg-slate-900 text-slate-400 px-3 py-1 rounded-xl border border-slate-800">
-                    Live Heartbeat Active
-                  </span>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="text-slate-500 uppercase text-[10px] tracking-wider border-b border-slate-800/80">
-                        <th className="pb-3 px-3">Username</th>
-                        <th className="pb-3 px-3">Role / Gender</th>
-                        <th className="pb-3 px-3">Location</th>
-                        <th className="pb-3 px-3">Real-Time Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-800/50">
-                      {allUsers.length === 0 ? (
-                        <tr>
-                          <td colSpan="4" className="text-center py-8 text-slate-500">No active user records found in storage.</td>
-                        </tr>
-                      ) : (
-                        allUsers.map((u, idx) => {
-                          const statusStr = formatLastSeen(u.lastSeen);
-                          const isOnline = statusStr === 'Active now';
-                          return (
-                            <tr key={idx} className="hover:bg-slate-900/55 transition">
-                              <td className="py-3 px-3 font-bold text-white flex items-center gap-2">
-                                <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-600'}`} />
-                                @{u.username}
-                              </td>
-                              <td className="py-3 px-3 text-pink-400 font-semibold uppercase text-[10px]">{u.gender || u.role || 'User'}</td>
-                              <td className="py-3 px-3 text-slate-300">{u.location || 'Lusaka'}</td>
-                              <td className="py-3 px-3">
-                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold ${isOnline ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/40' : 'bg-slate-900 text-slate-400 border border-slate-800'}`}>
-                                  {statusStr}
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
               <form onSubmit={handleCreateAnnouncement} className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-4">
                 <div className="flex items-center gap-2 pb-2 border-b border-slate-800">
                   <Shield size={18} className="text-pink-500" />
@@ -1143,7 +1091,6 @@ export default function ClientDirectory({
                   </div>
                 </div>
 
-                {/* Bypassed native <form> and converted to standard <div> container for guaranteed clickability */}
                 <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div className="space-y-1.5">

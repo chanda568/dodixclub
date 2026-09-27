@@ -9,8 +9,10 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const app = express();
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// Increased limit to 100mb to comfortably handle HD companion verification video uploads
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ limit: '100mb', extended: true }));
 app.use(cors());
 
 // 1. Create standard HTTP server from Express app
@@ -26,21 +28,15 @@ mongoose.connect(MONGO_URI)
   .then(async () => {
     console.log('[Database] Connected to MongoDB Atlas successfully.');
     
-    // Drop legacy index causing E11000 null duplicate key errors
     try {
       await mongoose.connection.collection('users').dropIndex('email_1');
       console.log('[Database] Successfully dropped legacy email_1 index.');
-    } catch (e) {
-      // Index might already be gone, safe to ignore
-    }
+    } catch (e) {}
 
-    // Drop legacy unique companion username index if it exists
     try {
       await mongoose.connection.collection('companions').dropIndex('username_1');
       console.log('[Database] Successfully dropped legacy unique username_1 index from companions collection.');
-    } catch (e) {
-      // Safe to ignore if already gone
-    }
+    } catch (e) {}
 
     await seedDefaultAdmin();
   })
@@ -53,8 +49,8 @@ const userSchema = new mongoose.Schema({
   email: { type: String, default: '', lowercase: true, trim: true },
   gender: { type: String, required: true },
   location: { type: String, required: true },
-  phone: { type: String, default: '' }, // WhatsApp number for females
-  plan: { type: String, default: '7 Days' }, // Subscription plan for males ('7 Days' or '30 Days')
+  phone: { type: String, default: '' },
+  plan: { type: String, default: '7 Days' },
   role: { type: String, default: 'client' },
   activated: { type: Boolean, default: false },
   isEmailVerified: { type: Boolean, default: true },
@@ -76,7 +72,6 @@ const reportSchema = new mongoose.Schema({
   timestamp: { type: Date, default: Date.now }
 });
 
-// Updated Companion/Ad Schema allowing multiple ads per user and unmasked photo storage
 const companionSchema = new mongoose.Schema({
   username: { type: String, required: true, lowercase: true, trim: true },
   name: { type: String, required: true },
@@ -91,7 +86,7 @@ const companionSchema = new mongoose.Schema({
   age: { type: String, default: '23' },
   hosting: { type: String, default: 'Yes' },
   extraServices: { type: String, default: '' },
-  verificationVideoUrl: { type: String, default: '' },
+  verificationVideoUrl: { type: String, default: '' }, // Permanent Base64 video string stored in MongoDB
   verificationVideoName: { type: String, default: '' },
   approved: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
@@ -103,7 +98,6 @@ const Message = mongoose.model('Message', messageSchema);
 const Report = mongoose.model('Report', reportSchema);
 const Companion = mongoose.model('Companion', companionSchema);
 
-// Seed default admin if database is empty
 async function seedDefaultAdmin() {
   const count = await User.countDocuments();
   if (count === 0) {
@@ -116,13 +110,10 @@ async function seedDefaultAdmin() {
   }
 }
 
-// Track active WebSocket connections mapped by username: Map<username, WebSocket>
 const activeClients = new Map();
-
 
 // ================= EXPRESS REST API ROUTES = =================
 
-// Check username availability route
 app.get('/api/check-username/:username', async (req, res) => {
   try {
     const cleanUsername = req.params.username.toLowerCase().trim();
@@ -133,7 +124,6 @@ app.get('/api/check-username/:username', async (req, res) => {
   }
 });
 
-// Login route with specific username/password error handling
 app.post('/api/login', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -155,7 +145,6 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// Register route (Direct registration without email OTP)
 app.post('/api/register', async (req, res) => {
   try {
     const { username, password, email, gender, location, role, phone, plan } = req.body;
@@ -193,7 +182,6 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-// Get all users route (for admin panel)
 app.get('/api/users', async (req, res) => {
   try {
     const users = await User.find({});
@@ -203,7 +191,6 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
-// Route to toggle user activation status
 app.post('/api/users/toggle', async (req, res) => {
   try {
     const { username } = req.body;
@@ -221,7 +208,6 @@ app.post('/api/users/toggle', async (req, res) => {
   }
 });
 
-// Route to reset password (admin feature)
 app.post('/api/users/reset-password', async (req, res) => {
   try {
     const { username, newPassword } = req.body;
@@ -246,7 +232,6 @@ app.post('/api/users/reset-password', async (req, res) => {
   }
 });
 
-// Route to delete a user
 app.delete('/api/users/:username', async (req, res) => {
   try {
     const { username } = req.params;
@@ -264,7 +249,6 @@ app.delete('/api/users/:username', async (req, res) => {
   }
 });
 
-// Route to fetch saved message history via HTTP
 app.get('/api/messages', async (req, res) => {
   try {
     const messages = await Message.find({}).sort({ timestamp: 1 });
@@ -315,7 +299,7 @@ app.delete('/api/reports/:id', async (req, res) => {
   }
 });
 
-// --- COMPANION ADVERTISEMENT LISTING ROUTES (Max 5 ads per day) ---
+// --- COMPANION ADVERTISEMENT LISTING ROUTES ---
 app.get('/api/ladies', async (req, res) => {
   try {
     const ladies = await Companion.find({}).sort({ createdAt: -1 });
@@ -334,7 +318,6 @@ app.post('/api/ladies', async (req, res) => {
 
     const cleanUsername = profileData.username.toLowerCase().trim();
 
-    // Check how many ads this user has posted today (start of current day)
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
@@ -361,6 +344,7 @@ app.post('/api/ladies', async (req, res) => {
     await newCompanionAd.save();
     res.json({ success: true, companion: newCompanionAd });
   } catch (err) {
+    console.error("Error saving companion ad:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -423,7 +407,6 @@ app.delete('/api/ladies/:identifier', async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
-
 
 // ================= WEBSOCKET REAL-TIME HANDLING = =================
 

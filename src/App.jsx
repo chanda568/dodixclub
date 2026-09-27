@@ -12,7 +12,8 @@ import AuthScreen from './components/auth/AuthScreen';
 import AdminDashboard from './components/admin/AdminDashboard';
 import ClientDirectory from './components/client/ClientDirectory';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+// Sanitize BACKEND_URL by removing any trailing slashes to prevent malformed requests
+const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000').replace(/\/+$/, '');
 
 export default function App() {
   const [isAgeVerified, setIsAgeVerified] = useState(() => {
@@ -61,7 +62,7 @@ export default function App() {
   };
 
   const handleOpenSupportWhatsApp = () => {
-    const adminPhone = "260965039645"; // Admin Support number
+    const adminPhone = "260965039645";
     const username = currentUser?.username || 'Member';
     const msg = encodeURIComponent(`Hello Dodix Support, my account (@${username}) is pending activation. Please assist with reviewing and activating my account.`);
     window.open(`https://wa.me/${adminPhone}?text=${msg}`, '_blank');
