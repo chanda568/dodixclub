@@ -112,28 +112,33 @@ export default function AdminDashboard({
     try {
       const resUsers = await fetch(`${BACKEND_URL}/api/users`);
       const dataUsers = await resUsers.json();
-      if (dataUsers.success && Array.isArray(dataUsers.users)) {
-        const localSaved = localStorage.getItem('dodix_users_db');
-        let localUsersMap = {};
-        if (localSaved) {
-          try {
-            const decryptedLocal = decryptStorageData(localSaved) || [];
-            decryptedLocal.forEach(u => {
-              if (u.username && u.lastSeen) {
-                localUsersMap[u.username.toLowerCase()] = u.lastSeen;
-              }
-            });
-          } catch (e) {
-            console.error("Error decrypting local users db:", e);
-          }
+      
+      const localSaved = localStorage.getItem('dodix_users_db');
+      let localUsersMap = {};
+      let decryptedLocal = [];
+      if (localSaved) {
+        try {
+          decryptedLocal = decryptStorageData(localSaved) || [];
+          decryptedLocal.forEach(u => {
+            if (u.username && u.lastSeen) {
+              localUsersMap[u.username.toLowerCase()] = u.lastSeen;
+            }
+          });
+        } catch (e) {
+          console.error("Error decrypting local users db:", e);
         }
+      }
 
+      if (dataUsers.success && Array.isArray(dataUsers.users) && dataUsers.users.length > 0) {
         const mergedUsers = dataUsers.users.map(u => ({
           ...u,
           lastSeen: localUsersMap[u.username?.toLowerCase()] || u.lastSeen || new Date().toISOString()
         }));
-
         setUsersDb(mergedUsers);
+      } else if (usersDb && usersDb.length > 0) {
+        // Keep current state users if backend returns empty
+      } else if (decryptedLocal.length > 0) {
+        setUsersDb(decryptedLocal);
       }
 
       const resLadies = await fetch(`${BACKEND_URL}/api/ladies`);
@@ -158,6 +163,16 @@ export default function AdminDashboard({
       }
     } catch (err) {
       console.error("Error fetching live backend data:", err);
+      // Fallback to local storage if network fails
+      const localSaved = localStorage.getItem('dodix_users_db');
+      if (localSaved && (!usersDb || usersDb.length === 0)) {
+        try {
+          const decryptedLocal = decryptStorageData(localSaved) || [];
+          if (decryptedLocal.length > 0) setUsersDb(decryptedLocal);
+        } catch (e) {
+          console.error("Error loading local storage fallback:", e);
+        }
+      }
     }
   };
 
