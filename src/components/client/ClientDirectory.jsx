@@ -543,6 +543,11 @@ export default function ClientDirectory({
                     src={rawVideoObjectUrl} 
                     controls 
                     playsInline
+                    autoPlay
+                    muted
+                    onLoadedData={(e) => {
+                      e.target.play().catch(err => console.log("Autoplay prevented:", err));
+                    }}
                     className="max-h-full max-w-full object-contain"
                   />
                 )}
