@@ -536,21 +536,35 @@ export default function ClientDirectory({
 
               <p className="text-xs text-slate-400">Play your video and choose your best 15-second segment to showcase your profile.</p>
 
-              <div className="relative w-full h-64 bg-black rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center">
+              <div 
+                className="relative w-full h-64 bg-black rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center cursor-pointer group"
+                onClick={() => {
+                  if (previewVideoRef.current) {
+                    if (previewVideoRef.current.paused) {
+                      previewVideoRef.current.play().catch(err => console.log("Manual play block:", err));
+                    } else {
+                      previewVideoRef.current.pause();
+                    }
+                  }
+                }}
+              >
                 {rawVideoObjectUrl && (
                   <video 
                     ref={previewVideoRef}
-                    src={rawVideoObjectUrl} 
                     controls 
                     playsInline
                     autoPlay
                     muted
-                    onLoadedData={(e) => {
-                      e.target.play().catch(err => console.log("Autoplay prevented:", err));
-                    }}
-                    className="max-h-full max-w-full object-contain"
-                  />
+                    onError={(e) => console.error("Video error event:", e.nativeEvent)}
+                    className="max-h-full max-w-full object-contain pointer-events-auto"
+                  >
+                    <source src={rawVideoObjectUrl} type={rawVideoFile?.type || "video/mp4"} />
+                    Your browser does not support the video tag.
+                  </video>
                 )}
+                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition pointer-events-none flex items-center justify-center">
+                  <span className="bg-pink-600/90 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">Click to Play / Pause</span>
+                </div>
               </div>
 
               <div className="space-y-2">
