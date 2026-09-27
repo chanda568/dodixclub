@@ -407,39 +407,20 @@ export default function AdminDashboard({
                 <X size={24} />
               </button>
               <div className="relative max-w-full max-h-[85vh] overflow-hidden rounded-2xl shadow-2xl border border-slate-800 bg-black flex flex-col items-center justify-center p-4 space-y-4">
-                {fullScreenVideo.startsWith('blob:') ? (
-                  <div className="text-center p-8 space-y-4 max-w-md">
-                    <AlertTriangle size={48} className="text-amber-400 mx-auto" />
-                    <h3 className="text-white font-bold text-base">Temporary Local File Expired</h3>
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                      This video was uploaded as a temporary browser session file (`blob:`). Since the companion's session ended, the file is no longer accessible on your machine.
-                    </p>
-                    <button
-                      onClick={() => handleWhatsAppContact(selectedCompanionModal?.phone, selectedCompanionModal?.username)}
-                      className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2"
-                    >
-                      <MessageCircle size={15} /> Request Video via WhatsApp
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <video 
-                      src={fullScreenVideo} 
-                      controls 
-                      autoPlay
-                      playsInline
-                      className="max-w-full max-h-[70vh] object-contain block mx-auto rounded-xl"
-                    />
-                    <a 
-                      href={fullScreenVideo} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-pink-400 rounded-xl text-xs font-bold border border-slate-700 flex items-center gap-2 transition"
-                    >
-                      <ExternalLink size={14} /> Open Direct Video Link in New Tab
-                    </a>
-                  </>
-                )}
+                <video 
+                  src={fullScreenVideo} 
+                  controls 
+                  autoPlay
+                  playsInline
+                  className="max-w-full max-h-[70vh] object-contain block mx-auto rounded-xl"
+                />
+                <a 
+                  href={fullScreenVideo} 
+                  download="Verification_Clip.mp4"
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-pink-400 rounded-xl text-xs font-bold border border-slate-700 flex items-center gap-2 transition"
+                >
+                  <ExternalLink size={14} /> Download Verification Video
+                </a>
               </div>
             </div>
           </div>
@@ -563,47 +544,29 @@ export default function AdminDashboard({
                 </div>
 
                 {selectedCompanionModal.verificationVideoUrl ? (
-                  selectedCompanionModal.verificationVideoUrl.startsWith('blob:') ? (
-                    <div className="p-4 bg-amber-950/30 border border-amber-800/50 rounded-xl space-y-2 text-center">
-                      <p className="text-xs text-amber-300 font-bold flex items-center justify-center gap-1">
-                        <AlertTriangle size={14} /> Temporary Session File Expired
-                      </p>
-                      <p className="text-[11px] text-slate-400">
-                        This clip was uploaded as a temporary browser blob. Please request the video via WhatsApp to verify this companion.
-                      </p>
-                      <button
-                        onClick={() => handleWhatsAppContact(selectedCompanionModal.phone, selectedCompanionModal.username)}
-                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl inline-flex items-center gap-1.5 transition"
+                  <div className="space-y-2">
+                    <div className="w-full bg-black rounded-xl overflow-hidden border border-purple-900/50 flex items-center justify-center p-1">
+                      <video 
+                        src={selectedCompanionModal.verificationVideoUrl} 
+                        controls 
+                        playsInline
+                        preload="metadata"
+                        className="max-h-60 w-auto object-contain mx-auto rounded-lg"
                       >
-                        <MessageCircle size={13} /> Ask via WhatsApp
-                      </button>
+                        Your browser does not support the video tag.
+                      </video>
                     </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="w-full bg-black rounded-xl overflow-hidden border border-purple-900/50 flex items-center justify-center p-1">
-                        <video 
-                          src={selectedCompanionModal.verificationVideoUrl} 
-                          controls 
-                          playsInline
-                          preload="metadata"
-                          className="max-h-60 w-auto object-contain mx-auto rounded-lg"
-                        >
-                          Your browser does not support the video tag.
-                        </video>
-                      </div>
-                      <div className="flex items-center justify-between text-[11px] text-slate-400">
-                        <span>File: <span className="text-white font-medium">{selectedCompanionModal.verificationVideoName || 'Verification_Clip.mp4'}</span></span>
-                        <a 
-                          href={selectedCompanionModal.verificationVideoUrl} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-pink-400 hover:underline flex items-center gap-1 font-bold"
-                        >
-                          Direct Link <ExternalLink size={11} />
-                        </a>
-                      </div>
+                    <div className="flex items-center justify-between text-[11px] text-slate-400">
+                      <span>File: <span className="text-white font-medium">{selectedCompanionModal.verificationVideoName || 'Verification_Clip.mp4'}</span></span>
+                      <a 
+                        href={selectedCompanionModal.verificationVideoUrl} 
+                        download="Verification_Clip.mp4"
+                        className="text-pink-400 hover:underline flex items-center gap-1 font-bold"
+                      >
+                        Download Video <ExternalLink size={11} />
+                      </a>
                     </div>
-                  )
+                  </div>
                 ) : (
                   <p className="text-xs text-amber-400 font-medium">No verification video clip uploaded yet by this companion.</p>
                 )}

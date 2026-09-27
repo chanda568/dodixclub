@@ -181,7 +181,7 @@ export default function ClientDirectory({
   const [formServices, setFormServices] = useState('');
 
   // 2-Step Companion Upload & Masking Flow States
-  const [uploadStep, setUploadStep] = useState(1); // Step 1: Clean Photo, Step 2: Masking / Sticker Editor
+  const [uploadStep, setUploadStep] = useState(1);
   const [rawImageForSticker, setRawImageForSticker] = useState(null);
   const [stickerPosition, setStickerPosition] = useState({ x: 50, y: 30, size: 62 });
   const [isDraggingSticker, setIsDraggingSticker] = useState(false);
@@ -189,6 +189,7 @@ export default function ClientDirectory({
 
   const [verificationVideoUrl, setVerificationVideoUrl] = useState('');
   const [verificationVideoName, setVerificationVideoName] = useState('');
+  const [isVideoUploading, setIsVideoUploading] = useState(false);
 
   const [profileHistory, setProfileHistory] = useState(() => {
     try {
@@ -201,7 +202,6 @@ export default function ClientDirectory({
     }
   });
 
-  // STEP 1: Capture clean original unmasked photo instantly
   const handleCleanPhotoUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -214,8 +214,8 @@ export default function ClientDirectory({
     const reader = new FileReader();
     reader.onloadend = () => {
       const base64 = reader.result;
-      setOriginalPhoto(base64); // Securely store clean unmasked photo for admin!
-      setRawImageForSticker(base64); // Pass to sticker editor for step 2
+      setOriginalPhoto(base64);
+      setRawImageForSticker(base64);
       setStickerPosition({ x: 50, y: 30, size: 62 });
     };
     reader.readAsDataURL(file);
@@ -249,9 +249,9 @@ export default function ClientDirectory({
         ctx.drawImage(stickerImg, sX - sRadius, sY - sRadius, sRadius * 2, sRadius * 2);
         ctx.restore();
 
-        setFormPhoto(canvas.toDataURL('image/jpeg', 0.9)); // Masked public version
+        setFormPhoto(canvas.toDataURL('image/jpeg', 0.9));
         setRawImageForSticker(null);
-        setUploadStep(2); // Move to sticker confirmation / next stage
+        setUploadStep(2);
       };
       stickerImg.src = LOGO_URL;
     };
@@ -266,6 +266,7 @@ export default function ClientDirectory({
     setStickerPosition(prev => ({ ...prev, x, y }));
   };
 
+  // Permanent Base64 Video Upload for MongoDB storage
   const handleVideoUploadSimulation = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -281,7 +282,7 @@ export default function ClientDirectory({
     videoElement.onloadedmetadata = function() {
       window.URL.revokeObjectURL(videoElement.src);
       const duration = videoElement.duration;
-      const minDuration = 100;
+      const minDuration = 100; // 1 min 40 sec (100 seconds)
 
       if (duration < minDuration) {
         alert(`Video duration is too short (${Math.floor(duration)} seconds). Minimum required duration is 1 minute 40 seconds.`);
@@ -290,9 +291,18 @@ export default function ClientDirectory({
         return;
       }
 
-      const videoUrl = URL.createObjectURL(file);
-      setVerificationVideoUrl(videoUrl);
-      setVerificationVideoName(file.name);
+      setIsVideoUploading(true);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setVerificationVideoUrl(reader.result); // Permanent Base64 string for MongoDB!
+        setVerificationVideoName(file.name);
+        setIsVideoUploading(false);
+      };
+      reader.onerror = () => {
+        alert("Error reading video file. Please try a smaller file or different format.");
+        setIsVideoUploading(false);
+      };
+      reader.readAsDataURL(file);
     };
 
     videoElement.src = URL.createObjectURL(file);
@@ -331,9 +341,9 @@ export default function ClientDirectory({
       location: formLocation,
       specificLocation: formSpecific,
       phone: cleanPhone,
-      photo: formPhoto,             // Public masked photo
-      originalPhoto: originalPhoto, // Clean unmasked photo for admin review
-      unmaskedPhoto: originalPhoto, // Fallback alias
+      photo: formPhoto,
+      originalPhoto: originalPhoto,
+      unmaskedPhoto: originalPhoto,
       age: formAge,
       hosting: formHosting,
       extraServices: formServices,
@@ -1293,12 +1303,12 @@ export default function ClientDirectory({
                       </label>
                       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                         <label className="px-5 py-3.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg transition cursor-pointer flex items-center gap-2">
-                          <Upload size={14} /> Upload Video File
+                          <Upload size={14} /> {isVideoUploading ? 'Processing Video...' : 'Upload Video File'}
                           <input type="file" accept="video/*" onChange={handleVideoUploadSimulation} className="hidden" />
                         </label>
                         {verificationVideoUrl && (
                           <div className="flex items-center gap-2 text-xs text-emerald-400 font-semibold bg-slate-900 px-3 py-2 rounded-xl border border-slate-800">
-                            <CheckCircle size={14} /> {verificationVideoName || 'Video Uploaded (1m 40s+)'}
+                            <CheckCircle size={14} /> {verificationVideoName || 'Video Uploaded & Saved (1m 40s+)'}
                           </div>
                         )}
                       </div>
@@ -1308,10 +1318,10 @@ export default function ClientDirectory({
                   <div className="pt-4 border-t border-slate-800 flex justify-end">
                     <button 
                       type="submit" 
-                      disabled={adsRemaining <= 0}
+                      disabled={adsRemaining <= 0 || isVideoUploading}
                       className="px-8 py-3.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg transition disabled:opacity-50 cursor-pointer"
                     >
-                      {adsRemaining > 0 ? 'Submit Advertisement for Approval' : 'Daily Limit Reached (5/5)'}
+                      {isVideoUploading ? 'Processing Video...' : (adsRemaining > 0 ? 'Submit Advertisement for Approval' : 'Daily Limit Reached (5/5)')}
                     </button>
                   </div>
                 </form>
