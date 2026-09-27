@@ -293,7 +293,7 @@ export default function AdminDashboard({
           
           const approvalNotification = {
             id: Date.now(),
-            title: 'Advertisement Approved!',
+            title: '✨ Advertisement Approved!',
             content: `Great news @${username}! Your advertisement listing has been reviewed and approved by administration. It is now live in the Elite Directory.`,
             visibility: 'female',
             targetUsername: username.toLowerCase(),
@@ -316,23 +316,20 @@ export default function AdminDashboard({
     }
   };
 
-  const handleRejectCompanion = async (identifier, username) => {
-    if (!window.confirm(`Are you sure you want to reject/remove the advertisement for @${username || identifier}?`)) return;
+  const handleRejectCompanion = async (username) => {
+    if (!window.confirm(`Are you sure you want to reject/remove the advertisement for @${username}?`)) return;
     try {
-      const response = await fetch(`${BACKEND_URL}/api/ladies/${identifier}`, {
+      const response = await fetch(`${BACKEND_URL}/api/ladies/${username}`, {
         method: 'DELETE'
       });
       const data = await response.json();
       if (data.success) {
         loadBackendData();
-        alert(`Advertisement for @${username || identifier} has been rejected and removed.`);
+        alert(`Advertisement for @${username} has been rejected and removed.`);
         setSelectedCompanionModal(null);
-      } else {
-        alert(data.error || "Failed to reject advertisement.");
       }
     } catch (err) {
       console.error("Error rejecting companion:", err);
-      alert("Network error connecting to server.");
     }
   };
 
@@ -488,7 +485,7 @@ export default function AdminDashboard({
                     onClick={() => setIsFaceRevealed(!isFaceRevealed)}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-md ${isFaceRevealed ? 'bg-amber-600 hover:bg-amber-500 text-white' : 'bg-pink-600 hover:bg-pink-500 text-white'}`}
                   >
-                    {isFaceRevealed ? 'Face Revealed (Original)' : 'Face Hidden (Sticker On)'}
+                    {isFaceRevealed ? '🔓 Face Revealed (Original)' : '🔒 Face Hidden (Sticker On)'}
                   </button>
                 </div>
 
@@ -583,7 +580,7 @@ export default function AdminDashboard({
                   <CheckCircle size={15} /> Approve Ad & Notify
                 </button>
                 <button 
-                  onClick={() => handleRejectCompanion(selectedCompanionModal._id || selectedCompanionModal.id, selectedCompanionModal.username || selectedCompanionModal.name)}
+                  onClick={() => handleRejectCompanion(selectedCompanionModal.username || selectedCompanionModal.name)}
                   className="py-3 bg-red-600 hover:bg-red-500 text-white font-black rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
                 >
                   <XCircle size={15} /> Reject Ad
@@ -986,7 +983,7 @@ export default function AdminDashboard({
                               <CheckCircle size={13} /> Approve
                             </button>
                             <button 
-                              onClick={() => handleRejectCompanion(lady._id || lady.id, lady.username || lady.name)}
+                              onClick={() => handleRejectCompanion(lady.username || lady.name)}
                               className="py-2 bg-red-600 hover:bg-red-500 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md transition cursor-pointer"
                             >
                               <XCircle size={13} /> Reject
@@ -1043,13 +1040,13 @@ export default function AdminDashboard({
                       </div>
                       <p className="text-xs text-slate-300 font-medium pt-1">Reason: <span className="text-white">{rep.reason}</span></p>
                       <p className="text-[11px] text-pink-400/80 font-semibold pt-0.5 flex items-center gap-1">
-                        <span>{rep.timestamp ? new Date(rep.timestamp).toLocaleString('en-GB', {
+                        <span>🕒</span> {rep.timestamp ? new Date(rep.timestamp).toLocaleString('en-GB', {
                           day: 'numeric',
                           month: 'short',
                           year: 'numeric',
                           hour: '2-digit',
                           minute: '2-digit'
-                        }) : 'Just now'}</span>
+                        }) : 'Just now'}
                       </p>
                     </div>
 
