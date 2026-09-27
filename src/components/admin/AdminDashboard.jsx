@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, Users, Flag, Video, CheckCircle, XCircle, Trash2, 
-  LogOut, RefreshCw, X, MessageSquare, MapPin, Edit3, MessageCircle, Clock, Eye, Sparkles, Maximize2, KeyRound, Bell, Plus, Activity, Lock, Unlock, ExternalLink, Upload, AlertTriangle 
+  LogOut, RefreshCw, X, MessageSquare, MapPin, Edit3, MessageCircle, Clock, Eye, Sparkles, Maximize2, KeyRound, Bell, Plus, Activity, Lock, Unlock, ExternalLink, AlertTriangle 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LOGO_URL } from '../../data/constants';
@@ -140,11 +140,12 @@ export default function AdminDashboard({
       const dataLadies = await resLadies.json();
       if (dataLadies.success && Array.isArray(dataLadies.ladies)) {
         const processedLadies = dataLadies.ladies.map(lady => {
-          const rawPhoto = lady.originalPhoto || lady.unmaskedPhoto || lady.photo;
+          const rawOriginal = lady.originalPhoto || lady.unmaskedPhoto || lady.photo;
           return {
             ...lady,
-            originalPhoto: rawPhoto,
-            photo: lady.photo || rawPhoto
+            originalPhoto: rawOriginal,
+            unmaskedPhoto: rawOriginal,
+            photo: lady.photo || rawOriginal
           };
         });
         setLadies(processedLadies);
@@ -183,7 +184,7 @@ export default function AdminDashboard({
       phone = manualPhone.trim();
     }
     const cleanPhone = phone.replace(/[^0-9]/g, '');
-    const defaultMsg = encodeURIComponent(`Hello @${name || 'Member'}, this is Dodix Admin reaching out regarding your account verification.`);
+    const defaultMsg = encodeURIComponent(`Hello @${name || 'Member'}, this is Dodix Admin reaching out regarding your video verification clip. Please ensure your video upload is re-submitted or sent directly via WhatsApp.`);
     window.open(`https://wa.me/${cleanPhone}?text=${defaultMsg}`, '_blank');
   };
 
@@ -292,7 +293,7 @@ export default function AdminDashboard({
           
           const approvalNotification = {
             id: Date.now(),
-            title: '🎉 Advertisement Approved!',
+            title: '✨ Advertisement Approved!',
             content: `Great news @${username}! Your advertisement listing has been reviewed and approved by administration. It is now live in the Elite Directory.`,
             visibility: 'female',
             targetUsername: username.toLowerCase(),
@@ -330,72 +331,6 @@ export default function AdminDashboard({
     } catch (err) {
       console.error("Error rejecting companion:", err);
     }
-  };
-
-  const handleAdminVideoUpload = (e, username) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const base64Video = reader.result;
-      
-      const updatedLadies = ladies.map(l => {
-        if ((l.username || l.name)?.toLowerCase() === username.toLowerCase()) {
-          return {
-            ...l,
-            verificationVideoUrl: base64Video,
-            verificationVideoName: file.name
-          };
-        }
-        return l;
-      });
-      setLadies(updatedLadies);
-
-      if (selectedCompanionModal) {
-        setSelectedCompanionModal(prev => ({
-          ...prev,
-          verificationVideoUrl: base64Video,
-          verificationVideoName: file.name
-        }));
-      }
-
-      alert(`Verification video successfully attached for @${username}!`);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleAdminCleanPhotoUpload = (e, username) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const base64Photo = reader.result;
-      
-      const updatedLadies = ladies.map(l => {
-        if ((l.username || l.name)?.toLowerCase() === username.toLowerCase()) {
-          return {
-            ...l,
-            originalPhoto: base64Photo,
-            unmaskedPhoto: base64Photo
-          };
-        }
-        return l;
-      });
-      setLadies(updatedLadies);
-
-      if (selectedCompanionModal) {
-        setSelectedCompanionModal(prev => ({
-          ...prev,
-          originalPhoto: base64Photo,
-          unmaskedPhoto: base64Photo
-        }));
-      }
-
-      alert(`Original unmasked photo successfully attached for @${username}! You can now toggle "Face Revealed" to review it.`);
-    };
-    reader.readAsDataURL(file);
   };
 
   const handleOpenUserInspect = (reportedUsername) => {
@@ -472,19 +407,46 @@ export default function AdminDashboard({
                 <X size={24} />
               </button>
               <div className="relative max-w-full max-h-[85vh] overflow-hidden rounded-2xl shadow-2xl border border-slate-800 bg-black flex flex-col items-center justify-center p-4 space-y-4">
-                <video 
-                  src={fullScreenVideo} 
-                  controls 
-                  autoPlay
-                  playsInline
-                  className="max-w-full max-h-[75vh] object-contain block mx-auto rounded-xl"
-                />
+                {fullScreenVideo.startsWith('blob:') ? (
+                  <div className="text-center p-8 space-y-4 max-w-md">
+                    <AlertTriangle size={48} className="text-amber-400 mx-auto" />
+                    <h3 className="text-white font-bold text-base">Temporary Local File Expired</h3>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      This video was uploaded as a temporary browser session file (`blob:`). Since the companion's session ended, the file is no longer accessible on your machine.
+                    </p>
+                    <button
+                      onClick={() => handleWhatsAppContact(selectedCompanionModal?.phone, selectedCompanionModal?.username)}
+                      className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2"
+                    >
+                      <MessageCircle size={15} /> Request Video via WhatsApp
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <video 
+                      src={fullScreenVideo} 
+                      controls 
+                      autoPlay
+                      playsInline
+                      className="max-w-full max-h-[70vh] object-contain block mx-auto rounded-xl"
+                    />
+                    <a 
+                      href={fullScreenVideo} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-pink-400 rounded-xl text-xs font-bold border border-slate-700 flex items-center gap-2 transition"
+                    >
+                      <ExternalLink size={14} /> Open Direct Video Link in New Tab
+                    </a>
+                  </>
+                )}
               </div>
             </div>
           </div>
         )}
       </AnimatePresence>
 
+      {/* COMPANION INSPECTION MODAL */}
       <AnimatePresence>
         {selectedCompanionModal && (
           <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
@@ -531,7 +493,7 @@ export default function AdminDashboard({
                 </div>
               </div>
 
-              {/* PRIVACY TOGGLE & CLEAN PHOTO UPLOADER */}
+              {/* ADMIN PRIVACY TOGGLE */}
               <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
@@ -564,22 +526,6 @@ export default function AdminDashboard({
                     <Maximize2 size={20} /> Click to Expand
                   </div>
                 </div>
-
-                {/* ATTACH CLEAN PHOTO OPTION */}
-                {(!selectedCompanionModal.originalPhoto || selectedCompanionModal.originalPhoto === selectedCompanionModal.photo) && (
-                  <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
-                    <span className="text-[11px] text-amber-400 font-medium">No clean unmasked photo attached yet.</span>
-                    <label className="px-3 py-1.5 bg-pink-600 hover:bg-pink-500 text-white font-bold text-[11px] rounded-xl cursor-pointer transition shadow inline-flex items-center gap-1.5">
-                      <Upload size={12} /> Attach Clean Photo
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={(e) => handleAdminCleanPhotoUpload(e, selectedCompanionModal.username || selectedCompanionModal.name)}
-                        className="hidden" 
-                      />
-                    </label>
-                  </div>
-                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800/80">
@@ -601,12 +547,12 @@ export default function AdminDashboard({
               )}
 
               {/* VERIFICATION VIDEO SECTION */}
-              <div className="space-y-3 p-4 bg-purple-950/20 border border-purple-800/40 rounded-2xl">
+              <div className="space-y-2 p-4 bg-purple-950/20 border border-purple-800/40 rounded-2xl">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-purple-300 flex items-center gap-1.5">
                     <Video size={15} className="text-pink-400" /> Promotional Verification Video
                   </span>
-                  {selectedCompanionModal.verificationVideoUrl && !selectedCompanionModal.verificationVideoUrl.startsWith('blob:') && (
+                  {selectedCompanionModal.verificationVideoUrl && (
                     <button
                       onClick={() => setFullScreenVideo(selectedCompanionModal.verificationVideoUrl)}
                       className="px-2.5 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-[10px] font-bold flex items-center gap-1 transition cursor-pointer shadow"
@@ -616,36 +562,50 @@ export default function AdminDashboard({
                   )}
                 </div>
 
-                {selectedCompanionModal.verificationVideoUrl && !selectedCompanionModal.verificationVideoUrl.startsWith('blob:') ? (
-                  <div className="space-y-2">
-                    <div className="w-full bg-black rounded-xl overflow-hidden border border-purple-900/50 flex items-center justify-center p-1">
-                      <video 
-                        src={selectedCompanionModal.verificationVideoUrl} 
-                        controls 
-                        playsInline
-                        preload="metadata"
-                        className="max-h-60 w-auto object-contain mx-auto rounded-lg"
+                {selectedCompanionModal.verificationVideoUrl ? (
+                  selectedCompanionModal.verificationVideoUrl.startsWith('blob:') ? (
+                    <div className="p-4 bg-amber-950/30 border border-amber-800/50 rounded-xl space-y-2 text-center">
+                      <p className="text-xs text-amber-300 font-bold flex items-center justify-center gap-1">
+                        <AlertTriangle size={14} /> Temporary Session File Expired
+                      </p>
+                      <p className="text-[11px] text-slate-400">
+                        This clip was uploaded as a temporary browser blob. Please request the video via WhatsApp to verify this companion.
+                      </p>
+                      <button
+                        onClick={() => handleWhatsAppContact(selectedCompanionModal.phone, selectedCompanionModal.username)}
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl inline-flex items-center gap-1.5 transition"
                       >
-                        Your browser does not support the video tag.
-                      </video>
+                        <MessageCircle size={13} /> Ask via WhatsApp
+                      </button>
                     </div>
-                    <p className="text-[11px] text-slate-400">File: <span className="text-white font-medium">{selectedCompanionModal.verificationVideoName || 'Verification_Clip.mp4'}</span></p>
-                  </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="w-full bg-black rounded-xl overflow-hidden border border-purple-900/50 flex items-center justify-center p-1">
+                        <video 
+                          src={selectedCompanionModal.verificationVideoUrl} 
+                          controls 
+                          playsInline
+                          preload="metadata"
+                          className="max-h-60 w-auto object-contain mx-auto rounded-lg"
+                        >
+                          Your browser does not support the video tag.
+                        </video>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] text-slate-400">
+                        <span>File: <span className="text-white font-medium">{selectedCompanionModal.verificationVideoName || 'Verification_Clip.mp4'}</span></span>
+                        <a 
+                          href={selectedCompanionModal.verificationVideoUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-pink-400 hover:underline flex items-center gap-1 font-bold"
+                        >
+                          Direct Link <ExternalLink size={11} />
+                        </a>
+                      </div>
+                    </div>
+                  )
                 ) : (
-                  <div className="p-4 bg-amber-950/30 border border-amber-800/50 rounded-xl space-y-3 text-center">
-                    <p className="text-xs text-amber-300 font-bold">
-                      ⚠️ Video file missing or expired (Blob link).
-                    </p>
-                    <label className="inline-flex items-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl cursor-pointer transition shadow-lg">
-                      <Upload size={14} /> Upload Video File (.mp4 / .mov)
-                      <input 
-                        type="file" 
-                        accept="video/*" 
-                        onChange={(e) => handleAdminVideoUpload(e, selectedCompanionModal.username || selectedCompanionModal.name)}
-                        className="hidden" 
-                      />
-                    </label>
-                  </div>
+                  <p className="text-xs text-amber-400 font-medium">No verification video clip uploaded yet by this companion.</p>
                 )}
               </div>
 
