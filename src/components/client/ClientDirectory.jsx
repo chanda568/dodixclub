@@ -174,13 +174,12 @@ export default function ClientDirectory({
   const [formLocation, setFormLocation] = useState(userLockedLocation);
   const [formSpecific, setFormSpecific] = useState('');
   const [formPhone, setFormPhone] = useState('');
-  const [formPhoto, setFormPhoto] = useState('');         // Masked public version
-  const [originalPhoto, setOriginalPhoto] = useState(''); // Clean unmasked version for admin
+  const [formPhoto, setFormPhoto] = useState('');         
+  const [originalPhoto, setOriginalPhoto] = useState(''); 
   const [formAge, setFormAge] = useState('23');
   const [formHosting, setFormHosting] = useState('Yes');
   const [formServices, setFormServices] = useState('');
 
-  // 2-Step Companion Upload & Masking Flow States
   const [uploadStep, setUploadStep] = useState(1);
   const [rawImageForSticker, setRawImageForSticker] = useState(null);
   const [stickerPosition, setStickerPosition] = useState({ x: 50, y: 30, size: 62 });
@@ -266,7 +265,6 @@ export default function ClientDirectory({
     setStickerPosition(prev => ({ ...prev, x, y }));
   };
 
-  // Permanent Base64 Video Upload for MongoDB storage
   const handleVideoUploadSimulation = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -294,7 +292,7 @@ export default function ClientDirectory({
       setIsVideoUploading(true);
       const reader = new FileReader();
       reader.onloadend = () => {
-        setVerificationVideoUrl(reader.result); // Permanent Base64 string for MongoDB!
+        setVerificationVideoUrl(reader.result);
         setVerificationVideoName(file.name);
         setIsVideoUploading(false);
       };
@@ -308,9 +306,8 @@ export default function ClientDirectory({
     videoElement.src = URL.createObjectURL(file);
   };
 
-  const handleSaveLadyProfile = async (e) => {
-    e.preventDefault();
-
+  // Direct manual submit handler bypassing all native form validation blocks
+  const handleSaveLadyProfileManual = async () => {
     if (adsRemaining <= 0) {
       alert("You have reached your daily limit of 5 advertisements per day. Please try again tomorrow.");
       return;
@@ -328,6 +325,11 @@ export default function ClientDirectory({
 
     if (!verificationVideoUrl) {
       alert("Mandatory requirement: Please upload an advertisement video of at least 1 minute 40 seconds before submitting your ad.");
+      return;
+    }
+
+    if (isVideoUploading) {
+      alert("Please wait for the video upload to finish processing.");
       return;
     }
 
@@ -1141,7 +1143,8 @@ export default function ClientDirectory({
                   </div>
                 </div>
 
-                <form onSubmit={handleSaveLadyProfile} className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
+                {/* Bypassed native <form> and converted to standard <div> container for guaranteed clickability */}
+                <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-slate-300">Display Name / Pseudonym</label>
@@ -1150,7 +1153,6 @@ export default function ClientDirectory({
                         value={formName} 
                         onChange={(e) => setFormName(e.target.value)} 
                         className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition" 
-                        required 
                       />
                     </div>
 
@@ -1174,7 +1176,6 @@ export default function ClientDirectory({
                         value={formPrice} 
                         onChange={(e) => setFormPrice(e.target.value)} 
                         className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition" 
-                        required 
                       />
                     </div>
 
@@ -1185,7 +1186,6 @@ export default function ClientDirectory({
                         value={formAge} 
                         onChange={(e) => setFormAge(e.target.value)} 
                         className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition" 
-                        required 
                       />
                     </div>
 
@@ -1196,7 +1196,6 @@ export default function ClientDirectory({
                         value={formLocation} 
                         onChange={(e) => setFormLocation(e.target.value)} 
                         className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition" 
-                        required 
                       />
                     </div>
 
@@ -1219,7 +1218,6 @@ export default function ClientDirectory({
                         </span>
                         <input 
                           type="tel" 
-                          required
                           placeholder="970000000" 
                           value={formPhone} 
                           onChange={(e) => setFormPhone(e.target.value.replace(/\D/g, ''))} 
@@ -1317,14 +1315,14 @@ export default function ClientDirectory({
 
                   <div className="pt-4 border-t border-slate-800 flex justify-end">
                     <button 
-                      type="submit" 
-                      disabled={adsRemaining <= 0 || isVideoUploading}
-                      className="px-8 py-3.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg transition disabled:opacity-50 cursor-pointer"
+                      type="button" 
+                      onClick={handleSaveLadyProfileManual}
+                      className="px-8 py-3.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg transition cursor-pointer"
                     >
                       {isVideoUploading ? 'Processing Video...' : (adsRemaining > 0 ? 'Submit Advertisement for Approval' : 'Daily Limit Reached (5/5)')}
                     </button>
                   </div>
-                </form>
+                </div>
               </div>
             )
           ) : (
