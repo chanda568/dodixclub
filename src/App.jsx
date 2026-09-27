@@ -147,8 +147,9 @@ export default function App() {
         })
         .catch(err => console.error("Failed to fetch messages from server:", err));
 
-      const wsProtocol = BACKEND_URL.startsWith('https') ? 'wss://' : 'ws://';
-      const cleanHost = BACKEND_URL.replace(/^https?:\/\//, '');
+      const safeBackendUrl = BACKEND_URL.replace(/\/+$/, '');
+      const wsProtocol = safeBackendUrl.startsWith('https') ? 'wss://' : 'ws://';
+      const cleanHost = safeBackendUrl.replace(/^https?:\/\//, '');
       const ws = new WebSocket(`${wsProtocol}${cleanHost}`);
       socketRef.current = ws;
 

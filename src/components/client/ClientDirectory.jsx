@@ -189,6 +189,7 @@ export default function ClientDirectory({
   const [verificationVideoUrl, setVerificationVideoUrl] = useState('');
   const [verificationVideoName, setVerificationVideoName] = useState('');
   const [isVideoUploading, setIsVideoUploading] = useState(false);
+  const [isSubmittingAd, setIsSubmittingAd] = useState(false);
 
   const [profileHistory, setProfileHistory] = useState(() => {
     try {
@@ -306,7 +307,7 @@ export default function ClientDirectory({
     videoElement.src = URL.createObjectURL(file);
   };
 
-  // Direct manual submit handler bypassing all native form validation blocks
+  // Direct manual submit handler bypassing validation blocks and providing explicit loading state
   const handleSaveLadyProfileManual = async () => {
     if (adsRemaining <= 0) {
       alert("You have reached your daily limit of 5 advertisements per day. Please try again tomorrow.");
@@ -333,6 +334,7 @@ export default function ClientDirectory({
       return;
     }
 
+    setIsSubmittingAd(true);
     const cleanPhone = `260${formPhone.trim().replace(/^0+/, '')}`;
 
     const newAdData = {
@@ -380,7 +382,9 @@ export default function ClientDirectory({
       }
     } catch (err) {
       console.error("Error posting ad to backend:", err);
-      alert("Network error connecting to server.");
+      alert("Network error: The video file size might exceed server timeout limits. Try uploading a slightly smaller or compressed video clip.");
+    } finally {
+      setIsSubmittingAd(false);
     }
   };
 
@@ -1263,10 +1267,11 @@ export default function ClientDirectory({
                   <div className="pt-4 border-t border-slate-800 flex justify-end">
                     <button 
                       type="button" 
+                      disabled={isSubmittingAd || isVideoUploading}
                       onClick={handleSaveLadyProfileManual}
-                      className="px-8 py-3.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg transition cursor-pointer"
+                      className="px-8 py-3.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg transition cursor-pointer disabled:opacity-50"
                     >
-                      {isVideoUploading ? 'Processing Video...' : (adsRemaining > 0 ? 'Submit Advertisement for Approval' : 'Daily Limit Reached (5/5)')}
+                      {isSubmittingAd ? 'Uploading & Submitting Ad to Server...' : (isVideoUploading ? 'Processing Video...' : (adsRemaining > 0 ? 'Submit Advertisement for Approval' : 'Daily Limit Reached (5/5)'))}
                     </button>
                   </div>
                 </div>
