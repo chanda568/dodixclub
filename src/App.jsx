@@ -47,9 +47,11 @@ export default function App() {
   const socketRef = useRef(null);
 
   const handleLogout = () => {
+    // Clear storage immediately to prevent stale session resurrection
     sessionStorage.removeItem('dodix_current_user');
     if (socketRef.current) {
       socketRef.current.close();
+      socketRef.current = null;
     }
     setCurrentUser(null);
   };
@@ -69,10 +71,16 @@ export default function App() {
   };
 
   const fetchUsersFromBackend = async () => {
-    if (!currentUser) return;
+    // Guard clause: abort immediately if user logged out
+    if (!currentUser || !currentUser.username) return;
     try {
       const res = await fetch(`${BACKEND_URL}/api/users`);
       const data = await res.json();
+      
+      // Double check currentUser wasn't cleared while awaiting fetch
+      const currentStored = sessionStorage.getItem('dodix_current_user');
+      if (!currentStored) return;
+
       if (data.success && Array.isArray(data.users)) {
         setUsersDb(data.users);
         
@@ -108,8 +116,12 @@ export default function App() {
     fetchUsersFromBackend();
     fetchLadiesFromBackend();
     const interval = setInterval(() => {
-      fetchUsersFromBackend();
-      fetchLadiesFromBackend();
+      // Only poll if user is still logged in
+      const activeCheck = sessionStorage.getItem('dodix_current_user');
+      if (activeCheck) {
+        fetchUsersFromBackend();
+        fetchLadiesFromBackend();
+      }
     }, 3000);
 
     return () => clearInterval(interval);
@@ -135,7 +147,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (currentUser) {
+    if (currentUser && currentUser.username) {
       sessionStorage.setItem('dodix_current_user', JSON.stringify(currentUser));
 
       fetch(`${BACKEND_URL}/api/messages`)
@@ -181,9 +193,10 @@ export default function App() {
       sessionStorage.removeItem('dodix_current_user');
       if (socketRef.current) {
         socketRef.current.close();
+        socketRef.current = null;
       }
     }
-  }, [currentUser]);
+  }, [currentUser?.username]);
 
   useEffect(() => {
     localStorage.setItem('dodix_messages_db', encryptStorageData(messages));
