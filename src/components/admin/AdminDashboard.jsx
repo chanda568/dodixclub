@@ -73,6 +73,7 @@ export default function AdminDashboard({
   triggerLoadingAction
 }) {
   const [activeSubTab, setActiveSubTab] = useState('users'); 
+  const [userGenderFilter, setUserGenderFilter] = useState('all'); // 'all' | 'male' | 'female'
   const [reports, setReports] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [newTitle, setNewTitle] = useState('');
@@ -340,7 +341,6 @@ export default function AdminDashboard({
       }
     } catch (err) {
       console.error("Error rejecting companion:", err);
-      // Fallback local removal
       setLadies(prev => prev.filter(l => l._id !== targetId && l.id !== targetId && l.username !== username));
       setSelectedCompanionModal(null);
       alert("Advertisement removed from view.");
@@ -382,6 +382,14 @@ export default function AdminDashboard({
     setIsEditingLocation(false);
     alert(`Location for @${username} successfully updated to "${newLocationInput.trim()}"!`);
   };
+
+  // Filter users based on selected gender tab
+  const filteredUsers = usersDb.filter(u => {
+    const g = u.gender?.toLowerCase() || '';
+    if (userGenderFilter === 'male') return g === 'male';
+    if (userGenderFilter === 'female') return g === 'female';
+    return true; // 'all'
+  });
 
   return (
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col font-sans selection:bg-pink-500 selection:text-white">
@@ -816,14 +824,36 @@ export default function AdminDashboard({
 
         {activeSubTab === 'users' && (
           <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
               <div>
                 <h2 className="text-base font-extrabold text-white">Registered Users & Client Database</h2>
                 <p className="text-xs text-slate-400">Inspect accounts, view real-time online status / exact last seen, registration & expiry countdown</p>
               </div>
-              <button onClick={loadBackendData} className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition cursor-pointer" title="Refresh Users">
-                <RefreshCw size={16} />
-              </button>
+
+              {/* MALE / FEMALE FILTER BUTTONS */}
+              <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 p-1.5 rounded-2xl">
+                <button
+                  onClick={() => setUserGenderFilter('all')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${userGenderFilter === 'all' ? 'bg-pink-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
+                >
+                  All ({usersDb.length})
+                </button>
+                <button
+                  onClick={() => setUserGenderFilter('male')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${userGenderFilter === 'male' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
+                >
+                  Male Clients ({usersDb.filter(u => u.gender?.toLowerCase() === 'male').length})
+                </button>
+                <button
+                  onClick={() => setUserGenderFilter('female')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${userGenderFilter === 'female' ? 'bg-pink-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
+                >
+                  Female Companions ({usersDb.filter(u => u.gender?.toLowerCase() === 'female').length})
+                </button>
+                <button onClick={loadBackendData} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 transition cursor-pointer ml-1" title="Refresh">
+                  <RefreshCw size={14} />
+                </button>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -841,12 +871,12 @@ export default function AdminDashboard({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-900">
-                  {usersDb.length === 0 ? (
+                  {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan="8" className="text-center py-8 text-slate-500">No registered users found.</td>
+                      <td colSpan="8" className="text-center py-8 text-slate-500">No users found for this filter.</td>
                     </tr>
                   ) : (
-                    usersDb.map((u, i) => {
+                    filteredUsers.map((u, i) => {
                       const isActivated = u.activated !== false;
                       const isFemale = u.gender?.toLowerCase() === 'female';
                       const lastSeenInfo = formatLastSeenDetail(u.lastSeen);
@@ -857,7 +887,7 @@ export default function AdminDashboard({
                             @{u.username}
                           </td>
                           <td className="p-3.5">
-                            <span className="text-pink-400 font-semibold capitalize text-xs">
+                            <span className={`font-semibold capitalize text-xs px-2.5 py-0.5 rounded-full ${u.gender?.toLowerCase() === 'female' ? 'bg-pink-950 text-pink-400 border border-pink-900/40' : 'bg-blue-950 text-blue-400 border border-blue-900/40'}`}>
                               {u.gender || 'Client'}
                             </span>
                           </td>
