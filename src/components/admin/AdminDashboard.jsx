@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, Users, Flag, Video, CheckCircle, XCircle, Trash2, 
-  LogOut, RefreshCw, X, MessageSquare, MapPin, Edit3, MessageCircle, Clock, Eye, Sparkles, Maximize2, KeyRound, Bell, Plus, Activity, Lock, Unlock, ExternalLink, AlertTriangle 
+  LogOut, RefreshCw, X, MessageSquare, MapPin, Edit3, MessageCircle, Clock, Eye, Sparkles, Maximize2, KeyRound, Bell, Plus, Activity, Lock, Unlock, ExternalLink, AlertTriangle, Search 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LOGO_URL } from '../../data/constants';
@@ -74,6 +74,7 @@ export default function AdminDashboard({
 }) {
   const [activeSubTab, setActiveSubTab] = useState('users'); 
   const [userGenderFilter, setUserGenderFilter] = useState('all'); // 'all' | 'male' | 'female'
+  const [searchQuery, setSearchQuery] = useState(''); // Added search state
   const [reports, setReports] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [newTitle, setNewTitle] = useState('');
@@ -383,12 +384,16 @@ export default function AdminDashboard({
     alert(`Location for @${username} successfully updated to "${newLocationInput.trim()}"!`);
   };
 
-  // Filter users based on selected gender tab
+  // Filter users based on selected gender tab AND search query
   const filteredUsers = usersDb.filter(u => {
     const g = u.gender?.toLowerCase() || '';
-    if (userGenderFilter === 'male') return g === 'male';
-    if (userGenderFilter === 'female') return g === 'female';
-    return true; // 'all'
+    const matchesGender = 
+      userGenderFilter === 'male' ? g === 'male' :
+      userGenderFilter === 'female' ? g === 'female' : true;
+
+    const matchesSearch = u.username?.toLowerCase().includes(searchQuery.toLowerCase());
+
+    return matchesGender && matchesSearch;
   });
 
   return (
@@ -824,35 +829,60 @@ export default function AdminDashboard({
 
         {activeSubTab === 'users' && (
           <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
               <div>
                 <h2 className="text-base font-extrabold text-white">Registered Users & Client Database</h2>
                 <p className="text-xs text-slate-400">Inspect accounts, view real-time online status / exact last seen, registration & expiry countdown</p>
               </div>
 
-              {/* MALE / FEMALE FILTER BUTTONS */}
-              <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 p-1.5 rounded-2xl">
-                <button
-                  onClick={() => setUserGenderFilter('all')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${userGenderFilter === 'all' ? 'bg-pink-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
-                >
-                  All ({usersDb.length})
-                </button>
-                <button
-                  onClick={() => setUserGenderFilter('male')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${userGenderFilter === 'male' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
-                >
-                  Male Clients ({usersDb.filter(u => u.gender?.toLowerCase() === 'male').length})
-                </button>
-                <button
-                  onClick={() => setUserGenderFilter('female')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${userGenderFilter === 'female' ? 'bg-pink-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
-                >
-                  Female Companions ({usersDb.filter(u => u.gender?.toLowerCase() === 'female').length})
-                </button>
-                <button onClick={loadBackendData} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 transition cursor-pointer ml-1" title="Refresh">
-                  <RefreshCw size={14} />
-                </button>
+              {/* FILTERS & SEARCH BAR CONTROLS */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+                {/* Search Bar Input */}
+                <div className="relative flex-1 sm:w-64">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                    <Search size={14} />
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Search username..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-2xl pl-9 pr-8 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-pink-500 transition"
+                  />
+                  {searchQuery && (
+                    <button 
+                      onClick={() => setSearchQuery('')}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-xs text-slate-400 hover:text-white cursor-pointer"
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
+
+                {/* MALE / FEMALE FILTER BUTTONS */}
+                <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 p-1.5 rounded-2xl">
+                  <button
+                    onClick={() => setUserGenderFilter('all')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${userGenderFilter === 'all' ? 'bg-pink-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    All ({usersDb.length})
+                  </button>
+                  <button
+                    onClick={() => setUserGenderFilter('male')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${userGenderFilter === 'male' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    Male Clients ({usersDb.filter(u => u.gender?.toLowerCase() === 'male').length})
+                  </button>
+                  <button
+                    onClick={() => setUserGenderFilter('female')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${userGenderFilter === 'female' ? 'bg-pink-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    Female Companions ({usersDb.filter(u => u.gender?.toLowerCase() === 'female').length})
+                  </button>
+                  <button onClick={loadBackendData} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 transition cursor-pointer ml-1" title="Refresh">
+                    <RefreshCw size={14} />
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -873,7 +903,7 @@ export default function AdminDashboard({
                 <tbody className="divide-y divide-slate-900">
                   {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan="8" className="text-center py-8 text-slate-500">No users found for this filter.</td>
+                      <td colSpan="8" className="text-center py-8 text-slate-500">No users found matching your search or filter.</td>
                     </tr>
                   ) : (
                     filteredUsers.map((u, i) => {
