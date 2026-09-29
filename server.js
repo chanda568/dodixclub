@@ -425,7 +425,7 @@ app.post('/api/ladies/approve', async (req, res) => {
   }
 });
 
-// --- NEW ENDPOINT: Update Companion Advertisement Price ---
+// --- ENDPOINT: Update Companion Advertisement Price ---
 app.put('/api/ladies/:identifier/price', async (req, res) => {
   try {
     const { identifier } = req.params;
