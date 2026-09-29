@@ -90,6 +90,10 @@ export default function AdminDashboard({
   const [isEditingLocation, setIsEditingLocation] = useState(false);
   const [newLocationInput, setNewLocationInput] = useState('');
 
+  // Companion Price Editing States
+  const [isEditingCompanionPrice, setIsEditingCompanionPrice] = useState(false);
+  const [companionPriceInput, setCompanionPriceInput] = useState('');
+
   const formatLastSeenDetail = (isoString) => {
     if (!isoString) return { isOnline: false, text: 'Offline' };
     const lastSeenDate = new Date(isoString);
@@ -318,6 +322,33 @@ export default function AdminDashboard({
     }
   };
 
+  const handleSaveCompanionPrice = async (companionIdOrUsername) => {
+    if (!companionPriceInput.trim()) {
+      alert("Price cannot be empty.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/ladies/${companionIdOrUsername}/price`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ price: companionPriceInput.trim() })
+      });
+      const data = await response.json();
+      if (data.success) {
+        loadBackendData();
+        setSelectedCompanionModal(prev => prev ? { ...prev, price: companionPriceInput.trim() } : null);
+        setIsEditingCompanionPrice(false);
+        alert("Advertisement price updated successfully!");
+      } else {
+        alert(data.error || "Failed to update price.");
+      }
+    } catch (err) {
+      console.error("Error updating price:", err);
+      alert("Network error updating price.");
+    }
+  };
+
   const handleRejectCompanion = async (companionId, username) => {
     const targetId = companionId || username;
     if (!targetId) {
@@ -536,11 +567,55 @@ export default function AdminDashboard({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800/80">
-                <div className="p-3 bg-slate-900 border border-slate-800/80 rounded-2xl">
-                  <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block">Rate / Price</span>
-                  <span className="text-sm font-extrabold text-emerald-400">ZMW {selectedCompanionModal.price || 'N/A'}</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-800/80">
+                {/* EDITABLE RATE / PRICE BLOCK */}
+                <div className="p-4 bg-slate-900 border border-slate-800/80 rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Rate / Price</span>
+                    {!isEditingCompanionPrice ? (
+                      <button 
+                        onClick={() => {
+                          setIsEditingCompanionPrice(true);
+                          setCompanionPriceInput(selectedCompanionModal.price || '');
+                        }}
+                        className="text-[11px] text-pink-400 hover:text-pink-300 font-bold flex items-center gap-1 transition cursor-pointer"
+                      >
+                        <Edit3 size={11} /> Edit Price
+                      </button>
+                    ) : (
+                      <span className="text-[11px] text-amber-400 font-bold">Editing Mode</span>
+                    )}
+                  </div>
+
+                  {!isEditingCompanionPrice ? (
+                    <span className="text-base font-extrabold text-emerald-400 block">ZMW {selectedCompanionModal.price || 'N/A'}</span>
+                  ) : (
+                    <div className="space-y-2 pt-1">
+                      <input 
+                        type="text"
+                        value={companionPriceInput}
+                        onChange={(e) => setCompanionPriceInput(e.target.value)}
+                        placeholder="Enter new price..."
+                        className="w-full px-3 py-2 bg-slate-950 border border-pink-500/60 rounded-xl text-xs text-white focus:outline-none"
+                      />
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => handleSaveCompanionPrice(selectedCompanionModal._id || selectedCompanionModal.id || selectedCompanionModal.username)}
+                          className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition cursor-pointer"
+                        >
+                          Save Price
+                        </button>
+                        <button 
+                          onClick={() => setIsEditingCompanionPrice(false)}
+                          className="px-3 py-1.5 bg-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-bold transition cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
+
                 <div className="p-3 bg-slate-900 border border-slate-800/80 rounded-2xl">
                   <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block">Hosting Available</span>
                   <span className="text-sm font-extrabold text-slate-200">{selectedCompanionModal.hosting || 'Yes'}</span>

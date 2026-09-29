@@ -425,6 +425,45 @@ app.post('/api/ladies/approve', async (req, res) => {
   }
 });
 
+// --- NEW ENDPOINT: Update Companion Advertisement Price ---
+app.put('/api/ladies/:identifier/price', async (req, res) => {
+  try {
+    const { identifier } = req.params;
+    const { price } = req.body;
+
+    if (!price) {
+      return res.json({ success: false, error: "New price is required." });
+    }
+
+    const cleanId = identifier.toLowerCase().trim();
+    let companion = null;
+
+    if (mongoose.Types.ObjectId.isValid(cleanId)) {
+      companion = await Companion.findById(cleanId);
+    }
+    
+    if (!companion) {
+      companion = await Companion.findOne({
+        $or: [
+          { username: { $regex: new RegExp(`^${cleanId}$`, 'i') } },
+          { name: { $regex: new RegExp(`^${cleanId}$`, 'i') } }
+        ]
+      });
+    }
+
+    if (companion) {
+      companion.price = price.toString().trim();
+      companion.updatedAt = new Date();
+      await companion.save();
+      res.json({ success: true, companion, message: 'Price updated successfully.' });
+    } else {
+      res.status(404).json({ success: false, error: 'Companion advertisement not found.' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.delete('/api/ladies/:identifier', async (req, res) => {
   try {
     const { identifier } = req.params;
