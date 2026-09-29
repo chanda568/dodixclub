@@ -8,8 +8,8 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 const SECURITY_QUESTIONS = [
   "What was your first pet’s name?",
   "What city were you born in?",
-  "What is your mother's maiden name?",
-  "What was the name of your first primary school?"
+  "What was the name of your first primary school?",
+  "What is your favorite movie?"
 ];
 
 export default function AuthScreen({ setCurrentUser, isLoading, loadingText, triggerLoadingAction }) {
