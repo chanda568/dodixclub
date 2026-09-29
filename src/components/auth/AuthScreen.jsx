@@ -3,7 +3,12 @@ import React, { useState } from 'react';
 import { Eye, EyeOff, HelpCircle, ArrowLeft } from 'lucide-react';
 import { LOGO_URL, ZAMBIAN_LOCATIONS } from '../../data/constants';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+// Automatically uses Venv/Vite variable, or switches between Localhost and your exact Render backend URL
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || (
+  window.location.hostname === 'localhost' 
+    ? 'http://localhost:5000' 
+    : 'https://dodixclub-backend.onrender.com'
+);
 
 const SECURITY_QUESTIONS = [
   "What was your first pet’s name?",
@@ -97,7 +102,7 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
         }
       } catch (err) {
         console.error("Registration error:", err);
-        setErrorMsg('Failed to connect to server. Please try again.');
+        setErrorMsg('Failed to connect to server. Please check your internet connection.');
       }
     });
   };
@@ -140,7 +145,7 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
         }
       } catch (err) {
         console.error("Login error:", err);
-        setErrorMsg('Failed to connect to server. Please try again.');
+        setErrorMsg('Failed to connect to server. Please check your internet connection.');
       }
     });
   };
