@@ -20,7 +20,7 @@ const wss = new WebSocketServer({ server });
 // --- MONGODB CONNECTION ---
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/dodixclub';
 
-mongoose.connect(MONGO_URI)
+mongoose.connect(MONGO_URI, { family: 4 })
   .then(async () => {
     console.log('[Database] Connected to MongoDB Atlas successfully.');
     
