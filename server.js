@@ -10,15 +10,11 @@ dotenv.config();
 
 const app = express();
 
-// Increased limit to 100mb to comfortably handle HD companion verification video uploads
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
 app.use(cors());
 
-// 1. Create standard HTTP server from Express app
 const server = createServer(app);
-
-// 2. Attach WebSocket Server to the HTTP server
 const wss = new WebSocketServer({ server });
 
 // --- MONGODB CONNECTION ---
@@ -30,12 +26,10 @@ mongoose.connect(MONGO_URI)
     
     try {
       await mongoose.connection.collection('users').dropIndex('email_1');
-      console.log('[Database] Successfully dropped legacy email_1 index.');
     } catch (e) {}
 
     try {
       await mongoose.connection.collection('companions').dropIndex('username_1');
-      console.log('[Database] Successfully dropped legacy unique username_1 index from companions collection.');
     } catch (e) {}
 
     await seedDefaultAdmin();
@@ -52,6 +46,8 @@ const userSchema = new mongoose.Schema({
   phone: { type: String, default: '' },
   plan: { type: String, default: '7 Days' },
   role: { type: String, default: 'client' },
+  securityQuestion: { type: String, default: 'What was your first pet’s name?' },
+  securityAnswerHash: { type: String, default: '' },
   activated: { type: Boolean, default: false },
   isEmailVerified: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now }
@@ -80,13 +76,13 @@ const companionSchema = new mongoose.Schema({
   location: { type: String, required: true },
   specificLocation: { type: String, default: '' },
   phone: { type: String, required: true },
-  photo: { type: String, default: '' },             // Masked public version with privacy sticker
-  originalPhoto: { type: String, default: '' },    // Clean unmasked version for admin review
-  unmaskedPhoto: { type: String, default: '' },    // Fallback unmasked version
+  photo: { type: String, default: '' },
+  originalPhoto: { type: String, default: '' },
+  unmaskedPhoto: { type: String, default: '' },
   age: { type: String, default: '23' },
   hosting: { type: String, default: 'Yes' },
   extraServices: { type: String, default: '' },
-  verificationVideoUrl: { type: String, default: '' }, // Permanent Base64 video string stored in MongoDB
+  verificationVideoUrl: { type: String, default: '' },
   verificationVideoName: { type: String, default: '' },
   approved: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
@@ -102,8 +98,19 @@ async function seedDefaultAdmin() {
   const count = await User.countDocuments();
   if (count === 0) {
     const hashedPassword = await bcrypt.hash('password123', 10);
+    const defaultAnswerHash = await bcrypt.hash('admin', 10);
     const defaultUsers = [
-      { username: 'admin', password: hashedPassword, gender: 'Male', location: 'Lusaka', role: 'admin', activated: true, isEmailVerified: true }
+      { 
+        username: 'admin', 
+        password: hashedPassword, 
+        gender: 'Male', 
+        location: 'Lusaka', 
+        role: 'admin', 
+        activated: true, 
+        isEmailVerified: true,
+        securityQuestion: 'What was your first pet’s name?',
+        securityAnswerHash: defaultAnswerHash
+      }
     ];
     await User.insertMany(defaultUsers);
     console.log('[Database] Seeded default admin into MongoDB.');
@@ -147,7 +154,7 @@ app.post('/api/login', async (req, res) => {
 
 app.post('/api/register', async (req, res) => {
   try {
-    const { username, password, email, gender, location, role, phone, plan } = req.body;
+    const { username, password, email, gender, location, role, phone, plan, securityQuestion, securityAnswer } = req.body;
     
     if (!username || !password || !gender || !location) {
       return res.json({ success: false, error: "All fields are required." });
@@ -160,6 +167,7 @@ app.post('/api/register', async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedAnswer = securityAnswer ? await bcrypt.hash(securityAnswer.toLowerCase().trim(), 10) : await bcrypt.hash('default', 10);
 
     const newUser = new User({
       username: cleanUsername,
@@ -170,6 +178,8 @@ app.post('/api/register', async (req, res) => {
       phone: phone || '',
       plan: gender === 'Male' ? (plan || '7 Days') : 'N/A',
       role: role || 'client',
+      securityQuestion: securityQuestion || 'What was your first pet’s name?',
+      securityAnswerHash: hashedAnswer,
       activated: false,
       isEmailVerified: true,
       createdAt: new Date()
@@ -177,6 +187,49 @@ app.post('/api/register', async (req, res) => {
 
     await newUser.save();
     res.json({ success: true, user: newUser });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// --- Security Question Recovery Endpoints ---
+app.post('/api/auth/get-security-question', async (req, res) => {
+  try {
+    const { username } = req.body;
+    if (!username) return res.json({ success: false, error: "Username is required." });
+
+    const user = await User.findOne({ username: username.toLowerCase().trim() });
+    if (!user) return res.json({ success: false, error: "Username not found." });
+
+    res.json({ success: true, question: user.securityQuestion || 'What was your first pet’s name?' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/auth/reset-with-security-question', async (req, res) => {
+  try {
+    const { username, answer, newPassword } = req.body;
+    if (!username || !answer || !newPassword) {
+      return res.json({ success: false, error: "All fields are required." });
+    }
+
+    const user = await User.findOne({ username: username.toLowerCase().trim() });
+    if (!user) return res.json({ success: false, error: "Username not found." });
+
+    if (!user.securityAnswerHash) {
+      return res.json({ success: false, error: "No security question set for this account. Please use WhatsApp support." });
+    }
+
+    const isMatch = await bcrypt.compare(answer.toLowerCase().trim(), user.securityAnswerHash);
+    if (!isMatch) {
+      return res.json({ success: false, error: "Incorrect security answer." });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    res.json({ success: true, message: "Password reset successfully!" });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -258,7 +311,6 @@ app.get('/api/messages', async (req, res) => {
   }
 });
 
-// --- REPORT ROUTES ---
 app.post('/api/reports', async (req, res) => {
   try {
     const { reporter, targetUser, reason } = req.body;
@@ -299,7 +351,6 @@ app.delete('/api/reports/:id', async (req, res) => {
   }
 });
 
-// --- COMPANION ADVERTISEMENT LISTING ROUTES ---
 app.get('/api/ladies', async (req, res) => {
   try {
     const ladies = await Companion.find({}).sort({ createdAt: -1 });
@@ -317,7 +368,6 @@ app.post('/api/ladies', async (req, res) => {
     }
 
     const cleanUsername = profileData.username.toLowerCase().trim();
-
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
@@ -327,10 +377,7 @@ app.post('/api/ladies', async (req, res) => {
     });
 
     if (todayAdsCount >= 5) {
-      return res.json({ 
-        success: false, 
-        error: "Daily limit reached! You can post a maximum of 5 advertisements per day." 
-      });
+      return res.json({ success: false, error: "Daily limit reached! Maximum 5 advertisements per day." });
     }
 
     const newCompanionAd = new Companion({
@@ -344,7 +391,6 @@ app.post('/api/ladies', async (req, res) => {
     await newCompanionAd.save();
     res.json({ success: true, companion: newCompanionAd });
   } catch (err) {
-    console.error("Error saving companion ad:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 });

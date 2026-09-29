@@ -1,12 +1,27 @@
 // src/components/auth/AuthScreen.jsx
 import React, { useState } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, HelpCircle, ArrowLeft } from 'lucide-react';
 import { LOGO_URL, ZAMBIAN_LOCATIONS } from '../../data/constants';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
+const SECURITY_QUESTIONS = [
+  "What was your first pet’s name?",
+  "What city were you born in?",
+  "What is your mother's maiden name?",
+  "What was the name of your first primary school?"
+];
+
 export default function AuthScreen({ setCurrentUser, isLoading, loadingText, triggerLoadingAction }) {
   const [isRegistering, setIsRegistering] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+
+  // Forgot Password Steps: 'username' -> 'answer' -> 'success'
+  const [forgotStep, setForgotStep] = useState('username');
+  const [recoveryUsername, setRecoveryUsername] = useState('');
+  const [fetchedQuestion, setFetchedQuestion] = useState('');
+  const [recoveryAnswer, setRecoveryAnswer] = useState('');
+  const [newPassword, setNewPassword] = useState('');
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -15,7 +30,13 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
   const [location, setLocation] = useState('');
   const [phoneInput, setPhoneInput] = useState('');
   const [plan, setPlan] = useState('7 Days');
+  
+  // Security Question Signup Fields
+  const [securityQuestion, setSecurityQuestion] = useState(SECURITY_QUESTIONS[0]);
+  const [securityAnswer, setSecurityAnswer] = useState('');
+
   const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
   // Direct Registration with 100% Unique Username Validation
   const handleRegisterSubmit = async (e) => {
@@ -37,6 +58,11 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
       return;
     }
 
+    if (!securityAnswer.trim()) {
+      setErrorMsg('Please provide an answer to your security question for recovery.');
+      return;
+    }
+
     if (gender === 'Female' && (!phoneInput.trim() || phoneInput.trim().length < 9)) {
       setErrorMsg('Please provide a valid WhatsApp number (e.g., 970000000).');
       return;
@@ -47,7 +73,6 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
 
     triggerLoadingAction('Checking Username & Creating Account...', async () => {
       try {
-        // 1. Instant check against database for 100% uniqueness
         const checkRes = await fetch(`${BACKEND_URL}/api/check-username/${encodeURIComponent(cleanUsername)}`);
         const checkData = await checkRes.json();
 
@@ -56,7 +81,6 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
           return;
         }
 
-        // 2. Proceed with registration
         const response = await fetch(`${BACKEND_URL}/api/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -67,7 +91,9 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
             location,
             phone: gender === 'Female' ? cleanPhone : '',
             plan: gender === 'Male' ? plan : 'N/A',
-            role: gender === 'Female' ? 'companion' : 'client'
+            role: gender === 'Female' ? 'companion' : 'client',
+            securityQuestion,
+            securityAnswer: securityAnswer.trim()
           })
         });
 
@@ -84,7 +110,7 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
     });
   };
 
-  // Standard Login with specific error messages
+  // Standard Login
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
@@ -127,9 +153,71 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
     });
   };
 
+  // Step 1: Fetch Question for Password Reset
+  const handleFetchQuestion = async (e) => {
+    e.preventDefault();
+    setErrorMsg('');
+    if (!recoveryUsername.trim()) {
+      setErrorMsg('Please enter your Telegram username.');
+      return;
+    }
+
+    triggerLoadingAction('Fetching Security Question...', async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/auth/get-security-question`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: recoveryUsername.trim().toLowerCase() })
+        });
+        const data = await res.json();
+        if (data.success) {
+          setFetchedQuestion(data.question);
+          setForgotStep('answer');
+        } else {
+          setErrorMsg(data.error || 'Username not found.');
+        }
+      } catch (err) {
+        setErrorMsg('Server connection error.');
+      }
+    });
+  };
+
+  // Step 2: Submit Answer & New Password
+  const handleResetPasswordSubmit = async (e) => {
+    e.preventDefault();
+    setErrorMsg('');
+    if (!recoveryAnswer.trim() || !newPassword.trim()) {
+      setErrorMsg('Please fill in both fields.');
+      return;
+    }
+
+    triggerLoadingAction('Resetting Password...', async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/auth/reset-with-security-question`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: recoveryUsername.trim().toLowerCase(),
+            answer: recoveryAnswer.trim(),
+            newPassword: newPassword.trim()
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          setSuccessMsg('Password successfully reset! You can now sign in with your new password.');
+          setForgotStep('success');
+        } else {
+          setErrorMsg(data.error || 'Incorrect security answer.');
+        }
+      } catch (err) {
+        setErrorMsg('Server connection error.');
+      }
+    });
+  };
+
   const handleForgotPasswordWhatsApp = () => {
-    const adminPhone = "260965039645"; // Admin Help Center WhatsApp number
-    const msg = encodeURIComponent("Hello Dodix Admin, I forgot my account password and need assistance resetting it.");
+    const adminPhone = "260965039645"; 
+    const msg = encodeURIComponent("Hello Dodix Admin, I forgot both my password and security question and need assistance resetting my account.");
     window.open(`https://wa.me/${adminPhone}?text=${msg}`, '_blank');
   };
 
@@ -148,142 +236,283 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
           </div>
         )}
 
-        <form onSubmit={isRegistering ? handleRegisterSubmit : handleLoginSubmit} className="space-y-4 text-xs">
-          <div>
-            <label className="block font-bold text-slate-400 mb-1">Telegram Username</label>
-            <input 
-              type="text" 
-              required
-              placeholder="e.g. @username" 
-              value={username} 
-              onChange={(e) => setUsername(e.target.value)} 
-              className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-pink-500" 
-            />
-          </div>
-
-          <div>
-            <label className="block font-bold text-slate-400 mb-1">Password</label>
-            <div className="relative flex items-center">
-              <input 
-                type={showPassword ? "text" : "password"} 
-                required
-                placeholder="Enter password" 
-                value={password} 
-                onChange={(e) => setPassword(e.target.value)} 
-                className="w-full px-4 py-2.5 pr-10 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-pink-500" 
-              />
-              <button 
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 text-slate-400 hover:text-white transition focus:outline-none cursor-pointer"
-              >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-          </div>
-
-          {isRegistering && (
-            <>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-400 mb-1">Gender</label>
-                  <select 
-                    value={gender} 
-                    onChange={(e) => setGender(e.target.value)} 
-                    className="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-pink-400 font-semibold focus:outline-none focus:border-pink-500"
-                  >
-                    <option value="" disabled>Select Gender</option>
-                    <option value="Female">Female</option>
-                    <option value="Male">Male</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-400 mb-1">Location Area</label>
-                  <select 
-                    value={location} 
-                    onChange={(e) => setLocation(e.target.value)} 
-                    className="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-pink-400 font-semibold focus:outline-none focus:border-pink-500"
-                  >
-                    <option value="" disabled>Select Location</option>
-                    {ZAMBIAN_LOCATIONS.map(loc => (
-                      <option key={loc} value={loc}>{loc}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {gender === 'Male' && (
-                <div className="space-y-1.5 p-3 bg-slate-800/60 border border-slate-700 rounded-2xl">
-                  <label className="block font-bold text-pink-400">Choose Activation Plan</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setPlan('7 Days')}
-                      className={`py-2 rounded-xl font-bold transition border cursor-pointer ${plan === '7 Days' ? 'bg-pink-600 border-pink-500 text-white shadow-md' : 'bg-slate-800 border-slate-700 text-slate-300'}`}
-                    >
-                      7 Days Plan
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPlan('30 Days')}
-                      className={`py-2 rounded-xl font-bold transition border cursor-pointer ${plan === '30 Days' ? 'bg-pink-600 border-pink-500 text-white shadow-md' : 'bg-slate-800 border-slate-700 text-slate-300'}`}
-                    >
-                      30 Days Plan
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {gender === 'Female' && (
-                <div>
-                  <label className="block font-bold text-slate-400 mb-1">WhatsApp Number (for verification)</label>
-                  <div className="flex items-center bg-slate-800 border border-slate-700 rounded-xl overflow-hidden focus-within:border-pink-500 transition">
-                    <span className="px-3 py-2.5 bg-slate-900 text-pink-400 font-bold border-r border-slate-700 select-none">
-                      +260
-                    </span>
-                    <input 
-                      type="tel" 
-                      required
-                      placeholder="970000000" 
-                      value={phoneInput} 
-                      onChange={(e) => setPhoneInput(e.target.value.replace(/\D/g, ''))} 
-                      className="w-full px-3 py-2.5 bg-transparent text-slate-200 focus:outline-none" 
-                    />
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-
-          <button 
-            type="submit" 
-            disabled={isLoading}
-            className="w-full py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl shadow-lg shadow-pink-600/20 transition mt-2 disabled:opacity-50 cursor-pointer"
-          >
-            {isLoading ? (loadingText || 'Processing...') : (isRegistering ? 'Register Account' : 'Sign In')}
-          </button>
-        </form>
-
-        {!isRegistering && (
-          <div className="text-center pt-1">
-            <button 
-              type="button"
-              onClick={handleForgotPasswordWhatsApp}
-              className="text-[11px] text-pink-400 hover:text-pink-300 underline transition cursor-pointer"
-            >
-              Forgot your password?
-            </button>
+        {successMsg && (
+          <div className="p-3 bg-emerald-950/80 border border-emerald-800 rounded-2xl text-xs text-emerald-300 text-center font-semibold">
+            {successMsg}
           </div>
         )}
 
-        <div className="text-center pt-2 border-t border-slate-800">
-          <button 
-            onClick={() => { setIsRegistering(!isRegistering); setErrorMsg(''); }} 
-            className="text-xs text-slate-400 hover:text-pink-400 transition font-medium cursor-pointer"
-          >
-            {isRegistering ? 'Already have an account? Sign In' : "Don't have an account? Register Now"}
-          </button>
-        </div>
+        {/* FORGOT PASSWORD FLOW */}
+        {isForgotPassword ? (
+          <div className="space-y-4 text-xs">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <span className="font-bold text-pink-400 flex items-center gap-1">
+                <HelpCircle size={14} /> Password Recovery
+              </span>
+              <button 
+                onClick={() => { setIsForgotPassword(false); setForgotStep('username'); setErrorMsg(''); setSuccessMsg(''); }}
+                className="text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer"
+              >
+                <ArrowLeft size={14} /> Back to Sign In
+              </button>
+            </div>
+
+            {forgotStep === 'username' && (
+              <form onSubmit={handleFetchQuestion} className="space-y-4">
+                <div>
+                  <label className="block font-bold text-slate-400 mb-1">Enter your Telegram Username</label>
+                  <input 
+                    type="text" 
+                    required
+                    placeholder="e.g. @username" 
+                    value={recoveryUsername} 
+                    onChange={(e) => setRecoveryUsername(e.target.value)} 
+                    className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-pink-500" 
+                  />
+                </div>
+                <button 
+                  type="submit" 
+                  disabled={isLoading}
+                  className="w-full py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl shadow-lg transition cursor-pointer"
+                >
+                  {isLoading ? 'Searching...' : 'Next'}
+                </button>
+              </form>
+            )}
+
+            {forgotStep === 'answer' && (
+              <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
+                <div className="p-3 bg-slate-800/80 border border-slate-700 rounded-xl space-y-1">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold">Security Question:</span>
+                  <p className="font-semibold text-pink-300 text-sm">{fetchedQuestion}</p>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-400 mb-1">Your Answer</label>
+                  <input 
+                    type="text" 
+                    required
+                    placeholder="Enter your security answer" 
+                    value={recoveryAnswer} 
+                    onChange={(e) => setRecoveryAnswer(e.target.value)} 
+                    className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-pink-500" 
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-400 mb-1">New Password</label>
+                  <input 
+                    type="password" 
+                    required
+                    placeholder="Enter new password" 
+                    value={newPassword} 
+                    onChange={(e) => setNewPassword(e.target.value)} 
+                    className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-pink-500" 
+                  />
+                </div>
+
+                <button 
+                  type="submit" 
+                  disabled={isLoading}
+                  className="w-full py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl shadow-lg transition cursor-pointer"
+                >
+                  {isLoading ? 'Updating...' : 'Reset Password'}
+                </button>
+              </form>
+            )}
+
+            {forgotStep === 'success' && (
+              <button 
+                onClick={() => { setIsForgotPassword(false); setForgotStep('username'); setSuccessMsg(''); }}
+                className="w-full py-3 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded-xl shadow-lg transition cursor-pointer"
+              >
+                Proceed to Sign In
+              </button>
+            )}
+
+            {/* WhatsApp Fallback Option if user forgot security answer */}
+            <div className="pt-3 border-t border-slate-800 text-center">
+              <p className="text-[11px] text-slate-400 mb-2">Forgot your security answer too?</p>
+              <button 
+                type="button"
+                onClick={handleForgotPasswordWhatsApp}
+                className="text-[11px] text-emerald-400 hover:text-emerald-300 underline font-semibold transition cursor-pointer"
+              >
+                Contact Admin via WhatsApp for Help
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* STANDARD LOGIN / REGISTER FLOW */
+          <>
+            <form onSubmit={isRegistering ? handleRegisterSubmit : handleLoginSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-slate-400 mb-1">Telegram Username</label>
+                <input 
+                  type="text" 
+                  required
+                  placeholder="e.g. @username" 
+                  value={username} 
+                  onChange={(e) => setUsername(e.target.value)} 
+                  className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-pink-500" 
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-400 mb-1">Password</label>
+                <div className="relative flex items-center">
+                  <input 
+                    type={showPassword ? "text" : "password"} 
+                    required
+                    placeholder="Enter password" 
+                    value={password} 
+                    onChange={(e) => setPassword(e.target.value)} 
+                    className="w-full px-4 py-2.5 pr-10 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-pink-500" 
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 text-slate-400 hover:text-white transition focus:outline-none cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              {isRegistering && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold text-slate-400 mb-1">Gender</label>
+                      <select 
+                        value={gender} 
+                        onChange={(e) => setGender(e.target.value)} 
+                        className="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-pink-400 font-semibold focus:outline-none focus:border-pink-500"
+                      >
+                        <option value="" disabled>Select Gender</option>
+                        <option value="Female">Female</option>
+                        <option value="Male">Male</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block font-bold text-slate-400 mb-1">Location Area</label>
+                      <select 
+                        value={location} 
+                        onChange={(e) => setLocation(e.target.value)} 
+                        className="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-pink-400 font-semibold focus:outline-none focus:border-pink-500"
+                      >
+                        <option value="" disabled>Select Location</option>
+                        {ZAMBIAN_LOCATIONS.map(loc => (
+                          <option key={loc} value={loc}>{loc}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Security Question Setup during Registration */}
+                  <div className="p-3 bg-slate-800/60 border border-slate-700 rounded-2xl space-y-2">
+                    <label className="block font-bold text-pink-400">Password Recovery Security Question</label>
+                    <select 
+                      value={securityQuestion} 
+                      onChange={(e) => setSecurityQuestion(e.target.value)} 
+                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-slate-200 font-medium focus:outline-none focus:border-pink-500 text-[11px]"
+                    >
+                      {SECURITY_QUESTIONS.map(q => (
+                        <option key={q} value={q}>{q}</option>
+                      ))}
+                    </select>
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="Your secret answer (e.g. Simba)" 
+                      value={securityAnswer} 
+                      onChange={(e) => setSecurityAnswer(e.target.value)} 
+                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-pink-500" 
+                    />
+                  </div>
+
+                  {gender === 'Male' && (
+                    <div className="space-y-1.5 p-3 bg-slate-800/60 border border-slate-700 rounded-2xl">
+                      <label className="block font-bold text-pink-400">Choose Activation Plan</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setPlan('7 Days')}
+                          className={`py-2 rounded-xl font-bold transition border cursor-pointer ${plan === '7 Days' ? 'bg-pink-600 border-pink-500 text-white shadow-md' : 'bg-slate-800 border-slate-700 text-slate-300'}`}
+                        >
+                          7 Days Plan
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPlan('30 Days')}
+                          className={`py-2 rounded-xl font-bold transition border cursor-pointer ${plan === '30 Days' ? 'bg-pink-600 border-pink-500 text-white shadow-md' : 'bg-slate-800 border-slate-700 text-slate-300'}`}
+                        >
+                          30 Days Plan
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {gender === 'Female' && (
+                    <div>
+                      <label className="block font-bold text-slate-400 mb-1">WhatsApp Number (for verification)</label>
+                      <div className="flex items-center bg-slate-800 border border-slate-700 rounded-xl overflow-hidden focus-within:border-pink-500 transition">
+                        <span className="px-3 py-2.5 bg-slate-900 text-pink-400 font-bold border-r border-slate-700 select-none">
+                          +260
+                        </span>
+                        <input 
+                          type="tel" 
+                          required
+                          placeholder="970000000" 
+                          value={phoneInput} 
+                          onChange={(e) => setPhoneInput(e.target.value.replace(/\D/g, ''))} 
+                          className="w-full px-3 py-2.5 bg-transparent text-slate-200 focus:outline-none" 
+                        />
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              <button 
+                type="submit" 
+                disabled={isLoading}
+                className="w-full py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl shadow-lg shadow-pink-600/20 transition mt-2 disabled:opacity-50 cursor-pointer"
+              >
+                {isLoading ? (loadingText || 'Processing...') : (isRegistering ? 'Register Account' : 'Sign In')}
+              </button>
+            </form>
+
+            {!isRegistering && (
+              <div className="text-center pt-1 space-y-2">
+                <button 
+                  type="button"
+                  onClick={() => setIsForgotPassword(true)}
+                  className="text-[11px] text-pink-400 hover:text-pink-300 underline transition cursor-pointer block mx-auto"
+                >
+                  Forgot your password?
+                </button>
+
+                <button 
+                  type="button"
+                  onClick={handleForgotPasswordWhatsApp}
+                  className="text-[10px] text-slate-400 hover:text-emerald-400 transition cursor-pointer block mx-auto"
+                >
+                  Need WhatsApp Admin Reset? Click Here
+                </button>
+              </div>
+            )}
+
+            <div className="text-center pt-2 border-t border-slate-800">
+              <button 
+                onClick={() => { setIsRegistering(!isRegistering); setErrorMsg(''); }} 
+                className="text-xs text-slate-400 hover:text-pink-400 transition font-medium cursor-pointer"
+              >
+                {isRegistering ? 'Already have an account? Sign In' : "Don't have an account? Register Now"}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
