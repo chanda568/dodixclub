@@ -38,7 +38,7 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  // Direct Registration with 100% Unique Username Validation
+  // Fast Registration with Combined Backend Validation
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
@@ -71,16 +71,8 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
     const cleanUsername = username.trim().toLowerCase();
     const cleanPhone = `260${phoneInput.trim().replace(/^0+/, '')}`;
 
-    triggerLoadingAction('Checking Username & Creating Account...', async () => {
+    triggerLoadingAction('Creating Account...', async () => {
       try {
-        const checkRes = await fetch(`${BACKEND_URL}/api/check-username/${encodeURIComponent(cleanUsername)}`);
-        const checkData = await checkRes.json();
-
-        if (checkData.success && !checkData.available) {
-          setErrorMsg(`The username "${username}" is already taken! Please enter a different username.`);
-          return;
-        }
-
         const response = await fetch(`${BACKEND_URL}/api/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -101,7 +93,7 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
         if (data.success) {
           setCurrentUser(data.user);
         } else {
-          setErrorMsg(data.error || 'Registration failed.');
+          setErrorMsg(data.error || 'Registration failed. Username may already be taken.');
         }
       } catch (err) {
         console.error("Registration error:", err);
@@ -158,7 +150,7 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
     e.preventDefault();
     setErrorMsg('');
     if (!recoveryUsername.trim()) {
-      setErrorMsg('Please enter your Telegram username.');
+      setErrorMsg('Please enter your username.');
       return;
     }
 
@@ -260,11 +252,11 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
             {forgotStep === 'username' && (
               <form onSubmit={handleFetchQuestion} className="space-y-4">
                 <div>
-                  <label className="block font-bold text-slate-400 mb-1">Enter your Telegram Username</label>
+                  <label className="block font-bold text-slate-400 mb-1">Enter your Username</label>
                   <input 
                     type="text" 
                     required
-                    placeholder="e.g. @username" 
+                    placeholder="e.g. username" 
                     value={recoveryUsername} 
                     onChange={(e) => setRecoveryUsername(e.target.value)} 
                     className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-pink-500" 
@@ -330,7 +322,6 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
               </button>
             )}
 
-            {/* WhatsApp Fallback Option if user forgot security answer */}
             <div className="pt-3 border-t border-slate-800 text-center">
               <p className="text-[11px] text-slate-400 mb-2">Forgot your security answer too?</p>
               <button 
@@ -347,11 +338,11 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
           <>
             <form onSubmit={isRegistering ? handleRegisterSubmit : handleLoginSubmit} className="space-y-4 text-xs">
               <div>
-                <label className="block font-bold text-slate-400 mb-1">Telegram Username</label>
+                <label className="block font-bold text-slate-400 mb-1">Username</label>
                 <input 
                   type="text" 
                   required
-                  placeholder="e.g. @username" 
+                  placeholder="e.g. username" 
                   value={username} 
                   onChange={(e) => setUsername(e.target.value)} 
                   className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-pink-500" 
