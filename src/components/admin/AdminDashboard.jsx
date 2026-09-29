@@ -291,6 +291,14 @@ export default function AdminDashboard({
       });
       const data = await response.json();
       if (data.success) {
+        // Instantly update local state without waiting for full refresh
+        setLadies(prev => prev.map(l => 
+          (l.username?.toLowerCase() === username.toLowerCase() || l.name?.toLowerCase() === username.toLowerCase())
+            ? { ...l, approved: true }
+            : l
+        ));
+        setSelectedCompanionModal(prev => prev ? { ...prev, approved: true } : null);
+
         loadBackendData();
 
         try {
