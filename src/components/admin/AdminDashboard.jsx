@@ -1112,30 +1112,15 @@ export default function AdminDashboard({
                                 setIsFaceRevealed(false);
                                 setSelectedCompanionModal(lady);
                               }}
-                              className="py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 border border-slate-700 transition cursor-pointer"
+                              className="py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 border border-slate-700 transition cursor-pointer shadow"
                             >
-                              <Eye size={13} /> Review
+                              <Eye size={13} /> Review & Manage
                             </button>
                             <button 
                               onClick={() => handleWhatsAppContact(lady.phone, lady.username)}
-                              className="py-2 bg-emerald-950/80 hover:bg-emerald-900/80 text-emerald-300 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 border border-emerald-800/50 transition cursor-pointer"
+                              className="py-2.5 bg-emerald-950/80 hover:bg-emerald-900/80 text-emerald-300 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 border border-emerald-800/50 transition cursor-pointer shadow"
                             >
                               <MessageCircle size={13} /> WhatsApp
-                            </button>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-2">
-                            <button 
-                              onClick={() => handleApproveCompanion(lady.username || lady.name)}
-                              className="py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md transition cursor-pointer"
-                            >
-                              <CheckCircle size={13} /> Approve
-                            </button>
-                            <button 
-                              onClick={() => handleRejectCompanion(lady._id || lady.id, lady.username || lady.name)}
-                              className="py-2 bg-red-600 hover:bg-red-500 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md transition cursor-pointer"
-                            >
-                              <XCircle size={13} /> Reject
                             </button>
                           </div>
                         </div>
