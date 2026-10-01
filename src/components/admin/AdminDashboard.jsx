@@ -73,7 +73,7 @@ export default function AdminDashboard({
   triggerLoadingAction
 }) {
   const [activeSubTab, setActiveSubTab] = useState('users'); 
-  const [userGenderFilter, setUserGenderFilter] = useState('all'); // 'all' | 'male' | 'female'
+  const [userGenderFilter, setUserGenderFilter] = useState('all'); 
   const [searchQuery, setSearchQuery] = useState(''); 
   const [reports, setReports] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
@@ -90,11 +90,9 @@ export default function AdminDashboard({
   const [isEditingLocation, setIsEditingLocation] = useState(false);
   const [newLocationInput, setNewLocationInput] = useState('');
 
-  // User Phone Editing States
   const [isEditingPhone, setIsEditingPhone] = useState(false);
   const [newPhoneInput, setNewPhoneInput] = useState('');
 
-  // Companion Price Editing States
   const [isEditingCompanionPrice, setIsEditingCompanionPrice] = useState(false);
   const [companionPriceInput, setCompanionPriceInput] = useState('');
 
@@ -499,12 +497,11 @@ export default function AdminDashboard({
     }
 
     try {
-      const response = await fetch(`${BACKEND_URL}/api/users/update-phone`, {
+      await fetch(`${BACKEND_URL}/api/users/update-phone`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, phone: newPhoneInput.trim() })
       });
-      const data = await response.json();
       
       const updated = usersDb.map(u => {
         if (u.username?.toLowerCase() === username.toLowerCase()) {

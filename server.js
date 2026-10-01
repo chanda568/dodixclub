@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
-import { WebSocketServer, WebSocket } from 'ws';
+import { WebSocketServer } from 'ws';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
@@ -10,6 +10,7 @@ dotenv.config();
 
 const app = express();
 
+// Middleware setup for large payload support (images, videos, etc.)
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
 app.use(cors());
@@ -17,7 +18,9 @@ app.use(cors());
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
 
-// --- MONGODB CONNECTION (Production Only) ---
+// ==========================================
+// 1. Database Connection (MongoDB Atlas)
+// ==========================================
 const MONGO_URI = process.env.MONGO_URI;
 if (!MONGO_URI) {
   console.error('[Database Error] MONGO_URI environment variable is missing.');
@@ -28,19 +31,17 @@ mongoose.connect(MONGO_URI, { family: 4 })
   .then(async () => {
     console.log('[Database] Connected to MongoDB Atlas successfully.');
     
-    try {
-      await mongoose.connection.collection('users').dropIndex('email_1');
-    } catch (e) {}
-
-    try {
-      await mongoose.connection.collection('companions').dropIndex('username_1');
-    } catch (e) {}
+    // Drop conflicting indexes if they exist from older schemas
+    try { await mongoose.connection.collection('users').dropIndex('email_1'); } catch (e) {}
+    try { await mongoose.connection.collection('companions').dropIndex('username_1'); } catch (e) {}
 
     await seedDefaultAdmin();
   })
   .catch(err => console.error('[Database] Connection error:', err));
 
-// --- MONGOOSE SCHEMAS & MODELS ---
+// ==========================================
+// 2. Mongoose Schemas & Models
+// ==========================================
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true, lowercase: true, trim: true },
   password: { type: String, required: true },
@@ -98,6 +99,7 @@ const Message = mongoose.model('Message', messageSchema);
 const Report = mongoose.model('Report', reportSchema);
 const Companion = mongoose.model('Companion', companionSchema);
 
+// Seed initial admin if database is empty
 async function seedDefaultAdmin() {
   const count = await User.countDocuments();
   if (count === 0) {
@@ -123,8 +125,16 @@ async function seedDefaultAdmin() {
 
 const activeClients = new Map();
 
-// ================= EXPRESS REST API ROUTES = =================
+// ==========================================
+// 3. Express REST API Routes
+// ==========================================
 
+// Health Check
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'success', message: 'Server is up and running!' });
+});
+
+// --- Authentication Routes ---
 app.get('/api/check-username/:username', async (req, res) => {
   try {
     const cleanUsername = req.params.username.toLowerCase().trim();
@@ -221,7 +231,7 @@ app.post('/api/auth/reset-with-security-question', async (req, res) => {
     if (!user) return res.json({ success: false, error: "Username not found." });
 
     if (!user.securityAnswerHash) {
-      return res.json({ success: false, error: "No security question set for this account. Please use WhatsApp support." });
+      return res.json({ success: false, error: "No security question set for this account." });
     }
 
     const isMatch = await bcrypt.compare(answer.toLowerCase().trim(), user.securityAnswerHash);
@@ -238,6 +248,7 @@ app.post('/api/auth/reset-with-security-question', async (req, res) => {
   }
 });
 
+// --- User Management Routes ---
 app.get('/api/users', async (req, res) => {
   try {
     const users = await User.find({});
@@ -278,8 +289,7 @@ app.post('/api/users/reset-password', async (req, res) => {
       return res.json({ success: false, error: "User not found." });
     }
 
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    user.password = hashedPassword;
+    user.password = await bcrypt.hash(newPassword, 10);
     await user.save();
 
     res.json({ success: true, message: "Password updated successfully." });
@@ -305,6 +315,7 @@ app.delete('/api/users/:username', async (req, res) => {
   }
 });
 
+// --- Messaging Routes ---
 app.get('/api/messages', async (req, res) => {
   try {
     const messages = await Message.find({}).sort({ timestamp: 1 });
@@ -314,6 +325,7 @@ app.get('/api/messages', async (req, res) => {
   }
 });
 
+// --- Reports Routes ---
 app.post('/api/reports', async (req, res) => {
   try {
     const { reporter, targetUser, reason } = req.body;
@@ -354,6 +366,7 @@ app.delete('/api/reports/:id', async (req, res) => {
   }
 });
 
+// --- Companions / Ads Routes ---
 app.get('/api/ladies', async (req, res) => {
   try {
     const ladies = await Companion.find({}).sort({ createdAt: -1 });
@@ -363,7 +376,6 @@ app.get('/api/ladies', async (req, res) => {
   }
 });
 
-// --- NEW ENDPOINT: Get Ads for Specific Companion History ---
 app.get('/api/ladies/my-ads/:username', async (req, res) => {
   try {
     const cleanUsername = req.params.username.toLowerCase().trim();
@@ -506,8 +518,9 @@ app.delete('/api/ladies/:identifier', async (req, res) => {
   }
 });
 
-// ================= WEBSOCKET REAL-TIME HANDLING = =================
-
+// ==========================================
+// 4. WebSocket Real-Time Chat Handling
+// ==========================================
 wss.on('connection', (ws) => {
   let currentUsername = null;
 
@@ -553,6 +566,9 @@ wss.on('connection', (ws) => {
   });
 });
 
+// ==========================================
+// 5. Start Server
+// ==========================================
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
