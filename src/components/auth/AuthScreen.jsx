@@ -1,5 +1,5 @@
 // src/components/auth/AuthScreen.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, HelpCircle, ArrowLeft } from 'lucide-react';
 import { LOGO_URL, ZAMBIAN_LOCATIONS } from '../../data/constants';
 
@@ -30,6 +30,7 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [gender, setGender] = useState('');
   const [location, setLocation] = useState('');
@@ -42,6 +43,15 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
 
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  // Check if a remembered username exists on component mount
+  useEffect(() => {
+    const savedUsername = localStorage.getItem('dodix_remembered_username');
+    if (savedUsername) {
+      setUsername(savedUsername);
+      setRememberMe(true);
+    }
+  }, []);
 
   // Fast Registration with Combined Backend Validation
   const handleRegisterSubmit = async (e) => {
@@ -118,6 +128,13 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
     }
 
     const cleanUsername = username.trim().toLowerCase();
+
+    // Handle Remember Me preference storage
+    if (rememberMe) {
+      localStorage.setItem('dodix_remembered_username', cleanUsername);
+    } else {
+      localStorage.removeItem('dodix_remembered_username');
+    }
 
     if (cleanUsername === 'admin' && password.trim() === 'admin123') {
       triggerLoadingAction('Authenticating Admin...', () => {
@@ -374,6 +391,21 @@ export default function AuthScreen({ setCurrentUser, isLoading, loadingText, tri
                   </button>
                 </div>
               </div>
+
+              {/* Remember Me Checkbox (Only shown during sign-in) */}
+              {!isRegistering && (
+                <div className="flex items-center justify-between pt-1">
+                  <label className="flex items-center gap-2 cursor-pointer text-slate-300 select-none">
+                    <input 
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-pink-600 focus:ring-0 focus:ring-offset-0 cursor-pointer accent-pink-600"
+                    />
+                    Remember me on this device
+                  </label>
+                </div>
+              )}
 
               {isRegistering && (
                 <>
