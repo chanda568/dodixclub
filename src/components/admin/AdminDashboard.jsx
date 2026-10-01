@@ -291,7 +291,6 @@ export default function AdminDashboard({
       });
       const data = await response.json();
       if (data.success) {
-        // Instantly update local state without waiting for full refresh
         setLadies(prev => prev.map(l => 
           (l.username?.toLowerCase() === username.toLowerCase() || l.name?.toLowerCase() === username.toLowerCase())
             ? { ...l, approved: true }
@@ -423,7 +422,6 @@ export default function AdminDashboard({
     alert(`Location for @${username} successfully updated to "${newLocationInput.trim()}"!`);
   };
 
-  // Filter users based on selected gender tab AND search query
   const filteredUsers = usersDb.filter(u => {
     const g = u.gender?.toLowerCase() || '';
     const matchesGender = 
@@ -920,7 +918,6 @@ export default function AdminDashboard({
 
               {/* FILTERS & SEARCH BAR CONTROLS */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
-                {/* Search Bar Input */}
                 <div className="relative flex-1 sm:w-64">
                   <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
                     <Search size={14} />
@@ -942,7 +939,6 @@ export default function AdminDashboard({
                   )}
                 </div>
 
-                {/* MALE / FEMALE FILTER BUTTONS */}
                 <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 p-1.5 rounded-2xl">
                   <button
                     onClick={() => setUserGenderFilter('all')}
