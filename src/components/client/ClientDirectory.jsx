@@ -1,7 +1,7 @@
 // src/components/client/ClientDirectory.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  LogOut, MessageSquare, Sparkles, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, Crown, ShieldAlert, RefreshCw, CheckCircle, Flag, ChevronRight, Heart, CreditCard, Settings, Send, Upload, Image as ImageIcon, History as HistoryIcon, Bell, Plus, Trash2, Shield, Check, MessageCircle, Activity, Circle
+  LogOut, MessageSquare, Sparkles, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, Crown, ShieldAlert, RefreshCw, CheckCircle, Flag, ChevronRight, Heart, CreditCard, Settings, Send, Upload, Image as ImageIcon, History as HistoryIcon, Bell, Plus, Trash2, Shield, Check, MessageCircle, Activity, Circle, Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LOGO_URL } from '../../data/constants';
@@ -23,6 +23,9 @@ export default function ClientDirectory({
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportedUsername, setReportedUsername] = useState('');
   const [reportReason, setReportReason] = useState('');
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  const [isRefreshingCatalog, setIsRefreshingCatalog] = useState(false);
+  const [isStickerProcessing, setIsStickerProcessing] = useState(false);
   
   const userLockedLocation = currentUser?.location || 'Lusaka';
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -37,18 +40,24 @@ export default function ClientDirectory({
   const [newVisibility, setNewVisibility] = useState('all');
 
   // 1. Sync Live Listings from Backend on Mount
-  useEffect(() => {
-    const fetchBackendLadies = async () => {
-      try {
-        const response = await fetch(`${BACKEND_URL}/api/ladies`);
-        const data = await response.json();
-        if (data.success && data.ladies) {
-          setLadies(data.ladies);
-        }
-      } catch (err) {
-        console.error("Failed to fetch backend ladies catalog:", err);
+  const fetchBackendLadies = async (isManual = false) => {
+    if (isManual) setIsRefreshingCatalog(true);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/ladies`);
+      const data = await response.json();
+      if (data.success && data.ladies) {
+        setLadies(data.ladies);
       }
-    };
+    } catch (err) {
+      console.error("Failed to fetch backend ladies catalog:", err);
+    } finally {
+      if (isManual) {
+        setTimeout(() => setIsRefreshingCatalog(false), 500);
+      }
+    }
+  };
+
+  useEffect(() => {
     fetchBackendLadies();
   }, [setLadies]);
 
@@ -224,38 +233,42 @@ export default function ClientDirectory({
 
   const handleApplyStickerAndSave = () => {
     if (!rawImageForSticker) return;
+    setIsStickerProcessing(true);
 
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
+    setTimeout(() => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
 
-      ctx.drawImage(img, 0, 0);
+        ctx.drawImage(img, 0, 0);
 
-      const stickerImg = new Image();
-      stickerImg.crossOrigin = "anonymous";
-      stickerImg.onload = () => {
-        const sX = (stickerPosition.x / 100) * canvas.width;
-        const sY = (stickerPosition.y / 100) * canvas.height;
-        const sRadius = (62 / 200) * Math.min(canvas.width, canvas.height);
+        const stickerImg = new Image();
+        stickerImg.crossOrigin = "anonymous";
+        stickerImg.onload = () => {
+          const sX = (stickerPosition.x / 100) * canvas.width;
+          const sY = (stickerPosition.y / 100) * canvas.height;
+          const sRadius = (62 / 200) * Math.min(canvas.width, canvas.height);
 
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(sX, sY, sRadius, 0, Math.PI * 2, true);
-        ctx.closePath();
-        ctx.clip();
-        ctx.drawImage(stickerImg, sX - sRadius, sY - sRadius, sRadius * 2, sRadius * 2);
-        ctx.restore();
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(sX, sY, sRadius, 0, Math.PI * 2, true);
+          ctx.closePath();
+          ctx.clip();
+          ctx.drawImage(stickerImg, sX - sRadius, sY - sRadius, sRadius * 2, sRadius * 2);
+          ctx.restore();
 
-        setFormPhoto(canvas.toDataURL('image/jpeg', 0.9));
-        setRawImageForSticker(null);
+          setFormPhoto(canvas.toDataURL('image/jpeg', 0.9));
+          setRawImageForSticker(null);
+          setIsStickerProcessing(false);
+        };
+        stickerImg.src = LOGO_URL;
       };
-      stickerImg.src = LOGO_URL;
-    };
-    img.src = rawImageForSticker;
+      img.src = rawImageForSticker;
+    }, 250);
   };
 
   const handlePointerMoveOnStickerArea = (e) => {
@@ -343,6 +356,7 @@ export default function ClientDirectory({
       return;
     }
 
+    setIsSubmittingReport(true);
     try {
       const response = await fetch(`${BACKEND_URL}/api/reports`, {
         method: 'POST',
@@ -366,6 +380,8 @@ export default function ClientDirectory({
     } catch (err) {
       console.error("Error submitting report to backend:", err);
       alert("Network error. Please try again.");
+    } finally {
+      setIsSubmittingReport(false);
     }
   };
 
@@ -453,7 +469,7 @@ export default function ClientDirectory({
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col relative selection:bg-pink-500 selection:text-white font-sans">
       {isLoading && <LogoLoader text={loadingText} />}
 
-      {/* STICKER EDITOR MODAL */}
+      {/* STICKER EDITOR MODAL WITH LOADING GESTURE */}
       <AnimatePresence>
         {rawImageForSticker && (
           <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
@@ -461,14 +477,21 @@ export default function ClientDirectory({
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="max-w-xl w-full bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4"
+              className="max-w-xl w-full bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4 relative"
             >
+              {isStickerProcessing && (
+                <div className="absolute inset-0 bg-black/70 backdrop-blur-xs z-20 flex flex-col items-center justify-center gap-3 rounded-3xl">
+                  <Loader2 size={36} className="animate-spin text-pink-500" />
+                  <span className="text-xs font-bold text-white tracking-wide">Processing & Masking Privacy Sticker...</span>
+                </div>
+              )}
+
               <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                 <div className="flex items-center gap-2">
                   <Sparkles size={18} className="text-pink-500" />
                   <h3 className="text-sm font-bold text-white">Position Privacy Sticker over Face</h3>
                 </div>
-                <button onClick={() => setRawImageForSticker(null)} className="p-1.5 text-slate-400 hover:text-white rounded-lg cursor-pointer">
+                <button onClick={() => setRawImageForSticker(null)} disabled={isStickerProcessing} className="p-1.5 text-slate-400 hover:text-white rounded-lg cursor-pointer">
                   <X size={18} />
                 </button>
               </div>
@@ -502,15 +525,18 @@ export default function ClientDirectory({
               <div className="flex gap-3 pt-2">
                 <button 
                   onClick={() => setRawImageForSticker(null)}
-                  className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition cursor-pointer"
+                  disabled={isStickerProcessing}
+                  className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition cursor-pointer disabled:opacity-50"
                 >
                   Back
                 </button>
                 <button 
                   onClick={handleApplyStickerAndSave}
-                  className="flex-1 py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
+                  disabled={isStickerProcessing}
+                  className="flex-1 py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
-                  <Check size={16} /> Save Masked Photo ✓
+                  {isStickerProcessing ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} 
+                  {isStickerProcessing ? 'Applying Mask...' : 'Save Masked Photo ✓'}
                 </button>
               </div>
             </motion.div>
@@ -609,7 +635,7 @@ export default function ClientDirectory({
                     <p className="text-xs text-slate-400">Submit details directly to administration</p>
                   </div>
                 </div>
-                <button onClick={() => setReportModalOpen(false)} className="p-2 text-slate-400 hover:text-white rounded-lg transition cursor-pointer">
+                <button onClick={() => setReportModalOpen(false)} disabled={isSubmittingReport} className="p-2 text-slate-400 hover:text-white rounded-lg transition cursor-pointer">
                   <X size={20} />
                 </button>
               </div>
@@ -640,11 +666,12 @@ export default function ClientDirectory({
                 </div>
 
                 <div className="flex gap-3 pt-2">
-                  <button type="button" onClick={() => setReportModalOpen(false)} className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition cursor-pointer">
+                  <button type="button" disabled={isSubmittingReport} onClick={() => setReportModalOpen(false)} className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition cursor-pointer disabled:opacity-50">
                     Cancel
                   </button>
-                  <button type="submit" className="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
-                    <Flag size={14} /> Submit Report
+                  <button type="submit" disabled={isSubmittingReport} className="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50">
+                    {isSubmittingReport ? <Loader2 size={16} className="animate-spin" /> : <Flag size={14} />} 
+                    {isSubmittingReport ? 'Submitting...' : 'Submit Report'}
                   </button>
                 </div>
               </form>
@@ -667,6 +694,16 @@ export default function ClientDirectory({
         </div>
 
         <div className="flex items-center gap-3">
+          <button 
+            onClick={() => fetchBackendLadies(true)}
+            disabled={isRefreshingCatalog}
+            title="Refresh Catalog Listings"
+            className="p-2.5 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw size={16} className={isRefreshingCatalog ? 'animate-spin text-pink-500' : ''} />
+            <span className="hidden sm:inline">{isRefreshingCatalog ? 'Syncing...' : 'Refresh'}</span>
+          </button>
+
           <button 
             onClick={() => setCurrentUser(null)}
             className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-red-400 border border-slate-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
@@ -1188,8 +1225,9 @@ export default function ClientDirectory({
                       type="button" 
                       disabled={isSubmittingAd}
                       onClick={handleSaveLadyProfileManual}
-                      className="px-8 py-3.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg transition cursor-pointer disabled:opacity-50"
+                      className="px-8 py-3.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg transition cursor-pointer disabled:opacity-50 flex items-center gap-2"
                     >
+                      {isSubmittingAd && <Loader2 size={16} className="animate-spin" />}
                       {isSubmittingAd ? 'Submitting Ad to Server...' : (adsRemaining > 0 ? 'Submit Advertisement for Approval' : 'Daily Limit Reached (5/5)')}
                     </button>
                   </div>
