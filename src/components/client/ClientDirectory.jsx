@@ -36,6 +36,23 @@ export default function ClientDirectory({
   const [newContent, setNewContent] = useState('');
   const [newVisibility, setNewVisibility] = useState('all');
 
+  // 1. Sync Live Listings from Backend on Mount
+  useEffect(() => {
+    const fetchBackendLadies = async () => {
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/ladies`);
+        const data = await response.json();
+        if (data.success && data.ladies) {
+          setLadies(data.ladies);
+        }
+      } catch (err) {
+        console.error("Failed to fetch backend ladies catalog:", err);
+      }
+    };
+    fetchBackendLadies();
+  }, [setLadies]);
+
+  // 2. Heartbeat & Last Seen Tracker
   useEffect(() => {
     if (!currentUser?.username) return;
 
@@ -78,6 +95,7 @@ export default function ClientDirectory({
     return () => clearInterval(interval);
   }, [currentUser?.username]);
 
+  // 3. Load Announcements
   useEffect(() => {
     try {
       const savedAnnouncements = localStorage.getItem('dodix_announcements_db');
@@ -167,7 +185,6 @@ export default function ClientDirectory({
   const [formHosting, setFormHosting] = useState('Yes');
   const [formServices, setFormServices] = useState('');
 
-  const [uploadStep, setUploadStep] = useState(1);
   const [rawImageForSticker, setRawImageForSticker] = useState(null);
   const [stickerPosition, setStickerPosition] = useState({ x: 50, y: 30, size: 62 });
   const [isDraggingSticker, setIsDraggingSticker] = useState(false);
@@ -235,7 +252,6 @@ export default function ClientDirectory({
 
         setFormPhoto(canvas.toDataURL('image/jpeg', 0.9));
         setRawImageForSticker(null);
-        setUploadStep(2);
       };
       stickerImg.src = LOGO_URL;
     };
@@ -250,6 +266,7 @@ export default function ClientDirectory({
     setStickerPosition(prev => ({ ...prev, x, y }));
   };
 
+  // 4. Save Advertisement to Backend API
   const handleSaveLadyProfileManual = async () => {
     if (adsRemaining <= 0) {
       alert("You have reached your daily limit of 5 advertisements per day. Please try again tomorrow.");
@@ -318,6 +335,7 @@ export default function ClientDirectory({
     }
   };
 
+  // 5. Submit Report to Backend API
   const handleReportSubmit = async (e) => {
     e.preventDefault();
     if (!reportedUsername.trim() || !reportReason.trim()) {
@@ -852,8 +870,8 @@ export default function ClientDirectory({
           {isAdminUser && activeTab === 'news' ? (
             <div className="space-y-6 max-w-5xl">
               <div>
-                <h2 className="text-2xl font-black text-white tracking-tight">Admin Command Center & User Last Seen</h2>
-                <p className="text-xs text-slate-400 mt-1">Monitor user activity in real-time, last seen statuses, and platform announcements.</p>
+                <h2 className="text-2xl font-black text-white tracking-tight">Admin Command Center & User Activity</h2>
+                <p className="text-xs text-slate-400 mt-1">Monitor platform announcements and broadcast updates.</p>
               </div>
 
               <form onSubmit={handleCreateAnnouncement} className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-4">
