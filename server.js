@@ -17,8 +17,12 @@ app.use(cors());
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
 
-// --- MONGODB CONNECTION ---
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/dodixclub';
+// --- MONGODB CONNECTION (Production Only) ---
+const MONGO_URI = process.env.MONGO_URI;
+if (!MONGO_URI) {
+  console.error('[Database Error] MONGO_URI environment variable is missing.');
+  process.exit(1);
+}
 
 mongoose.connect(MONGO_URI, { family: 4 })
   .then(async () => {
@@ -192,7 +196,6 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-// --- Security Question Recovery Endpoints ---
 app.post('/api/auth/get-security-question', async (req, res) => {
   try {
     const { username } = req.body;
@@ -360,6 +363,17 @@ app.get('/api/ladies', async (req, res) => {
   }
 });
 
+// --- NEW ENDPOINT: Get Ads for Specific Companion History ---
+app.get('/api/ladies/my-ads/:username', async (req, res) => {
+  try {
+    const cleanUsername = req.params.username.toLowerCase().trim();
+    const ads = await Companion.find({ username: cleanUsername }).sort({ createdAt: -1 });
+    res.json({ success: true, ads });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.post('/api/ladies', async (req, res) => {
   try {
     const profileData = req.body;
@@ -425,7 +439,6 @@ app.post('/api/ladies/approve', async (req, res) => {
   }
 });
 
-// --- ENDPOINT: Update Companion Advertisement Price ---
 app.put('/api/ladies/:identifier/price', async (req, res) => {
   try {
     const { identifier } = req.params;
