@@ -208,6 +208,47 @@ export default function AdminDashboard({
     return () => clearInterval(interval);
   }, []);
 
+  const handleCreateAnnouncement = (e) => {
+    e.preventDefault();
+    if (!newTitle.trim() || !newContent.trim()) {
+      alert("Please provide both a title and content for the announcement.");
+      return;
+    }
+
+    try {
+      const newAnnouncementObj = {
+        id: Date.now(),
+        title: newTitle.trim(),
+        content: newContent.trim(),
+        visibility: newVisibility,
+        timestamp: new Date().toISOString()
+      };
+
+      const updated = [newAnnouncementObj, ...announcements];
+      setAnnouncements(updated);
+      localStorage.setItem('dodix_announcements_db', encryptStorageData(updated));
+
+      setNewTitle('');
+      setNewContent('');
+      setNewVisibility('all');
+      alert("Announcement successfully published!");
+    } catch (err) {
+      console.error("Error saving announcement:", err);
+      alert("Failed to save announcement.");
+    }
+  };
+
+  const handleDeleteAnnouncement = (id) => {
+    if (!window.confirm("Are you sure you want to delete this announcement?")) return;
+    try {
+      const updated = announcements.filter(a => a.id !== id);
+      setAnnouncements(updated);
+      localStorage.setItem('dodix_announcements_db', encryptStorageData(updated));
+    } catch (err) {
+      console.error("Error deleting announcement:", err);
+    }
+  };
+
   const handleWhatsAppContact = (phone, name) => {
     if (!phone || phone === 'Not Provided') {
       const manualPhone = prompt(`Please enter WhatsApp number for @${name || 'user'} (with country code, e.g., 260...):`);
@@ -451,7 +492,6 @@ export default function AdminDashboard({
     alert(`Location for @${username} successfully updated to "${newLocationInput.trim()}"!`);
   };
 
-  // Handle saving the updated phone number
   const handleSaveUserPhone = async (username) => {
     if (!newPhoneInput.trim()) {
       alert("Phone number cannot be empty.");
@@ -466,7 +506,6 @@ export default function AdminDashboard({
       });
       const data = await response.json();
       
-      // Update local state regardless or based on response success
       const updated = usersDb.map(u => {
         if (u.username?.toLowerCase() === username.toLowerCase()) {
           return { ...u, phone: newPhoneInput.trim() };
@@ -480,7 +519,6 @@ export default function AdminDashboard({
       alert(`Phone number for @${username} successfully updated to "${newPhoneInput.trim()}"!`);
     } catch (err) {
       console.error("Error updating phone number:", err);
-      // Fallback local update even if backend route isn't defined yet
       const updated = usersDb.map(u => {
         if (u.username?.toLowerCase() === username.toLowerCase()) {
           return { ...u, phone: newPhoneInput.trim() };
@@ -1003,7 +1041,7 @@ export default function AdminDashboard({
       </header>
 
       <main className="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 space-y-6">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#0b101d] border border-slate-800 p-2 rounded-2xl shadow-xl">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 bg-[#0b101d] border border-slate-800 p-2 rounded-2xl shadow-xl">
           <button 
             onClick={() => setActiveSubTab('users')}
             className={`py-3 px-3 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center gap-2 ${activeSubTab === 'users' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
@@ -1015,6 +1053,12 @@ export default function AdminDashboard({
             className={`py-3 px-3 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center gap-2 ${activeSubTab === 'companions' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
           >
             <Video size={16} /> Companions ({ladies.length})
+          </button>
+          <button 
+            onClick={() => setActiveSubTab('announcements')}
+            className={`py-3 px-3 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center gap-2 ${activeSubTab === 'announcements' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+          >
+            <Bell size={16} /> Announcements ({announcements.length})
           </button>
           <button 
             onClick={() => setActiveSubTab('inbox')}
@@ -1253,6 +1297,96 @@ export default function AdminDashboard({
                     </div>
                   );
                 })
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeSubTab === 'announcements' && (
+          <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+              <div>
+                <h2 className="text-base font-extrabold text-white">Platform Announcements & Broadcasts</h2>
+                <p className="text-xs text-slate-400">Post system notifications and updates visible to users</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleCreateAnnouncement} className="space-y-4 p-5 bg-slate-900/60 border border-slate-800 rounded-2xl">
+              <h3 className="text-xs font-extrabold text-pink-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Plus size={15} /> Create New Broadcast Announcement
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Announcement Title</label>
+                  <input
+                    type="text"
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    placeholder="e.g. System Maintenance Notice"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-pink-500"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Target Audience</label>
+                  <select
+                    value={newVisibility}
+                    onChange={(e) => setNewVisibility(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-pink-500"
+                  >
+                    <option value="all">All Members</option>
+                    <option value="female">Female Companions Only</option>
+                    <option value="male">Male Clients Only</option>
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Announcement Message Content</label>
+                <textarea
+                  value={newContent}
+                  onChange={(e) => setNewContent(e.target.value)}
+                  rows="3"
+                  placeholder="Enter detailed broadcast message..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-pink-500"
+                ></textarea>
+              </div>
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg transition cursor-pointer flex items-center gap-2"
+                >
+                  <Bell size={14} /> Publish Broadcast
+                </button>
+              </div>
+            </form>
+
+            <div className="space-y-3 pt-2">
+              <h3 className="text-xs font-extrabold text-slate-300 uppercase tracking-wider">Active Broadcasts ({announcements.length})</h3>
+              {announcements.length === 0 ? (
+                <div className="text-center py-12 text-slate-500 text-xs">No announcements created yet.</div>
+              ) : (
+                announcements.map((item) => (
+                  <div key={item.id} className="bg-slate-900/40 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-bold text-white">{item.title}</h4>
+                        <span className="text-[10px] font-black uppercase bg-purple-950 text-purple-400 border border-purple-900/40 px-2 py-0.5 rounded-full">
+                          {item.visibility}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-300">{item.content}</p>
+                      <span className="text-[10px] text-slate-500 font-medium block">
+                        {new Date(item.timestamp).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteAnnouncement(item.id)}
+                      className="p-2 bg-red-950/40 hover:bg-red-900/60 text-red-400 border border-red-900/40 rounded-xl transition cursor-pointer self-end sm:self-center"
+                      title="Delete Announcement"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                ))
               )}
             </div>
           </div>
