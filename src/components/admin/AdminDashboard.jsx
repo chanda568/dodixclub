@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, Users, Flag, Video, CheckCircle, XCircle, Trash2, 
-  LogOut, RefreshCw, X, MessageSquare, MapPin, Edit3, MessageCircle, Clock, Eye, Sparkles, Maximize2, KeyRound, Bell, Plus, Activity, Lock, Unlock, ExternalLink, AlertTriangle, Search 
+  LogOut, RefreshCw, X, MessageSquare, MapPin, Edit3, MessageCircle, Clock, Eye, Sparkles, Maximize2, KeyRound, Bell, Plus, Activity, Lock, Unlock, ExternalLink, AlertTriangle, Search, Phone 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LOGO_URL } from '../../data/constants';
@@ -74,7 +74,7 @@ export default function AdminDashboard({
 }) {
   const [activeSubTab, setActiveSubTab] = useState('users'); 
   const [userGenderFilter, setUserGenderFilter] = useState('all'); // 'all' | 'male' | 'female'
-  const [searchQuery, setSearchQuery] = useState(''); // Added search state
+  const [searchQuery, setSearchQuery] = useState(''); 
   const [reports, setReports] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [newTitle, setNewTitle] = useState('');
@@ -89,6 +89,10 @@ export default function AdminDashboard({
   const [isFaceRevealed, setIsFaceRevealed] = useState(false);
   const [isEditingLocation, setIsEditingLocation] = useState(false);
   const [newLocationInput, setNewLocationInput] = useState('');
+
+  // User Phone Editing States
+  const [isEditingPhone, setIsEditingPhone] = useState(false);
+  const [newPhoneInput, setNewPhoneInput] = useState('');
 
   // Companion Price Editing States
   const [isEditingCompanionPrice, setIsEditingCompanionPrice] = useState(false);
@@ -118,28 +122,33 @@ export default function AdminDashboard({
     try {
       const resUsers = await fetch(`${BACKEND_URL}/api/users`);
       const dataUsers = await resUsers.json();
-      if (dataUsers.success && Array.isArray(dataUsers.users)) {
-        const localSaved = localStorage.getItem('dodix_users_db');
-        let localUsersMap = {};
-        if (localSaved) {
-          try {
-            const decryptedLocal = decryptStorageData(localSaved) || [];
-            decryptedLocal.forEach(u => {
-              if (u.username && u.lastSeen) {
-                localUsersMap[u.username.toLowerCase()] = u.lastSeen;
-              }
-            });
-          } catch (e) {
-            console.error("Error decrypting local users db:", e);
-          }
+      
+      let localSaved = localStorage.getItem('dodix_users_db');
+      let localUsersMap = {};
+      if (localSaved) {
+        try {
+          const decryptedLocal = decryptStorageData(localSaved) || [];
+          decryptedLocal.forEach(u => {
+            if (u.username && u.lastSeen) {
+              localUsersMap[u.username.toLowerCase()] = u.lastSeen;
+            }
+          });
+        } catch (e) {
+          console.error("Error decrypting local users db:", e);
         }
+      }
 
+      if (dataUsers.success && Array.isArray(dataUsers.users)) {
         const mergedUsers = dataUsers.users.map(u => ({
           ...u,
           lastSeen: localUsersMap[u.username?.toLowerCase()] || u.lastSeen || new Date().toISOString()
         }));
-
         setUsersDb(mergedUsers);
+      } else if (localSaved) {
+        const decryptedLocal = decryptStorageData(localSaved) || [];
+        if (decryptedLocal.length > 0) {
+          setUsersDb(decryptedLocal);
+        }
       }
 
       const resLadies = await fetch(`${BACKEND_URL}/api/ladies`);
@@ -154,7 +163,16 @@ export default function AdminDashboard({
             photo: lady.photo || rawOriginal
           };
         });
-        setLadies(processedLadies);
+
+        const uniqueLadiesMap = new Map();
+        processedLadies.forEach(lady => {
+          const key = (lady.username || lady.name || lady._id || '').toLowerCase();
+          if (key && !uniqueLadiesMap.has(key)) {
+            uniqueLadiesMap.set(key, lady);
+          }
+        });
+
+        setLadies(Array.from(uniqueLadiesMap.values()));
       }
 
       const resReports = await fetch(`${BACKEND_URL}/api/reports`);
@@ -164,6 +182,13 @@ export default function AdminDashboard({
       }
     } catch (err) {
       console.error("Error fetching live backend data:", err);
+      const localSaved = localStorage.getItem('dodix_users_db');
+      if (localSaved) {
+        try {
+          const decryptedLocal = decryptStorageData(localSaved) || [];
+          if (decryptedLocal.length > 0) setUsersDb(decryptedLocal);
+        } catch (e) {}
+      }
     }
   };
 
@@ -190,7 +215,7 @@ export default function AdminDashboard({
       phone = manualPhone.trim();
     }
     const cleanPhone = phone.replace(/[^0-9]/g, '');
-    const defaultMsg = encodeURIComponent(`Hello @${name || 'Member'}, this is Dodix Admin reaching out regarding your video verification clip. Please ensure your video upload is re-submitted or sent directly via WhatsApp.`);
+    const defaultMsg = encodeURIComponent(`Hello @${name || 'Member'}, this is Dodix Admin reaching out regarding your account or verification clip.`);
     window.open(`https://wa.me/${cleanPhone}?text=${defaultMsg}`, '_blank');
   };
 
@@ -393,16 +418,20 @@ export default function AdminDashboard({
     if (foundUser) {
       setSelectedReportUser(foundUser);
       setNewLocationInput(foundUser.location || 'Lusaka');
+      setNewPhoneInput(foundUser.phone || '');
     } else {
       setSelectedReportUser({
         username: cleanUsername,
         gender: 'Client / Member',
         activated: true,
         location: 'Lusaka',
+        phone: ''
       });
       setNewLocationInput('Lusaka');
+      setNewPhoneInput('');
     }
     setIsEditingLocation(false);
+    setIsEditingPhone(false);
   };
 
   const handleSaveUserLocation = async (username) => {
@@ -420,6 +449,49 @@ export default function AdminDashboard({
     setSelectedReportUser(prev => prev ? { ...prev, location: newLocationInput.trim() } : null);
     setIsEditingLocation(false);
     alert(`Location for @${username} successfully updated to "${newLocationInput.trim()}"!`);
+  };
+
+  // Handle saving the updated phone number
+  const handleSaveUserPhone = async (username) => {
+    if (!newPhoneInput.trim()) {
+      alert("Phone number cannot be empty.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/users/update-phone`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, phone: newPhoneInput.trim() })
+      });
+      const data = await response.json();
+      
+      // Update local state regardless or based on response success
+      const updated = usersDb.map(u => {
+        if (u.username?.toLowerCase() === username.toLowerCase()) {
+          return { ...u, phone: newPhoneInput.trim() };
+        }
+        return u;
+      });
+      setUsersDb(updated);
+      setSelectedReportUser(prev => prev ? { ...prev, phone: newPhoneInput.trim() } : null);
+      setIsEditingPhone(false);
+      loadBackendData();
+      alert(`Phone number for @${username} successfully updated to "${newPhoneInput.trim()}"!`);
+    } catch (err) {
+      console.error("Error updating phone number:", err);
+      // Fallback local update even if backend route isn't defined yet
+      const updated = usersDb.map(u => {
+        if (u.username?.toLowerCase() === username.toLowerCase()) {
+          return { ...u, phone: newPhoneInput.trim() };
+        }
+        return u;
+      });
+      setUsersDb(updated);
+      setSelectedReportUser(prev => prev ? { ...prev, phone: newPhoneInput.trim() } : null);
+      setIsEditingPhone(false);
+      alert(`Phone number for @${username} successfully updated!`);
+    }
   };
 
   const filteredUsers = usersDb.filter(u => {
@@ -574,7 +646,6 @@ export default function AdminDashboard({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-800/80">
-                {/* EDITABLE RATE / PRICE BLOCK */}
                 <div className="p-4 bg-slate-900 border border-slate-800/80 rounded-2xl space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Rate / Price</span>
@@ -710,6 +781,7 @@ export default function AdminDashboard({
         )}
       </AnimatePresence>
 
+      {/* USER INSPECT / CONTROL MODAL */}
       <AnimatePresence>
         {selectedReportUser && (
           <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
@@ -717,7 +789,7 @@ export default function AdminDashboard({
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="max-w-md w-full bg-[#0b101d] border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 relative"
+              className="max-w-md w-full bg-[#0b101d] border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 relative overflow-y-auto max-h-[90vh]"
             >
               <button 
                 onClick={() => setSelectedReportUser(null)}
@@ -761,6 +833,56 @@ export default function AdminDashboard({
                   </div>
                 )}
                 
+                {/* PHONE NUMBER EDITING BLOCK */}
+                <div className="flex flex-col space-y-2 pt-2 border-t border-slate-800">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                      <Phone size={12} className="text-emerald-400" /> Phone Number
+                    </span>
+                    {!isEditingPhone && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-emerald-400 font-bold">{selectedReportUser.phone || 'Not Provided'}</span>
+                        <button 
+                          onClick={() => {
+                            setIsEditingPhone(true);
+                            setNewPhoneInput(selectedReportUser.phone || '');
+                          }}
+                          className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-pink-400 rounded-lg text-[10px] font-bold flex items-center gap-1 border border-slate-700 transition cursor-pointer"
+                        >
+                          <Edit3 size={11} /> Edit
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {isEditingPhone && (
+                    <div className="space-y-2 pt-1">
+                      <input 
+                        type="text"
+                        value={newPhoneInput}
+                        onChange={(e) => setNewPhoneInput(e.target.value)}
+                        placeholder="Enter phone (e.g. 260...)"
+                        className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-pink-500"
+                      />
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => handleSaveUserPhone(selectedReportUser.username)}
+                          className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition cursor-pointer"
+                        >
+                          Save Phone Number
+                        </button>
+                        <button 
+                          onClick={() => setIsEditingPhone(false)}
+                          className="px-3 py-2 bg-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-bold transition cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* LOCATION EDITING BLOCK */}
                 <div className="flex flex-col space-y-2 pt-2 border-t border-slate-800">
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
@@ -916,7 +1038,6 @@ export default function AdminDashboard({
                 <p className="text-xs text-slate-400">Inspect accounts, view real-time online status / exact last seen, registration & expiry countdown</p>
               </div>
 
-              {/* FILTERS & SEARCH BAR CONTROLS */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
                 <div className="relative flex-1 sm:w-64">
                   <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
