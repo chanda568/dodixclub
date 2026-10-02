@@ -321,7 +321,8 @@ app.get('/api/ladies', async (req, res) => {
     if (category) query.category = { $regex: new RegExp(`^${category.trim()}$`, 'i') };
     if (approved !== undefined) query.approved = approved === 'true';
 
-    const ladies = await Companion.find(query).sort({ createdAt: -1 });
+    // Added .allowDiskUse(true) here to resolve MongoDB 32MB sort memory limit error
+    const ladies = await Companion.find(query).sort({ createdAt: -1 }).allowDiskUse(true);
     res.json({ success: true, ladies });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -331,7 +332,7 @@ app.get('/api/ladies', async (req, res) => {
 app.get('/api/ladies/my-ads/:username', async (req, res) => {
   try {
     const cleanUsername = req.params.username.toLowerCase().trim();
-    const ads = await Companion.find({ username: cleanUsername }).sort({ createdAt: -1 });
+    const ads = await Companion.find({ username: cleanUsername }).sort({ createdAt: -1 }).allowDiskUse(true);
     res.json({ success: true, ads });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
