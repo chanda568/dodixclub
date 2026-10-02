@@ -6,7 +6,6 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LOGO_URL } from '../../data/constants';
-import { encryptStorageData, decryptStorageData } from '../../utils/storageEncryption';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
@@ -116,39 +115,17 @@ export default function AdminDashboard({
     return { isOnline: false, text: `Last seen ${dateFormatted}, ${timeFormatted}` };
   };
 
+  // --- MONGODB FULL SYNCHRONIZATION ---
   const loadBackendData = async () => {
     try {
+      // 1. Fetch Users from MongoDB
       const resUsers = await fetch(`${BACKEND_URL}/api/users`);
       const dataUsers = await resUsers.json();
-      
-      let localSaved = localStorage.getItem('dodix_users_db');
-      let localUsersMap = {};
-      if (localSaved) {
-        try {
-          const decryptedLocal = decryptStorageData(localSaved) || [];
-          decryptedLocal.forEach(u => {
-            if (u.username && u.lastSeen) {
-              localUsersMap[u.username.toLowerCase()] = u.lastSeen;
-            }
-          });
-        } catch (e) {
-          console.error("Error decrypting local users db:", e);
-        }
-      }
-
       if (dataUsers.success && Array.isArray(dataUsers.users)) {
-        const mergedUsers = dataUsers.users.map(u => ({
-          ...u,
-          lastSeen: localUsersMap[u.username?.toLowerCase()] || u.lastSeen || new Date().toISOString()
-        }));
-        setUsersDb(mergedUsers);
-      } else if (localSaved) {
-        const decryptedLocal = decryptStorageData(localSaved) || [];
-        if (decryptedLocal.length > 0) {
-          setUsersDb(decryptedLocal);
-        }
+        setUsersDb(dataUsers.users);
       }
 
+      // 2. Fetch Companion Adverts from MongoDB with Strict Deduplication
       const resLadies = await fetch(`${BACKEND_URL}/api/ladies`);
       const dataLadies = await resLadies.json();
       if (dataLadies.success && Array.isArray(dataLadies.ladies)) {
@@ -162,7 +139,6 @@ export default function AdminDashboard({
           };
         });
 
-        // Strict deduplication map using MongoDB _id or fallback to unique name/username
         const uniqueLadiesMap = new Map();
         processedLadies.forEach(lady => {
           const uniqueKey = lady._id || lady.id || (lady.username || lady.name || '').toLowerCase();
@@ -170,44 +146,34 @@ export default function AdminDashboard({
             uniqueLadiesMap.set(uniqueKey, lady);
           }
         });
-
         setLadies(Array.from(uniqueLadiesMap.values()));
       }
 
+      // 3. Fetch Reports from MongoDB
       const resReports = await fetch(`${BACKEND_URL}/api/reports`);
       const dataReports = await resReports.json();
       if (dataReports.success && Array.isArray(dataReports.reports)) {
         setReports(dataReports.reports);
       }
-    } catch (err) {
-      console.error("Error fetching live backend data:", err);
-      const localSaved = localStorage.getItem('dodix_users_db');
-      if (localSaved) {
-        try {
-          const decryptedLocal = decryptStorageData(localSaved) || [];
-          if (decryptedLocal.length > 0) setUsersDb(decryptedLocal);
-        } catch (e) {}
+
+      // 4. Fetch Announcements from MongoDB
+      const resAnnouncements = await fetch(`${BACKEND_URL}/api/announcements`);
+      const dataAnnouncements = await resAnnouncements.json();
+      if (dataAnnouncements.success && Array.isArray(dataAnnouncements.announcements)) {
+        setAnnouncements(dataAnnouncements.announcements);
       }
+    } catch (err) {
+      console.error("Error fetching live backend data from MongoDB:", err);
     }
   };
 
   useEffect(() => {
     loadBackendData();
     const interval = setInterval(loadBackendData, 5000);
-
-    try {
-      const savedAnnouncements = localStorage.getItem('dodix_announcements_db');
-      if (savedAnnouncements) {
-        setAnnouncements(decryptStorageData(savedAnnouncements) || []);
-      }
-    } catch (err) {
-      console.error("Error loading announcements:", err);
-    }
-
     return () => clearInterval(interval);
   }, []);
 
-  const handleCreateAnnouncement = (e) => {
+  const handleCreateAnnouncement = async (e) => {
     e.preventDefault();
     if (!newTitle.trim() || !newContent.trim()) {
       alert("Please provide both a title and content for the announcement.");
@@ -215,34 +181,43 @@ export default function AdminDashboard({
     }
 
     try {
-      const newAnnouncementObj = {
-        id: Date.now(),
-        title: newTitle.trim(),
-        content: newContent.trim(),
-        visibility: newVisibility,
-        timestamp: new Date().toISOString()
-      };
-
-      const updated = [newAnnouncementObj, ...announcements];
-      setAnnouncements(updated);
-      localStorage.setItem('dodix_announcements_db', encryptStorageData(updated));
-
-      setNewTitle('');
-      setNewContent('');
-      setNewVisibility('all');
-      alert("Announcement successfully published!");
+      const response = await fetch(`${BACKEND_URL}/api/announcements`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: newTitle.trim(),
+          content: newContent.trim(),
+          visibility: newVisibility
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        loadBackendData();
+        setNewTitle('');
+        setNewContent('');
+        setNewVisibility('all');
+        alert("Announcement successfully published to MongoDB!");
+      } else {
+        alert(data.error || "Failed to publish announcement.");
+      }
     } catch (err) {
       console.error("Error saving announcement:", err);
-      alert("Failed to save announcement.");
+      alert("Network error connecting to backend.");
     }
   };
 
-  const handleDeleteAnnouncement = (id) => {
+  const handleDeleteAnnouncement = async (announcementId) => {
     if (!window.confirm("Are you sure you want to delete this announcement?")) return;
     try {
-      const updated = announcements.filter(a => a.id !== id);
-      setAnnouncements(updated);
-      localStorage.setItem('dodix_announcements_db', encryptStorageData(updated));
+      const response = await fetch(`${BACKEND_URL}/api/announcements/${announcementId}`, {
+        method: 'DELETE'
+      });
+      const data = await response.json();
+      if (data.success) {
+        loadBackendData();
+      } else {
+        alert(data.error || "Failed to delete announcement.");
+      }
     } catch (err) {
       console.error("Error deleting announcement:", err);
     }
@@ -309,7 +284,7 @@ export default function AdminDashboard({
       });
       const data = await response.json();
       if (data.success) {
-        alert(`Password for @${username} has been successfully reset!`);
+        alert(`Password for @${username} has been successfully reset in MongoDB!`);
       } else {
         alert(data.error || "Failed to reset password.");
       }
@@ -320,7 +295,7 @@ export default function AdminDashboard({
   };
 
   const handleDeleteUser = async (username) => {
-    if (!window.confirm(`Are you sure you want to delete user @${username}?`)) return;
+    if (!window.confirm(`Are you sure you want to permanently delete user @${username} from MongoDB?`)) return;
     try {
       const response = await fetch(`${BACKEND_URL}/api/users/${username}`, {
         method: 'DELETE'
@@ -355,7 +330,6 @@ export default function AdminDashboard({
     }
 
     try {
-      // Send ID-based request to backend if available, keeping fallback body params
       const response = await fetch(`${BACKEND_URL}/api/ladies/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -369,29 +343,20 @@ export default function AdminDashboard({
             : l
         ));
         setSelectedCompanionModal(prev => prev ? { ...prev, approved: true } : null);
-
         loadBackendData();
 
-        try {
-          const savedAnnouncements = localStorage.getItem('dodix_announcements_db');
-          let currentAnnouncements = savedAnnouncements ? (decryptStorageData(savedAnnouncements) || []) : [];
-          
-          const approvalNotification = {
-            id: Date.now(),
+        // Also broadcast an in-database notification announcement to MongoDB
+        await fetch(`${BACKEND_URL}/api/announcements`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
             title: 'Advertisement Approved!',
             content: `Great news @${username || 'Companion'}! Your advertisement listing has been reviewed and approved by administration. It is now live in the Elite Directory.`,
-            visibility: 'female',
-            targetUsername: username ? username.toLowerCase() : '',
-            timestamp: new Date().toISOString()
-          };
+            visibility: 'female'
+          })
+        });
 
-          const updatedAnnouncements = [approvalNotification, ...currentAnnouncements];
-          localStorage.setItem('dodix_announcements_db', encryptStorageData(updatedAnnouncements));
-        } catch (notifErr) {
-          console.error("Error creating approval notification storage item:", notifErr);
-        }
-
-        alert(`Advertisement for @${username || companionId} has been successfully approved, and the companion has been notified!`);
+        alert(`Advertisement for @${username || companionId} has been successfully approved in MongoDB!`);
         setSelectedCompanionModal(null);
       } else {
         alert(data.error || "Failed to approve companion.");
@@ -418,7 +383,7 @@ export default function AdminDashboard({
         loadBackendData();
         setSelectedCompanionModal(prev => prev ? { ...prev, price: companionPriceInput.trim() } : null);
         setIsEditingCompanionPrice(false);
-        alert("Advertisement price updated successfully!");
+        alert("Advertisement price updated successfully in MongoDB!");
       } else {
         alert(data.error || "Failed to update price.");
       }
@@ -445,7 +410,7 @@ export default function AdminDashboard({
       if (data.success || response.ok) {
         setLadies(prev => prev.filter(l => l._id !== targetId && l.id !== targetId && l.username !== username));
         loadBackendData();
-        alert(`Advertisement has been successfully rejected and removed.`);
+        alert(`Advertisement has been successfully rejected and removed from MongoDB.`);
         setSelectedCompanionModal(null);
       } else {
         alert(data.error || "Failed to reject advertisement.");
@@ -454,7 +419,6 @@ export default function AdminDashboard({
       console.error("Error rejecting companion:", err);
       setLadies(prev => prev.filter(l => l._id !== targetId && l.id !== targetId && l.username !== username));
       setSelectedCompanionModal(null);
-      alert("Advertisement removed from view.");
     }
   };
 
@@ -486,16 +450,20 @@ export default function AdminDashboard({
       alert("Location cannot be empty.");
       return;
     }
-    const updated = usersDb.map(u => {
-      if (u.username?.toLowerCase() === username.toLowerCase()) {
-        return { ...u, location: newLocationInput.trim() };
-      }
-      return u;
-    });
-    setUsersDb(updated);
-    setSelectedReportUser(prev => prev ? { ...prev, location: newLocationInput.trim() } : null);
-    setIsEditingLocation(false);
-    alert(`Location for @${username} successfully updated to "${newLocationInput.trim()}"!`);
+    try {
+      await fetch(`${BACKEND_URL}/api/users/update-location`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, location: newLocationInput.trim() })
+      });
+      loadBackendData();
+      setSelectedReportUser(prev => prev ? { ...prev, location: newLocationInput.trim() } : null);
+      setIsEditingLocation(false);
+      alert(`Location for @${username} successfully updated in MongoDB!`);
+    } catch (err) {
+      console.error("Error updating location:", err);
+      alert("Failed to update location.");
+    }
   };
 
   const handleSaveUserPhone = async (username) => {
@@ -510,30 +478,13 @@ export default function AdminDashboard({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, phone: newPhoneInput.trim() })
       });
-      
-      const updated = usersDb.map(u => {
-        if (u.username?.toLowerCase() === username.toLowerCase()) {
-          return { ...u, phone: newPhoneInput.trim() };
-        }
-        return u;
-      });
-      setUsersDb(updated);
+      loadBackendData();
       setSelectedReportUser(prev => prev ? { ...prev, phone: newPhoneInput.trim() } : null);
       setIsEditingPhone(false);
-      loadBackendData();
-      alert(`Phone number for @${username} successfully updated to "${newPhoneInput.trim()}"!`);
+      alert(`Phone number for @${username} successfully updated in MongoDB!`);
     } catch (err) {
       console.error("Error updating phone number:", err);
-      const updated = usersDb.map(u => {
-        if (u.username?.toLowerCase() === username.toLowerCase()) {
-          return { ...u, phone: newPhoneInput.trim() };
-        }
-        return u;
-      });
-      setUsersDb(updated);
-      setSelectedReportUser(prev => prev ? { ...prev, phone: newPhoneInput.trim() } : null);
-      setIsEditingPhone(false);
-      alert(`Phone number for @${username} successfully updated!`);
+      alert("Failed to update phone number.");
     }
   };
 
@@ -544,7 +495,6 @@ export default function AdminDashboard({
       userGenderFilter === 'female' ? g === 'female' : true;
 
     const matchesSearch = u.username?.toLowerCase().includes(searchQuery.toLowerCase());
-
     return matchesGender && matchesSearch;
   });
 
@@ -1032,7 +982,7 @@ export default function AdminDashboard({
           <div>
             <h1 className="text-base font-black tracking-wider text-white">DODIX<span className="text-pink-500">ADMIN</span></h1>
             <p className="text-[10px] text-slate-400 flex items-center gap-1">
-              <ShieldCheck size={10} className="text-emerald-400" /> Secure Command Center
+              <ShieldCheck size={10} className="text-emerald-400" /> MongoDB Synchronized Center
             </p>
           </div>
         </div>
@@ -1359,7 +1309,7 @@ export default function AdminDashboard({
                   type="submit"
                   className="px-5 py-2.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg transition cursor-pointer flex items-center gap-2"
                 >
-                  <Bell size={14} /> Publish Broadcast
+                  <Bell size={14} /> Publish Broadcast to MongoDB
                 </button>
               </div>
             </form>
@@ -1370,7 +1320,7 @@ export default function AdminDashboard({
                 <div className="text-center py-12 text-slate-500 text-xs">No announcements created yet.</div>
               ) : (
                 announcements.map((item) => (
-                  <div key={item.id} className="bg-slate-900/40 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div key={item._id || item.id} className="bg-slate-900/40 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <h4 className="text-sm font-bold text-white">{item.title}</h4>
@@ -1380,11 +1330,11 @@ export default function AdminDashboard({
                       </div>
                       <p className="text-xs text-slate-300">{item.content}</p>
                       <span className="text-[10px] text-slate-500 font-medium block">
-                        {new Date(item.timestamp).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        {item.createdAt ? new Date(item.createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Just now'}
                       </span>
                     </div>
                     <button
-                      onClick={() => handleDeleteAnnouncement(item.id)}
+                      onClick={() => handleDeleteAnnouncement(item._id || item.id)}
                       className="p-2 bg-red-950/40 hover:bg-red-900/60 text-red-400 border border-red-900/40 rounded-xl transition cursor-pointer self-end sm:self-center"
                       title="Delete Announcement"
                     >
@@ -1408,7 +1358,7 @@ export default function AdminDashboard({
                 <RefreshCw size={16} />
               </button>
             </div>
-            <div className="text-center py-12 text-slate-500 text-xs">Inbox is fully synchronized.</div>
+            <div className="text-center py-12 text-slate-500 text-xs">Inbox is fully synchronized with MongoDB.</div>
           </div>
         )}
 
