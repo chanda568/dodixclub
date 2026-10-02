@@ -26,7 +26,11 @@ const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
 if (!MONGO_URI) {
   console.error('[Database Error] MONGO_URI or MONGODB_URI environment variable is missing.');
 } else {
-  mongoose.connect(MONGO_URI, { family: 4 })
+  mongoose.connect(MONGO_URI, { 
+    family: 4,
+    serverSelectionTimeoutMS: 30000, // Increase timeout to 30 seconds
+    socketTimeoutMS: 45000,
+  })
     .then(async () => {
       console.log('[Database] Connected to MongoDB Atlas successfully.');
       
@@ -39,8 +43,21 @@ if (!MONGO_URI) {
     .catch(err => console.error('[Database] Connection error:', err));
 }
 
+// Middleware to check DB connection before processing API requests
+app.use('/api', (req, res, next) => {
+  if (req.path === '/health') return next();
+  // readyState 1 = connected
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({ 
+      success: false, 
+      error: 'Database is still connecting. Please try again in a few seconds.' 
+    });
+  }
+  next();
+});
+
 // ==========================================
-// 2. Mongoose Schemas & Models
+// 2. Mongoose Schemas & Models (with bufferCommands: false)
 // ==========================================
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true, lowercase: true, trim: true },
@@ -56,7 +73,7 @@ const userSchema = new mongoose.Schema({
   activated: { type: Boolean, default: false },
   isEmailVerified: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now }
-});
+}, { bufferCommands: false });
 
 const messageSchema = new mongoose.Schema({
   id: { type: String, required: true },
@@ -64,14 +81,14 @@ const messageSchema = new mongoose.Schema({
   recipient: { type: String, default: 'public', lowercase: true, trim: true },
   text: { type: String, required: true },
   timestamp: { type: Date, default: Date.now }
-});
+}, { bufferCommands: false });
 
 const reportSchema = new mongoose.Schema({
   reporter: { type: String, required: true, lowercase: true, trim: true },
   targetUser: { type: String, required: true, lowercase: true, trim: true },
   reason: { type: String, required: true },
   timestamp: { type: Date, default: Date.now }
-});
+}, { bufferCommands: false });
 
 const companionSchema = new mongoose.Schema({
   username: { type: String, required: true, lowercase: true, trim: true },
@@ -92,7 +109,7 @@ const companionSchema = new mongoose.Schema({
   approved: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
-});
+}, { bufferCommands: false });
 
 // Add index to companion schema for fast, memory-efficient sorting
 companionSchema.index({ createdAt: -1 });
@@ -102,7 +119,7 @@ const announcementSchema = new mongoose.Schema({
   content: { type: String, required: true },
   visibility: { type: String, default: 'all' },
   createdAt: { type: Date, default: Date.now }
-});
+}, { bufferCommands: false });
 
 const User = mongoose.models.User || mongoose.model('User', userSchema);
 const Message = mongoose.models.Message || mongoose.model('Message', messageSchema);
