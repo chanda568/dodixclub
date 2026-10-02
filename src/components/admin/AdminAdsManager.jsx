@@ -6,7 +6,6 @@ export default function AdminAdsManager() {
   const [ads, setAds] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Use Vite environment variable matching your Vercel configuration
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://dodixclub-backend.onrender.com';
 
   const fetchAdminAds = async () => {
@@ -64,47 +63,52 @@ export default function AdminAdsManager() {
     <div className="space-y-6">
       <h2 className="text-xl font-bold text-white">Advertisement Moderation Panel</h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {ads.map((ad) => (
-          <div key={ad._id} className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-4">
-            <div className="flex justify-between items-center">
-              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border flex items-center gap-1 ${
-                ad.approved 
-                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
-                  : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-              }`}>
-                {ad.approved ? <CheckCircle size={12} /> : <Clock size={12} />}
-                {ad.approved ? 'Approved' : 'Pending'}
-              </span>
-              <span className="text-xs font-bold text-slate-300">ZMW {ad.price}</span>
-            </div>
+      {ads.length === 0 ? (
+        <p className="text-slate-400 text-sm">No advertisements found in the database.</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {ads.map((ad) => (
+            <div key={ad._id} className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-4">
+              <div className="flex justify-between items-center">
+                <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border flex items-center gap-1 ${
+                  ad.approved 
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                    : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                }`}>
+                  {ad.approved ? <CheckCircle size={12} /> : <Clock size={12} />}
+                  {ad.approved ? 'Approved' : 'Pending Review'}
+                </span>
+                <span className="text-xs font-bold text-slate-300">ZMW {ad.price}</span>
+              </div>
 
-            <div className="space-y-1">
-              <h3 className="font-bold text-white">{ad.name}, {ad.age}</h3>
-              <p className="text-xs text-slate-400 flex items-center gap-1">
-                <MapPin size={12} /> {ad.location}
-              </p>
-            </div>
+              <div className="space-y-1">
+                <h3 className="font-bold text-white">{ad.name}, {ad.age}</h3>
+                <p className="text-xs text-slate-400 flex items-center gap-1">
+                  <MapPin size={12} /> {ad.location}
+                </p>
+                <p className="text-xs text-slate-500">Submitted by: @{ad.username}</p>
+              </div>
 
-            <div className="flex gap-2 pt-2">
-              {!ad.approved && (
+              <div className="flex gap-2 pt-2">
+                {!ad.approved && (
+                  <button 
+                    onClick={() => handleApprove(ad._id)}
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold py-2 rounded-lg transition"
+                  >
+                    Approve
+                  </button>
+                )}
                 <button 
-                  onClick={() => handleApprove(ad._id)}
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold py-2 rounded-lg transition"
+                  onClick={() => handleDelete(ad._id)}
+                  className="bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 px-3 py-2 rounded-lg transition"
                 >
-                  Approve
+                  <Trash2 size={14} />
                 </button>
-              )}
-              <button 
-                onClick={() => handleDelete(ad._id)}
-                className="bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 px-3 py-2 rounded-lg transition"
-              >
-                <Trash2 size={14} />
-              </button>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

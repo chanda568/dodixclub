@@ -97,7 +97,7 @@ const companionSchema = new mongoose.Schema({
 const announcementSchema = new mongoose.Schema({
   title: { type: String, required: true },
   content: { type: String, required: true },
-  visibility: { type: String, default: 'all' }, // 'all', 'female', 'male'
+  visibility: { type: String, default: 'all' },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -107,27 +107,23 @@ const Report = mongoose.models.Report || mongoose.model('Report', reportSchema);
 const Companion = mongoose.models.Companion || mongoose.model('Companion', companionSchema);
 const Announcement = mongoose.models.Announcement || mongoose.model('Announcement', announcementSchema);
 
-// Seed initial admin if database is empty
 async function seedDefaultAdmin() {
   try {
     const count = await User.countDocuments();
     if (count === 0) {
       const hashedPassword = await bcrypt.hash('password123', 10);
       const defaultAnswerHash = await bcrypt.hash('admin', 10);
-      const defaultUsers = [
-        { 
-          username: 'admin', 
-          password: hashedPassword, 
-          gender: 'Male', 
-          location: 'Lusaka', 
-          role: 'admin', 
-          activated: true, 
-          isEmailVerified: true,
-          securityQuestion: 'What was your first pet’s name?',
-          securityAnswerHash: defaultAnswerHash
-        }
-      ];
-      await User.insertMany(defaultUsers);
+      await User.insertMany([{
+        username: 'admin',
+        password: hashedPassword,
+        gender: 'Male',
+        location: 'Lusaka',
+        role: 'admin',
+        activated: true,
+        isEmailVerified: true,
+        securityQuestion: 'What was your first pet’s name?',
+        securityAnswerHash: defaultAnswerHash
+      }]);
       console.log('[Database] Seeded default admin into MongoDB.');
     }
   } catch (err) {
@@ -140,13 +136,11 @@ const activeClients = new Map();
 // ==========================================
 // 3. Express REST API Routes
 // ==========================================
-
-// Health Check
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'success', message: 'Server is up and running!' });
 });
 
-// --- Authentication Routes ---
+// Authentication
 app.get('/api/check-username/:username', async (req, res) => {
   try {
     const cleanUsername = req.params.username.toLowerCase().trim();
@@ -161,16 +155,11 @@ app.post('/api/login', async (req, res) => {
   try {
     const { username, password } = req.body;
     const cleanUsername = username?.toLowerCase().trim();
-    
     const user = await User.findOne({ username: cleanUsername });
-    if (!user) {
-      return res.json({ success: false, error: "Username does not exist. Please check or register." });
-    }
+    if (!user) return res.json({ success: false, error: "Username does not exist." });
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.json({ success: false, error: "Incorrect password. Please try again." });
-    }
+    if (!isMatch) return res.json({ success: false, error: "Incorrect password." });
     
     res.json({ success: true, user });
   } catch (err) {
@@ -181,16 +170,13 @@ app.post('/api/login', async (req, res) => {
 app.post('/api/register', async (req, res) => {
   try {
     const { username, password, email, gender, location, role, phone, plan, securityQuestion, securityAnswer } = req.body;
-    
     if (!username || !password || !gender || !location) {
       return res.json({ success: false, error: "All fields are required." });
     }
 
     const cleanUsername = username.toLowerCase().trim();
     const existingUser = await User.findOne({ username: cleanUsername });
-    if (existingUser) {
-      return res.json({ success: false, error: "Username already exists." });
-    }
+    if (existingUser) return res.json({ success: false, error: "Username already exists." });
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const hashedAnswer = securityAnswer ? await bcrypt.hash(securityAnswer.toLowerCase().trim(), 10) : await bcrypt.hash('default', 10);
@@ -207,8 +193,7 @@ app.post('/api/register', async (req, res) => {
       securityQuestion: securityQuestion || 'What was your first pet’s name?',
       securityAnswerHash: hashedAnswer,
       activated: false,
-      isEmailVerified: true,
-      createdAt: new Date()
+      isEmailVerified: true
     });
 
     await newUser.save();
@@ -218,49 +203,7 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-app.post('/api/auth/get-security-question', async (req, res) => {
-  try {
-    const { username } = req.body;
-    if (!username) return res.json({ success: false, error: "Username is required." });
-
-    const user = await User.findOne({ username: username.toLowerCase().trim() });
-    if (!user) return res.json({ success: false, error: "Username not found." });
-
-    res.json({ success: true, question: user.securityQuestion || 'What was your first pet’s name?' });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-app.post('/api/auth/reset-with-security-question', async (req, res) => {
-  try {
-    const { username, answer, newPassword } = req.body;
-    if (!username || !answer || !newPassword) {
-      return res.json({ success: false, error: "All fields are required." });
-    }
-
-    const user = await User.findOne({ username: username.toLowerCase().trim() });
-    if (!user) return res.json({ success: false, error: "Username not found." });
-
-    if (!user.securityAnswerHash) {
-      return res.json({ success: false, error: "No security question set for this account." });
-    }
-
-    const isMatch = await bcrypt.compare(answer.toLowerCase().trim(), user.securityAnswerHash);
-    if (!isMatch) {
-      return res.json({ success: false, error: "Incorrect security answer." });
-    }
-
-    user.password = await bcrypt.hash(newPassword, 10);
-    await user.save();
-
-    res.json({ success: true, message: "Password reset successfully!" });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// --- User Management Routes ---
+// User Management
 app.get('/api/users', async (req, res) => {
   try {
     const users = await User.find({});
@@ -274,7 +217,6 @@ app.post('/api/users/toggle', async (req, res) => {
   try {
     const { username } = req.body;
     const user = await User.findOne({ username: username?.toLowerCase().trim() });
-    
     if (user) {
       user.activated = !user.activated;
       await user.save();
@@ -287,85 +229,18 @@ app.post('/api/users/toggle', async (req, res) => {
   }
 });
 
-app.post('/api/users/reset-password', async (req, res) => {
-  try {
-    const { username, newPassword } = req.body;
-    if (!username || !newPassword) {
-      return res.json({ success: false, error: "Username and new password are required." });
-    }
-
-    const cleanUsername = username.toLowerCase().trim();
-    const user = await User.findOne({ username: cleanUsername });
-    
-    if (!user) {
-      return res.json({ success: false, error: "User not found." });
-    }
-
-    user.password = await bcrypt.hash(newPassword, 10);
-    await user.save();
-
-    res.json({ success: true, message: "Password updated successfully." });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-app.post('/api/users/update-phone', async (req, res) => {
-  try {
-    const { username, phone } = req.body;
-    if (!username || !phone) {
-      return res.json({ success: false, error: "Username and phone are required." });
-    }
-    const cleanUsername = username.toLowerCase().trim();
-    const user = await User.findOne({ username: cleanUsername });
-    if (!user) {
-      return res.json({ success: false, error: "User not found." });
-    }
-    user.phone = phone.trim();
-    await user.save();
-    res.json({ success: true, user });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-app.post('/api/users/update-location', async (req, res) => {
-  try {
-    const { username, location } = req.body;
-    if (!username || !location) {
-      return res.json({ success: false, error: "Username and location are required." });
-    }
-    const cleanUsername = username.toLowerCase().trim();
-    const user = await User.findOne({ username: cleanUsername });
-    if (!user) {
-      return res.json({ success: false, error: "User not found." });
-    }
-    user.location = location.trim();
-    await user.save();
-    res.json({ success: true, user });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
 app.delete('/api/users/:username', async (req, res) => {
   try {
-    const { username } = req.params;
-    const cleanUsername = username?.toLowerCase().trim();
-    const result = await User.findOneAndDelete({ username: cleanUsername });
+    const cleanUsername = req.params.username?.toLowerCase().trim();
+    await User.findOneAndDelete({ username: cleanUsername });
     await Companion.deleteMany({ username: cleanUsername });
-    
-    if (result) {
-      res.json({ success: true });
-    } else {
-      res.json({ success: false, error: "User not found." });
-    }
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// --- Announcements Routes ---
+// Announcements
 app.get('/api/announcements', async (req, res) => {
   try {
     const announcements = await Announcement.find({}).sort({ createdAt: -1 });
@@ -378,17 +253,9 @@ app.get('/api/announcements', async (req, res) => {
 app.post('/api/announcements', async (req, res) => {
   try {
     const { title, content, visibility } = req.body;
-    if (!title || !content) {
-      return res.json({ success: false, error: "Title and content are required." });
-    }
+    if (!title || !content) return res.json({ success: false, error: "Title and content are required." });
 
-    const newAnnouncement = new Announcement({
-      title: title.trim(),
-      content: content.trim(),
-      visibility: visibility || 'all',
-      createdAt: new Date()
-    });
-
+    const newAnnouncement = new Announcement({ title, content, visibility: visibility || 'all' });
     await newAnnouncement.save();
     res.json({ success: true, announcement: newAnnouncement });
   } catch (err) {
@@ -398,15 +265,14 @@ app.post('/api/announcements', async (req, res) => {
 
 app.delete('/api/announcements/:id', async (req, res) => {
   try {
-    const { id } = req.params;
-    await Announcement.findByIdAndDelete(id);
+    await Announcement.findByIdAndDelete(req.params.id);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// --- Messaging Routes ---
+// Messages & Reports
 app.get('/api/messages', async (req, res) => {
   try {
     const messages = await Message.find({}).sort({ timestamp: 1 });
@@ -416,21 +282,10 @@ app.get('/api/messages', async (req, res) => {
   }
 });
 
-// --- Reports Routes ---
 app.post('/api/reports', async (req, res) => {
   try {
     const { reporter, targetUser, reason } = req.body;
-    if (!reporter || !targetUser || !reason) {
-      return res.json({ success: false, error: "All fields are required." });
-    }
-
-    const newReport = new Report({
-      reporter: reporter.toLowerCase().trim(),
-      targetUser: targetUser.toLowerCase().trim(),
-      reason,
-      timestamp: new Date()
-    });
-
+    const newReport = new Report({ reporter: reporter.toLowerCase().trim(), targetUser: targetUser.toLowerCase().trim(), reason });
     await newReport.save();
     res.json({ success: true, report: newReport });
   } catch (err) {
@@ -449,32 +304,22 @@ app.get('/api/reports', async (req, res) => {
 
 app.delete('/api/reports/:id', async (req, res) => {
   try {
-    const { id } = req.params;
-    await Report.findByIdAndDelete(id);
+    await Report.findByIdAndDelete(req.params.id);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// ==========================================
-// --- Companions / Ads Routes (Enhanced) ---
-// ==========================================
-
+// --- Companions / Ads Routes ---
 app.get('/api/ladies', async (req, res) => {
   try {
     const { location, category, approved } = req.query;
     let query = {};
 
-    if (location) {
-      query.location = { $regex: new RegExp(location.trim(), 'i') };
-    }
-    if (category) {
-      query.category = { $regex: new RegExp(`^${category.trim()}$`, 'i') };
-    }
-    if (approved !== undefined) {
-      query.approved = approved === 'true';
-    }
+    if (location) query.location = { $regex: new RegExp(location.trim(), 'i') };
+    if (category) query.category = { $regex: new RegExp(`^${category.trim()}$`, 'i') };
+    if (approved !== undefined) query.approved = approved === 'true';
 
     const ladies = await Companion.find(query).sort({ createdAt: -1 });
     res.json({ success: true, ladies });
@@ -497,7 +342,7 @@ app.post('/api/ladies', async (req, res) => {
   try {
     const profileData = req.body;
     if (!profileData.username || !profileData.phone || !profileData.price) {
-      return res.json({ success: false, error: "Required fields missing." });
+      return res.json({ success: false, error: "Required fields missing (username, phone, price)." });
     }
 
     const cleanUsername = profileData.username.toLowerCase().trim();
@@ -516,7 +361,7 @@ app.post('/api/ladies', async (req, res) => {
     const newCompanionAd = new Companion({
       ...profileData,
       username: cleanUsername,
-      approved: false,
+      approved: false, // Explicitly false so it appears in admin dashboard review panel
       createdAt: new Date(),
       updatedAt: new Date()
     });
@@ -538,10 +383,7 @@ app.post('/api/ladies/approve', async (req, res) => {
     } else if (username) {
       const cleanId = username.toLowerCase().trim();
       companion = await Companion.findOne({
-        $or: [
-          { username: { $regex: new RegExp(`^${cleanId}$`, 'i') } },
-          { name: { $regex: new RegExp(`^${cleanId}$`, 'i') } }
-        ]
+        $or: [{ username: cleanId }, { name: cleanId }]
       });
     }
     
@@ -558,61 +400,15 @@ app.post('/api/ladies/approve', async (req, res) => {
   }
 });
 
-app.put('/api/ladies/:identifier/price', async (req, res) => {
-  try {
-    const { identifier } = req.params;
-    const { price } = req.body;
-
-    if (!price) {
-      return res.json({ success: false, error: "New price is required." });
-    }
-
-    const cleanId = identifier.toLowerCase().trim();
-    let companion = null;
-
-    if (mongoose.Types.ObjectId.isValid(cleanId)) {
-      companion = await Companion.findById(cleanId);
-    }
-    
-    if (!companion) {
-      companion = await Companion.findOne({
-        $or: [
-          { username: { $regex: new RegExp(`^${cleanId}$`, 'i') } },
-          { name: { $regex: new RegExp(`^${cleanId}$`, 'i') } }
-        ]
-      });
-    }
-
-    if (companion) {
-      companion.price = price.toString().trim();
-      companion.updatedAt = new Date();
-      await companion.save();
-      res.json({ success: true, companion, message: 'Price updated successfully.' });
-    } else {
-      res.status(404).json({ success: false, error: 'Companion advertisement not found.' });
-    }
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
 app.delete('/api/ladies/:identifier', async (req, res) => {
   try {
-    const { identifier } = req.params;
-    const cleanId = identifier.toLowerCase().trim();
-    
+    const cleanId = req.params.identifier.toLowerCase().trim();
     let result = null;
     if (mongoose.Types.ObjectId.isValid(cleanId)) {
       result = await Companion.findByIdAndDelete(cleanId);
     }
-    
     if (!result) {
-      result = await Companion.findOneAndDelete({
-        $or: [
-          { username: { $regex: new RegExp(`^${cleanId}$`, 'i') } },
-          { name: { $regex: new RegExp(`^${cleanId}$`, 'i') } }
-        ]
-      });
+      result = await Companion.findOneAndDelete({ $or: [{ username: cleanId }, { name: cleanId }] });
     }
 
     if (result) {
@@ -626,7 +422,7 @@ app.delete('/api/ladies/:identifier', async (req, res) => {
 });
 
 // ==========================================
-// 4. WebSocket Real-Time Chat Handling
+// 4. WebSocket Real-Time Chat
 // ==========================================
 wss.on('connection', (ws) => {
   let currentUsername = null;
@@ -634,7 +430,6 @@ wss.on('connection', (ws) => {
   ws.on('message', async (data) => {
     try {
       const parsed = JSON.parse(data.toString());
-
       if (parsed.type === 'auth' && parsed.username) {
         currentUsername = parsed.username.toLowerCase().trim();
         activeClients.set(currentUsername, ws);
@@ -649,8 +444,7 @@ wss.on('connection', (ws) => {
           id: Date.now().toString(),
           sender: sender.toLowerCase().trim(),
           recipient: recipient ? recipient.toLowerCase().trim() : 'public',
-          text: text.trim(),
-          timestamp: new Date()
+          text: text.trim()
         });
 
         await newMessage.save();
@@ -664,7 +458,7 @@ wss.on('connection', (ws) => {
         }
       }
     } catch (err) {
-      console.error("[WS] Error processing message:", err);
+      console.error("[WS] Error:", err);
     }
   });
 
@@ -674,14 +468,11 @@ wss.on('connection', (ws) => {
 });
 
 // ==========================================
-// 5. Start Server / Vercel Export
+// 5. Server Start / Export
 // ==========================================
 const PORT = process.env.PORT || 5000;
-
 if (process.env.NODE_ENV !== 'production') {
-  server.listen(PORT, () => {
-    console.log(`Server running locally on port ${PORT}`);
-  });
+  server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 }
 
 export default server;
