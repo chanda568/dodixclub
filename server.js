@@ -1,3 +1,4 @@
+// server.js
 import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
@@ -93,10 +94,18 @@ const companionSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 });
 
+const announcementSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  content: { type: String, required: true },
+  visibility: { type: String, default: 'all' }, // 'all', 'female', 'male'
+  createdAt: { type: Date, default: Date.now }
+});
+
 const User = mongoose.models.User || mongoose.model('User', userSchema);
 const Message = mongoose.models.Message || mongoose.model('Message', messageSchema);
 const Report = mongoose.models.Report || mongoose.model('Report', reportSchema);
 const Companion = mongoose.models.Companion || mongoose.model('Companion', companionSchema);
+const Announcement = mongoose.models.Announcement || mongoose.model('Announcement', announcementSchema);
 
 // Seed initial admin if database is empty
 async function seedDefaultAdmin() {
@@ -320,6 +329,25 @@ app.post('/api/users/update-phone', async (req, res) => {
   }
 });
 
+app.post('/api/users/update-location', async (req, res) => {
+  try {
+    const { username, location } = req.body;
+    if (!username || !location) {
+      return res.json({ success: false, error: "Username and location are required." });
+    }
+    const cleanUsername = username.toLowerCase().trim();
+    const user = await User.findOne({ username: cleanUsername });
+    if (!user) {
+      return res.json({ success: false, error: "User not found." });
+    }
+    user.location = location.trim();
+    await user.save();
+    res.json({ success: true, user });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.delete('/api/users/:username', async (req, res) => {
   try {
     const { username } = req.params;
@@ -332,6 +360,47 @@ app.delete('/api/users/:username', async (req, res) => {
     } else {
       res.json({ success: false, error: "User not found." });
     }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// --- Announcements Routes ---
+app.get('/api/announcements', async (req, res) => {
+  try {
+    const announcements = await Announcement.find({}).sort({ createdAt: -1 });
+    res.json({ success: true, announcements });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/announcements', async (req, res) => {
+  try {
+    const { title, content, visibility } = req.body;
+    if (!title || !content) {
+      return res.json({ success: false, error: "Title and content are required." });
+    }
+
+    const newAnnouncement = new Announcement({
+      title: title.trim(),
+      content: content.trim(),
+      visibility: visibility || 'all',
+      createdAt: new Date()
+    });
+
+    await newAnnouncement.save();
+    res.json({ success: true, announcement: newAnnouncement });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/announcements/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await Announcement.findByIdAndDelete(id);
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -392,7 +461,6 @@ app.delete('/api/reports/:id', async (req, res) => {
 // --- Companions / Ads Routes (Enhanced) ---
 // ==========================================
 
-// GET: Supports server-side query filters (e.g., ?location=Lusaka&category=VIP&approved=true)
 app.get('/api/ladies', async (req, res) => {
   try {
     const { location, category, approved } = req.query;
