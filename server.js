@@ -346,17 +346,6 @@ app.post('/api/ladies', async (req, res) => {
     }
 
     const cleanUsername = profileData.username.toLowerCase().trim();
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-
-    const todayAdsCount = await Companion.countDocuments({
-      username: cleanUsername,
-      createdAt: { $gte: startOfDay }
-    });
-
-    if (todayAdsCount >= 5) {
-      return res.json({ success: false, error: "Daily limit reached! Maximum 5 advertisements per day." });
-    }
 
     const newCompanionAd = new Companion({
       ...profileData,
