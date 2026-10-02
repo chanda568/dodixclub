@@ -361,7 +361,7 @@ app.post('/api/ladies', async (req, res) => {
     const newCompanionAd = new Companion({
       ...profileData,
       username: cleanUsername,
-      approved: false, // Explicitly false so it appears in admin dashboard review panel
+      approved: false,
       createdAt: new Date(),
       updatedAt: new Date()
     });
@@ -468,11 +468,11 @@ wss.on('connection', (ws) => {
 });
 
 // ==========================================
-// 5. Server Start / Export
+// 5. Server Start / Export (Production Ready)
 // ==========================================
 const PORT = process.env.PORT || 5000;
-if (process.env.NODE_ENV !== 'production') {
-  server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-}
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
 
 export default server;
