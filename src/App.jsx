@@ -10,7 +10,7 @@ import { Clock, RefreshCw, LogOut, MessageCircle } from 'lucide-react';
 import AgeGate from './components/common/AgeGate';
 import AuthScreen from './components/auth/AuthScreen';
 import AdminDashboard from './components/admin/AdminDashboard';
-import CatalogPortal from './components/client/CatalogPortal';
+import ClientDirectory from './components/client/ClientDirectory';
 
 // Sanitize BACKEND_URL by removing any trailing slashes to prevent malformed requests
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000').replace(/\/+$/, '');
@@ -47,6 +47,7 @@ export default function App() {
   const socketRef = useRef(null);
 
   const handleLogout = () => {
+    // Clear storage immediately to prevent stale session resurrection
     sessionStorage.removeItem('dodix_current_user');
     if (socketRef.current) {
       socketRef.current.close();
@@ -70,11 +71,13 @@ export default function App() {
   };
 
   const fetchUsersFromBackend = async () => {
+    // Guard clause: abort immediately if user logged out
     if (!currentUser || !currentUser.username) return;
     try {
       const res = await fetch(`${BACKEND_URL}/api/users`);
       const data = await res.json();
       
+      // Double check currentUser wasn't cleared while awaiting fetch
       const currentStored = sessionStorage.getItem('dodix_current_user');
       if (!currentStored) return;
 
@@ -113,6 +116,7 @@ export default function App() {
     fetchUsersFromBackend();
     fetchLadiesFromBackend();
     const interval = setInterval(() => {
+      // Only poll if user is still logged in
       const activeCheck = sessionStorage.getItem('dodix_current_user');
       if (activeCheck) {
         fetchUsersFromBackend();
@@ -344,12 +348,13 @@ export default function App() {
   }
 
   return (
-    <CatalogPortal 
+    <ClientDirectory 
       currentUser={currentUser}
       setCurrentUser={handleLogout}
       ladies={ladies}
-      onRefresh={fetchLadiesFromBackend}
+      setLadies={setLadies}
       messages={messages}
+      setMessages={setMessages}
       sendChatMessage={sendChatMessage}
       isLoading={isLoading}
       loadingText={loadingText}
