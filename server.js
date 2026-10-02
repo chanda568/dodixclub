@@ -94,6 +94,9 @@ const companionSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 });
 
+// Add index to companion schema for fast, memory-efficient sorting
+companionSchema.index({ createdAt: -1 });
+
 const announcementSchema = new mongoose.Schema({
   title: { type: String, required: true },
   content: { type: String, required: true },
@@ -321,7 +324,6 @@ app.get('/api/ladies', async (req, res) => {
     if (category) query.category = { $regex: new RegExp(`^${category.trim()}$`, 'i') };
     if (approved !== undefined) query.approved = approved === 'true';
 
-    // Added .allowDiskUse(true) here to resolve MongoDB 32MB sort memory limit error
     const ladies = await Companion.find(query).sort({ createdAt: -1 }).allowDiskUse(true);
     res.json({ success: true, ladies });
   } catch (err) {
