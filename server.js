@@ -298,6 +298,25 @@ app.post('/api/users/reset-password', async (req, res) => {
   }
 });
 
+app.post('/api/users/update-phone', async (req, res) => {
+  try {
+    const { username, phone } = req.body;
+    if (!username || !phone) {
+      return res.json({ success: false, error: "Username and phone are required." });
+    }
+    const cleanUsername = username.toLowerCase().trim();
+    const user = await User.findOne({ username: cleanUsername });
+    if (!user) {
+      return res.json({ success: false, error: "User not found." });
+    }
+    user.phone = phone.trim();
+    await user.save();
+    res.json({ success: true, user });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.delete('/api/users/:username', async (req, res) => {
   try {
     const { username } = req.params;
