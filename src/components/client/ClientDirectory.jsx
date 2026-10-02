@@ -128,7 +128,7 @@ export default function ClientDirectory({
           {
             id: 2,
             title: 'Exclusive Notice for Female Companions',
-            content: 'Please ensure your masked advertisement photos are updated regularly. You can post up to 5 advertisements daily.',
+            content: 'Please ensure your masked advertisement photos are updated regularly. You can post advertisements without daily limits.',
             visibility: 'female',
             timestamp: new Date().toISOString()
           }
@@ -171,17 +171,6 @@ export default function ClientDirectory({
     const supportMsg = encodeURIComponent("Hello Dodix Support, I need assistance with my account/subscription.");
     window.open(`https://wa.me/${adminPhone}?text=${supportMsg}`, '_blank');
   };
-
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-
-  const todaysUserAds = ladies.filter(l => {
-    const isOwner = l.username?.toLowerCase() === currentUser?.username?.toLowerCase() || l.name?.toLowerCase() === currentUser?.username?.toLowerCase();
-    const adDate = l.createdAt ? new Date(l.createdAt) : new Date(0);
-    return isOwner && adDate >= todayStart;
-  });
-
-  const adsRemaining = Math.max(0, 5 - todaysUserAds.length);
 
   const initialName = currentUser?.username && !['female', 'lady', 'client'].includes(currentUser.username.toLowerCase()) 
     ? currentUser.username 
@@ -290,13 +279,8 @@ export default function ClientDirectory({
     setStickerPosition(prev => ({ ...prev, x, y }));
   };
 
-  // 4. Save Advertisement to Backend API
+  // 4. Save Advertisement to Backend API (Unlimited Ads)
   const handleSaveLadyProfileManual = async () => {
-    if (adsRemaining <= 0) {
-      alert("You have reached your daily limit of 5 advertisements per day. Please try again tomorrow.");
-      return;
-    }
-
     if (!formPhone || !formPrice) {
       alert("Please fill in your phone number and rate/price.");
       return;
@@ -341,7 +325,7 @@ export default function ClientDirectory({
         
         const newHistoryItem = {
           id: Date.now(),
-          action: `Submitted Advertisement (${6 - adsRemaining}/5)`,
+          action: `Submitted Advertisement`,
           timestamp: new Date().toISOString(),
           status: 'Pending Admin Approval'
         };
@@ -757,7 +741,7 @@ export default function ClientDirectory({
                         onClick={() => { setActiveTab('myprofile'); setSidebarOpen(false); }}
                         className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'myprofile' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
                       >
-                        <User size={16} /> Post Advertisement ({adsRemaining}/5 left)
+                        <User size={16} /> Post Advertisement
                       </button>
                       <button 
                         onClick={() => { setActiveTab('history'); setSidebarOpen(false); }}
@@ -851,7 +835,7 @@ export default function ClientDirectory({
                   onClick={() => setActiveTab('myprofile')}
                   className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'myprofile' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
                 >
-                  <User size={16} /> Post Advertisement ({adsRemaining}/5 left)
+                  <User size={16} /> Post Advertisement
                 </button>
                 <button 
                   onClick={() => setActiveTab('history')}
@@ -1047,7 +1031,7 @@ export default function ClientDirectory({
               <div className="space-y-6 max-w-3xl">
                 <div>
                   <h2 className="text-2xl font-black text-white tracking-tight">Companion Activity History</h2>
-                  <p className="text-xs text-slate-400 mt-1">Track your daily advertisement submissions and logs.</p>
+                  <p className="text-xs text-slate-400 mt-1">Track your advertisement submissions and logs.</p>
                 </div>
 
                 <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-4">
@@ -1085,9 +1069,9 @@ export default function ClientDirectory({
                     <h2 className="text-2xl font-black text-white tracking-tight">Post Advertisement</h2>
                     <p className="text-xs text-slate-400 mt-1">Upload your photo and position the privacy sticker over your face.</p>
                   </div>
-                  <div className="bg-pink-950/60 border border-pink-800/50 px-4 py-2 rounded-2xl text-center shadow-md">
-                    <span className="text-[10px] text-pink-300 uppercase font-bold block">Ads Remaining Today</span>
-                    <span className="text-sm font-extrabold text-white">{adsRemaining} / 5</span>
+                  <div className="bg-emerald-950/60 border border-emerald-800/50 px-4 py-2 rounded-2xl text-center shadow-md">
+                    <span className="text-[10px] text-emerald-300 uppercase font-bold block">Posting Status</span>
+                    <span className="text-xs font-extrabold text-white">Unlimited Ads</span>
                   </div>
                 </div>
 
@@ -1239,7 +1223,7 @@ export default function ClientDirectory({
                       className="px-8 py-3.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg transition cursor-pointer disabled:opacity-50 flex items-center gap-2"
                     >
                       {isSubmittingAd && <Loader2 size={16} className="animate-spin" />}
-                      {isSubmittingAd ? 'Submitting Ad to Server...' : (adsRemaining > 0 ? 'Submit Advertisement for Approval' : 'Daily Limit Reached (5/5)')}
+                      {isSubmittingAd ? 'Submitting Ad to Server...' : 'Submit Advertisement for Approval'}
                     </button>
                   </div>
                 </div>
