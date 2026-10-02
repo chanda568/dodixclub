@@ -21,23 +21,22 @@ const wss = new WebSocketServer({ server });
 // ==========================================
 // 1. Database Connection (MongoDB Atlas)
 // ==========================================
-const MONGO_URI = process.env.MONGO_URI;
+const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
 if (!MONGO_URI) {
-  console.error('[Database Error] MONGO_URI environment variable is missing.');
-  process.exit(1);
+  console.error('[Database Error] MONGO_URI or MONGODB_URI environment variable is missing.');
+} else {
+  mongoose.connect(MONGO_URI, { family: 4 })
+    .then(async () => {
+      console.log('[Database] Connected to MongoDB Atlas successfully.');
+      
+      // Drop conflicting indexes if they exist from older schemas
+      try { await mongoose.connection.collection('users').dropIndex('email_1'); } catch (e) {}
+      try { await mongoose.connection.collection('companions').dropIndex('username_1'); } catch (e) {}
+
+      await seedDefaultAdmin();
+    })
+    .catch(err => console.error('[Database] Connection error:', err));
 }
-
-mongoose.connect(MONGO_URI, { family: 4 })
-  .then(async () => {
-    console.log('[Database] Connected to MongoDB Atlas successfully.');
-    
-    // Drop conflicting indexes if they exist from older schemas
-    try { await mongoose.connection.collection('users').dropIndex('email_1'); } catch (e) {}
-    try { await mongoose.connection.collection('companions').dropIndex('username_1'); } catch (e) {}
-
-    await seedDefaultAdmin();
-  })
-  .catch(err => console.error('[Database] Connection error:', err));
 
 // ==========================================
 // 2. Mongoose Schemas & Models
@@ -94,32 +93,36 @@ const companionSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 });
 
-const User = mongoose.model('User', userSchema);
-const Message = mongoose.model('Message', messageSchema);
-const Report = mongoose.model('Report', reportSchema);
-const Companion = mongoose.model('Companion', companionSchema);
+const User = mongoose.models.User || mongoose.model('User', userSchema);
+const Message = mongoose.models.Message || mongoose.model('Message', messageSchema);
+const Report = mongoose.models.Report || mongoose.model('Report', reportSchema);
+const Companion = mongoose.models.Companion || mongoose.model('Companion', companionSchema);
 
 // Seed initial admin if database is empty
 async function seedDefaultAdmin() {
-  const count = await User.countDocuments();
-  if (count === 0) {
-    const hashedPassword = await bcrypt.hash('password123', 10);
-    const defaultAnswerHash = await bcrypt.hash('admin', 10);
-    const defaultUsers = [
-      { 
-        username: 'admin', 
-        password: hashedPassword, 
-        gender: 'Male', 
-        location: 'Lusaka', 
-        role: 'admin', 
-        activated: true, 
-        isEmailVerified: true,
-        securityQuestion: 'What was your first pet’s name?',
-        securityAnswerHash: defaultAnswerHash
-      }
-    ];
-    await User.insertMany(defaultUsers);
-    console.log('[Database] Seeded default admin into MongoDB.');
+  try {
+    const count = await User.countDocuments();
+    if (count === 0) {
+      const hashedPassword = await bcrypt.hash('password123', 10);
+      const defaultAnswerHash = await bcrypt.hash('admin', 10);
+      const defaultUsers = [
+        { 
+          username: 'admin', 
+          password: hashedPassword, 
+          gender: 'Male', 
+          location: 'Lusaka', 
+          role: 'admin', 
+          activated: true, 
+          isEmailVerified: true,
+          securityQuestion: 'What was your first pet’s name?',
+          securityAnswerHash: defaultAnswerHash
+        }
+      ];
+      await User.insertMany(defaultUsers);
+      console.log('[Database] Seeded default admin into MongoDB.');
+    }
+  } catch (err) {
+    console.error('[Database] Seeding error:', err);
   }
 }
 
@@ -586,9 +589,14 @@ wss.on('connection', (ws) => {
 });
 
 // ==========================================
-// 5. Start Server
+// 5. Start Server / Vercel Export
 // ==========================================
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+
+if (process.env.NODE_ENV !== 'production') {
+  server.listen(PORT, () => {
+    console.log(`Server running locally on port ${PORT}`);
+  });
+}
+
+export default server;
