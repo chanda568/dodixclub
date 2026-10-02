@@ -388,10 +388,27 @@ app.delete('/api/reports/:id', async (req, res) => {
   }
 });
 
-// --- Companions / Ads Routes ---
+// ==========================================
+// --- Companions / Ads Routes (Enhanced) ---
+// ==========================================
+
+// GET: Supports server-side query filters (e.g., ?location=Lusaka&category=VIP&approved=true)
 app.get('/api/ladies', async (req, res) => {
   try {
-    const ladies = await Companion.find({}).sort({ createdAt: -1 });
+    const { location, category, approved } = req.query;
+    let query = {};
+
+    if (location) {
+      query.location = { $regex: new RegExp(location.trim(), 'i') };
+    }
+    if (category) {
+      query.category = { $regex: new RegExp(`^${category.trim()}$`, 'i') };
+    }
+    if (approved !== undefined) {
+      query.approved = approved === 'true';
+    }
+
+    const ladies = await Companion.find(query).sort({ createdAt: -1 });
     res.json({ success: true, ladies });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

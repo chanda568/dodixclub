@@ -226,7 +226,6 @@ export default function ClientDirectory({
       return;
     }
 
-    // 5MB file size restriction safeguard
     const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
     if (file.size > MAX_FILE_SIZE) {
       alert("File size exceeds 5MB limit. Please choose a smaller image.");
