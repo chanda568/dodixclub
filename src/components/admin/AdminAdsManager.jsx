@@ -1,6 +1,6 @@
 // src/components/admin/AdminAdsManager.jsx
 import React, { useState, useEffect } from 'react';
-import { Clock, MapPin, CheckCircle, Trash2 } from 'lucide-react';
+import { Clock, MapPin, CheckCircle, Trash2, Calendar } from 'lucide-react';
 
 export default function AdminAdsManager() {
   const [ads, setAds] = useState([]);
@@ -57,6 +57,12 @@ export default function AdminAdsManager() {
     }
   };
 
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Just now';
+    const options = { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+    return new Date(dateString).toLocaleDateString('en-US', options);
+  };
+
   if (loading) return <div className="text-slate-400 p-4">Syncing database records...</div>;
 
   return (
@@ -87,6 +93,11 @@ export default function AdminAdsManager() {
                   <MapPin size={12} /> {ad.location}
                 </p>
                 <p className="text-xs text-slate-500">Submitted by: @{ad.username}</p>
+                
+                {/* Timestamp Display */}
+                <p className="text-[11px] text-slate-400 flex items-center gap-1 pt-1">
+                  <Calendar size={11} className="text-slate-400" /> {formatDate(ad.createdAt)}
+                </p>
               </div>
 
               <div className="flex gap-2 pt-2">
