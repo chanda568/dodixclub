@@ -162,11 +162,12 @@ export default function AdminDashboard({
           };
         });
 
+        // Strict deduplication map using MongoDB _id or fallback to unique name/username
         const uniqueLadiesMap = new Map();
         processedLadies.forEach(lady => {
-          const key = (lady.username || lady.name || lady._id || '').toLowerCase();
-          if (key && !uniqueLadiesMap.has(key)) {
-            uniqueLadiesMap.set(key, lady);
+          const uniqueKey = lady._id || lady.id || (lady.username || lady.name || '').toLowerCase();
+          if (uniqueKey && !uniqueLadiesMap.has(uniqueKey)) {
+            uniqueLadiesMap.set(uniqueKey, lady);
           }
         });
 
@@ -346,17 +347,24 @@ export default function AdminDashboard({
     }
   };
 
-  const handleApproveCompanion = async (username) => {
+  const handleApproveCompanion = async (companionId, username) => {
+    const targetIdentifier = companionId || username;
+    if (!targetIdentifier) {
+      alert("Error: Missing advertisement identifier.");
+      return;
+    }
+
     try {
+      // Send ID-based request to backend if available, keeping fallback body params
       const response = await fetch(`${BACKEND_URL}/api/ladies/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username })
+        body: JSON.stringify({ id: companionId, username })
       });
       const data = await response.json();
       if (data.success) {
         setLadies(prev => prev.map(l => 
-          (l.username?.toLowerCase() === username.toLowerCase() || l.name?.toLowerCase() === username.toLowerCase())
+          (l._id === companionId || l.id === companionId || l.username?.toLowerCase() === username?.toLowerCase())
             ? { ...l, approved: true }
             : l
         ));
@@ -371,9 +379,9 @@ export default function AdminDashboard({
           const approvalNotification = {
             id: Date.now(),
             title: 'Advertisement Approved!',
-            content: `Great news @${username}! Your advertisement listing has been reviewed and approved by administration. It is now live in the Elite Directory.`,
+            content: `Great news @${username || 'Companion'}! Your advertisement listing has been reviewed and approved by administration. It is now live in the Elite Directory.`,
             visibility: 'female',
-            targetUsername: username.toLowerCase(),
+            targetUsername: username ? username.toLowerCase() : '',
             timestamp: new Date().toISOString()
           };
 
@@ -383,7 +391,7 @@ export default function AdminDashboard({
           console.error("Error creating approval notification storage item:", notifErr);
         }
 
-        alert(`Advertisement for @${username} has been successfully approved, and the companion has been notified!`);
+        alert(`Advertisement for @${username || companionId} has been successfully approved, and the companion has been notified!`);
         setSelectedCompanionModal(null);
       } else {
         alert(data.error || "Failed to approve companion.");
@@ -788,7 +796,7 @@ export default function AdminDashboard({
 
               <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800">
                 <button 
-                  onClick={() => handleApproveCompanion(selectedCompanionModal.username || selectedCompanionModal.name)}
+                  onClick={() => handleApproveCompanion(selectedCompanionModal._id || selectedCompanionModal.id, selectedCompanionModal.username || selectedCompanionModal.name)}
                   className="py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
                 >
                   <CheckCircle size={15} /> Approve Ad & Notify

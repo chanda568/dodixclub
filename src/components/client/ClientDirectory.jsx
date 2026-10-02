@@ -12,7 +12,12 @@ import { encryptStorageData, decryptStorageData } from '../../utils/storageEncry
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000').replace(/\/+$/, '');
 
 export default function ClientDirectory({ 
-  currentUser, setCurrentUser, ladies, setLadies, isLoading, loadingText 
+  currentUser, 
+  setCurrentUser = () => {}, 
+  ladies = [], 
+  setLadies = () => {}, 
+  isLoading = false, 
+  loadingText = '' 
 }) {
   const isFemaleUser = currentUser?.gender?.toLowerCase() === 'female' || currentUser?.gender?.toLowerCase() === 'lady';
   const isAdminUser = currentUser?.role === 'admin' || currentUser?.username?.toLowerCase() === 'admin';
@@ -218,6 +223,13 @@ export default function ClientDirectory({
 
     if (!file.type.startsWith('image/')) {
       alert("Please upload a valid image file.");
+      return;
+    }
+
+    // 5MB file size restriction safeguard
+    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
+    if (file.size > MAX_FILE_SIZE) {
+      alert("File size exceeds 5MB limit. Please choose a smaller image.");
       return;
     }
 
@@ -1189,7 +1201,7 @@ export default function ClientDirectory({
                   {/* MEDIA UPLOAD & MASKING SECTION */}
                   <div className="space-y-3 pt-2 border-t border-slate-800">
                     <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                      <ImageIcon size={14} className="text-pink-500" /> Photo Upload & Privacy Masking
+                      <ImageIcon size={14} className="text-pink-500" /> Photo Upload & Privacy Masking (Max 5MB)
                     </label>
 
                     <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl space-y-3">
