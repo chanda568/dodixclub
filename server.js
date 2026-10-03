@@ -26,9 +26,10 @@ const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
 if (!MONGO_URI) {
   console.error('[Database Error] MONGO_URI or MONGODB_URI environment variable is missing.');
 } else {
+  console.log('[Database] Connecting to MongoDB Atlas...');
   mongoose.connect(MONGO_URI, { 
     family: 4,
-    serverSelectionTimeoutMS: 30000, // Increase timeout to 30 seconds
+    serverSelectionTimeoutMS: 15000,
     socketTimeoutMS: 45000,
   })
     .then(async () => {
@@ -40,24 +41,13 @@ if (!MONGO_URI) {
 
       await seedDefaultAdmin();
     })
-    .catch(err => console.error('[Database] Connection error:', err));
+    .catch(err => {
+      console.error('[Database Connection Error]:', err.message);
+    });
 }
 
-// Middleware to check DB connection before processing API requests
-app.use('/api', (req, res, next) => {
-  if (req.path === '/health') return next();
-  // readyState 1 = connected
-  if (mongoose.connection.readyState !== 1) {
-    return res.status(503).json({ 
-      success: false, 
-      error: 'Database is still connecting. Please try again in a few seconds.' 
-    });
-  }
-  next();
-});
-
 // ==========================================
-// 2. Mongoose Schemas & Models (with bufferCommands: false)
+// 2. Mongoose Schemas & Models
 // ==========================================
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true, lowercase: true, trim: true },
