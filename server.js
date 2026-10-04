@@ -20,34 +20,7 @@ const server = createServer(app);
 const wss = new WebSocketServer({ server });
 
 // ==========================================
-// 1. Database Connection (MongoDB Atlas)
-// ==========================================
-const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
-if (!MONGO_URI) {
-  console.error('[Database Error] MONGO_URI or MONGODB_URI environment variable is missing.');
-} else {
-  console.log('[Database] Connecting to MongoDB Atlas...');
-  mongoose.connect(MONGO_URI, { 
-    family: 4,
-    serverSelectionTimeoutMS: 15000,
-    socketTimeoutMS: 45000,
-  })
-    .then(async () => {
-      console.log('[Database] Connected to MongoDB Atlas successfully.');
-      
-      // Drop conflicting indexes if they exist from older schemas
-      try { await mongoose.connection.collection('users').dropIndex('email_1'); } catch (e) {}
-      try { await mongoose.connection.collection('companions').dropIndex('username_1'); } catch (e) {}
-
-      await seedDefaultAdmin();
-    })
-    .catch(err => {
-      console.error('[Database Connection Error]:', err.message);
-    });
-}
-
-// ==========================================
-// 2. Mongoose Schemas & Models
+// 1. Mongoose Schemas & Models
 // ==========================================
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true, lowercase: true, trim: true },
@@ -143,7 +116,7 @@ async function seedDefaultAdmin() {
 const activeClients = new Map();
 
 // ==========================================
-// 3. Express REST API Routes
+// 2. Express REST API Routes
 // ==========================================
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'success', message: 'Server is up and running!' });
@@ -495,7 +468,7 @@ app.delete('/api/ladies/:identifier', async (req, res) => {
 });
 
 // ==========================================
-// 4. WebSocket Real-Time Chat
+// 3. WebSocket Real-Time Chat
 // ==========================================
 wss.on('connection', (ws) => {
   let currentUsername = null;
@@ -541,11 +514,41 @@ wss.on('connection', (ws) => {
 });
 
 // ==========================================
-// 5. Server Start / Export (Production Ready)
+// 4. Server Start & Database Bootstrapper
 // ==========================================
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
+
+async function startServer() {
+  try {
+    if (!MONGO_URI) {
+      console.error('[Database Error] MONGO_URI or MONGODB_URI environment variable is missing.');
+      process.exit(1);
+    }
+
+    console.log('[Database] Connecting to MongoDB Atlas...');
+    await mongoose.connect(MONGO_URI, { 
+      family: 4,
+      serverSelectionTimeoutMS: 15000,
+      socketTimeoutMS: 45000,
+    });
+    console.log('[Database] Connected to MongoDB Atlas successfully.');
+
+    // Drop conflicting indexes if they exist from older schemas
+    try { await mongoose.connection.collection('users').dropIndex('email_1'); } catch (e) {}
+    try { await mongoose.connection.collection('companions').dropIndex('username_1'); } catch (e) {}
+
+    await seedDefaultAdmin();
+
+    server.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  } catch (err) {
+    console.error('[Startup Error] Failed to connect to MongoDB or start server:', err.message);
+    process.exit(1);
+  }
+}
+
+startServer();
 
 export default server;
