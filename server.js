@@ -74,7 +74,7 @@ const companionSchema = new mongoose.Schema({
   approved: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
-}, { bufferCommands: false });
+}); // Removed bufferCommands restriction here to fix hanging queries
 
 companionSchema.index({ createdAt: -1 });
 
@@ -192,7 +192,7 @@ app.post('/api/register', async (req, res) => {
 
 app.get('/api/users', async (req, res) => {
   try {
-    const users = await User.find({});
+    const users = await User.find({}).lean();
     res.json({ success: true, users });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -272,7 +272,7 @@ app.delete('/api/users/:username', async (req, res) => {
 // Announcements
 app.get('/api/announcements', async (req, res) => {
   try {
-    const announcements = await Announcement.find({}).sort({ createdAt: -1 });
+    const announcements = await Announcement.find({}).sort({ createdAt: -1 }).lean();
     res.json({ success: true, announcements });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -304,7 +304,7 @@ app.delete('/api/announcements/:id', async (req, res) => {
 // Messages & Reports
 app.get('/api/messages', async (req, res) => {
   try {
-    const messages = await Message.find({}).sort({ timestamp: 1 });
+    const messages = await Message.find({}).sort({ timestamp: 1 }).lean();
     res.json({ success: true, messages });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -324,7 +324,7 @@ app.post('/api/reports', async (req, res) => {
 
 app.get('/api/reports', async (req, res) => {
   try {
-    const reports = await Report.find({}).sort({ timestamp: -1 });
+    const reports = await Report.find({}).sort({ timestamp: -1 }).lean();
     res.json({ success: true, reports });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -346,17 +346,20 @@ app.get('/api/ladies', async (req, res) => {
     const { location, category, status } = req.query;
     let query = {};
 
-    if (location) query.location = { $regex: new RegExp(location.trim(), 'i') };
-    if (category) query.category = { $regex: new RegExp(`^${category.trim()}$`, 'i') };
-    
+    if (location && typeof location === 'string') {
+      query.location = { $regex: new RegExp(location.trim(), 'i') };
+    }
+    if (category && typeof category === 'string') {
+      query.category = { $regex: new RegExp(`^${category.trim()}$`, 'i') };
+    }
     if (status && status !== 'all') {
       query.status = status;
     }
 
-    // Fixed: Removed invalid .allowDiskUse(true) method from standard find query
-    const ladies = await Companion.find(query).sort({ createdAt: -1 });
+    const ladies = await Companion.find(query).sort({ createdAt: -1 }).lean();
     res.json({ success: true, ladies });
   } catch (err) {
+    console.error("[API Ladies Error]:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
