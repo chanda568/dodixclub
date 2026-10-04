@@ -74,7 +74,7 @@ const companionSchema = new mongoose.Schema({
   approved: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
-}, { bufferCommands: false }); // Restored bufferCommands: false to prevent query hanging
+}, { bufferCommands: false });
 
 companionSchema.index({ createdAt: -1 });
 
@@ -356,11 +356,12 @@ app.get('/api/ladies', async (req, res) => {
       query.status = status;
     }
 
-    const ladies = await Companion.find(query).sort({ createdAt: -1 }).lean();
+    // Protected with maxTimeMS to prevent infinite pending states
+    const ladies = await Companion.find(query).sort({ createdAt: -1 }).maxTimeMS(8000).lean();
     res.json({ success: true, ladies });
   } catch (err) {
     console.error("[API Ladies Error]:", err);
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({ success: false, ladies: [], error: err.message });
   }
 });
 
