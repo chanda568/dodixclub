@@ -95,11 +95,9 @@ export default function AdminDashboard({
     }
   };
 
+  // Polling loop removed entirely to prevent 429 / 503 gateway overloads
   useEffect(() => {
     loadBackendData();
-    // Polling interval increased to 45 seconds to prevent 429 rate limit errors
-    const interval = setInterval(loadBackendData, 45000);
-    return () => clearInterval(interval);
   }, []);
 
   const handleWhatsAppContact = (phone, name) => {
