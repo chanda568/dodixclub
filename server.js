@@ -35,6 +35,7 @@ const userSchema = new mongoose.Schema({
   securityAnswerHash: { type: String, default: '' },
   activated: { type: Boolean, default: false },
   isEmailVerified: { type: Boolean, default: true },
+  lastSeen: { type: Date, default: Date.now },
   createdAt: { type: Date, default: Date.now }
 }, { bufferCommands: false });
 
@@ -69,7 +70,8 @@ const companionSchema = new mongoose.Schema({
   extraServices: { type: String, default: '' },
   verificationVideoUrl: { type: String, default: '' },
   verificationVideoName: { type: String, default: '' },
-  status: { type: String, enum: ['pending', 'accepted', 'rejected'], default: 'pending' }, // Tracks ad lifecycle status
+  status: { type: String, enum: ['pending', 'accepted', 'rejected'], default: 'pending' },
+  approved: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 }, { bufferCommands: false });
@@ -122,7 +124,7 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'success', message: 'Server is up and running!' });
 });
 
-// Authentication
+// Authentication & Users
 app.get('/api/check-username/:username', async (req, res) => {
   try {
     const cleanUsername = req.params.username.toLowerCase().trim();
@@ -143,6 +145,8 @@ app.post('/api/login', async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.json({ success: false, error: "Incorrect password." });
     
+    user.lastSeen = new Date();
+    await user.save();
     res.json({ success: true, user });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -175,7 +179,8 @@ app.post('/api/register', async (req, res) => {
       securityQuestion: securityQuestion || 'What was your first pet’s name?',
       securityAnswerHash: hashedAnswer,
       activated: false,
-      isEmailVerified: true
+      isEmailVerified: true,
+      lastSeen: new Date()
     });
 
     await newUser.save();
@@ -185,7 +190,6 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-// User Management & Admin Actions
 app.get('/api/users', async (req, res) => {
   try {
     const users = await User.find({});
@@ -215,8 +219,7 @@ app.post('/api/users/reset-password', async (req, res) => {
   try {
     const { username, newPassword } = req.body;
     if (!username || !newPassword) return res.json({ success: false, error: "Username and new password are required." });
-    const cleanUsername = username.toLowerCase().trim();
-    const user = await User.findOne({ username: cleanUsername });
+    const user = await User.findOne({ username: username.toLowerCase().trim() });
     if (!user) return res.json({ success: false, error: "User not found." });
 
     user.password = await bcrypt.hash(newPassword, 10);
@@ -230,9 +233,7 @@ app.post('/api/users/reset-password', async (req, res) => {
 app.post('/api/users/update-location', async (req, res) => {
   try {
     const { username, location } = req.body;
-    if (!username || !location) return res.json({ success: false, error: "Username and location are required." });
-    const cleanUsername = username.toLowerCase().trim();
-    const user = await User.findOne({ username: cleanUsername });
+    const user = await User.findOne({ username: username?.toLowerCase().trim() });
     if (!user) return res.json({ success: false, error: "User not found." });
 
     user.location = location.trim();
@@ -246,9 +247,7 @@ app.post('/api/users/update-location', async (req, res) => {
 app.post('/api/users/update-phone', async (req, res) => {
   try {
     const { username, phone } = req.body;
-    if (!username || !phone) return res.json({ success: false, error: "Username and phone are required." });
-    const cleanUsername = username.toLowerCase().trim();
-    const user = await User.findOne({ username: cleanUsername });
+    const user = await User.findOne({ username: username?.toLowerCase().trim() });
     if (!user) return res.json({ success: false, error: "User not found." });
 
     user.phone = phone.trim();
@@ -283,7 +282,7 @@ app.get('/api/announcements', async (req, res) => {
 app.post('/api/announcements', async (req, res) => {
   try {
     const { title, content, visibility } = req.body;
-    if (!title || !content) return res.json({ success: false, error: "Title and content are required." });
+    if (!title || !content) return res.json({ success: false, error: "Title and content required." });
 
     const newAnnouncement = new Announcement({ title, content, visibility: visibility || 'all' });
     await newAnnouncement.save();
@@ -341,7 +340,7 @@ app.delete('/api/reports/:id', async (req, res) => {
   }
 });
 
-// --- Companions / Ads Routes ---
+// Companions / Ads Routes
 app.get('/api/ladies', async (req, res) => {
   try {
     const { location, category, status } = req.query;
@@ -350,10 +349,7 @@ app.get('/api/ladies', async (req, res) => {
     if (location) query.location = { $regex: new RegExp(location.trim(), 'i') };
     if (category) query.category = { $regex: new RegExp(`^${category.trim()}$`, 'i') };
     
-    // Support status=all for admin views to fetch pending, accepted, and rejected ads simultaneously
-    if (status === 'all') {
-      // Do not apply any status filter
-    } else {
+    if (status !== 'all') {
       query.status = status || 'accepted';
     }
 
@@ -364,29 +360,18 @@ app.get('/api/ladies', async (req, res) => {
   }
 });
 
-app.get('/api/ladies/my-ads/:username', async (req, res) => {
-  try {
-    const cleanUsername = req.params.username.toLowerCase().trim();
-    const ads = await Companion.find({ username: cleanUsername }).sort({ createdAt: -1 }).allowDiskUse(true);
-    res.json({ success: true, ads });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
 app.post('/api/ladies', async (req, res) => {
   try {
     const profileData = req.body;
     if (!profileData.username || !profileData.phone || !profileData.price) {
-      return res.json({ success: false, error: "Required fields missing (username, phone, price)." });
+      return res.json({ success: false, error: "Required fields missing." });
     }
-
-    const cleanUsername = profileData.username.toLowerCase().trim();
 
     const newCompanionAd = new Companion({
       ...profileData,
-      username: cleanUsername,
-      status: 'pending', // Starts as pending admin review
+      username: profileData.username.toLowerCase().trim(),
+      status: 'pending',
+      approved: false,
       createdAt: new Date(),
       updatedAt: new Date()
     });
@@ -398,18 +383,16 @@ app.post('/api/ladies', async (req, res) => {
   }
 });
 
-// Admin Route: Update status to 'accepted' or 'rejected'
-app.post('/api/ladies/update-status', async (req, res) => {
+app.post('/api/ladies/approve', async (req, res) => {
   try {
-    const { id, status } = req.body;
-    if (!id || !['accepted', 'rejected', 'pending'].includes(status)) {
-      return res.json({ success: false, error: "Valid ID and status are required." });
-    }
-
-    const companion = await Companion.findById(id);
+    const { id, username } = req.body;
+    let query = mongoose.Types.ObjectId.isValid(id) ? { _id: id } : { username: username?.toLowerCase().trim() };
+    
+    const companion = await Companion.findOne(query);
     if (!companion) return res.status(404).json({ success: false, error: 'Advertisement not found.' });
 
-    companion.status = status;
+    companion.status = 'accepted';
+    companion.approved = true;
     companion.updatedAt = new Date();
     await companion.save();
     res.json({ success: true, companion });
@@ -422,12 +405,7 @@ app.put('/api/ladies/:identifier/price', async (req, res) => {
   try {
     const cleanId = req.params.identifier.toLowerCase().trim();
     const { price } = req.body;
-    if (!price) return res.json({ success: false, error: "Price is required." });
-
-    let companion = null;
-    if (mongoose.Types.ObjectId.isValid(cleanId)) {
-      companion = await Companion.findById(cleanId);
-    }
+    let companion = mongoose.Types.ObjectId.isValid(cleanId) ? await Companion.findById(cleanId) : null;
     if (!companion) {
       companion = await Companion.findOne({ $or: [{ username: cleanId }, { name: cleanId }] });
     }
@@ -438,7 +416,7 @@ app.put('/api/ladies/:identifier/price', async (req, res) => {
       await companion.save();
       res.json({ success: true, companion });
     } else {
-      res.status(404).json({ success: false, error: 'Companion advertisement not found.' });
+      res.status(404).json({ success: false, error: 'Advertisement not found.' });
     }
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -448,19 +426,11 @@ app.put('/api/ladies/:identifier/price', async (req, res) => {
 app.delete('/api/ladies/:identifier', async (req, res) => {
   try {
     const cleanId = req.params.identifier.toLowerCase().trim();
-    let result = null;
-    if (mongoose.Types.ObjectId.isValid(cleanId)) {
-      result = await Companion.findByIdAndDelete(cleanId);
-    }
+    let result = mongoose.Types.ObjectId.isValid(cleanId) ? await Companion.findByIdAndDelete(cleanId) : null;
     if (!result) {
       result = await Companion.findOneAndDelete({ $or: [{ username: cleanId }, { name: cleanId }] });
     }
-
-    if (result) {
-      res.json({ success: true, message: 'Companion advertisement successfully removed.' });
-    } else {
-      res.status(404).json({ success: false, error: 'Companion advertisement not found.' });
-    }
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -480,28 +450,6 @@ wss.on('connection', (ws) => {
         activeClients.set(currentUsername, ws);
         return;
       }
-
-      if (parsed.type === 'chat_message') {
-        const { sender, recipient, text } = parsed;
-        if (!sender || !text) return;
-
-        const newMessage = new Message({
-          id: Date.now().toString(),
-          sender: sender.toLowerCase().trim(),
-          recipient: recipient ? recipient.toLowerCase().trim() : 'public',
-          text: text.trim()
-        });
-
-        await newMessage.save();
-        const payload = JSON.stringify({ type: 'chat_message', message: newMessage });
-
-        if (newMessage.recipient !== 'public' && activeClients.has(newMessage.recipient)) {
-          activeClients.get(newMessage.recipient).send(payload);
-        }
-        if (activeClients.has(newMessage.sender)) {
-          activeClients.get(newMessage.sender).send(payload);
-        }
-      }
     } catch (err) {
       console.error("[WS] Error:", err);
     }
@@ -512,42 +460,27 @@ wss.on('connection', (ws) => {
   });
 });
 
-// ==========================================
-// 4. Server Start & Database Bootstrapper
-// ==========================================
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
 
 async function startServer() {
   try {
     if (!MONGO_URI) {
-      console.error('[Database Error] MONGO_URI or MONGODB_URI environment variable is missing.');
+      console.error('[Database Error] MONGO_URI missing.');
       process.exit(1);
     }
-
-    console.log('[Database] Connecting to MongoDB Atlas...');
-    await mongoose.connect(MONGO_URI, { 
-      family: 4,
-      serverSelectionTimeoutMS: 15000,
-      socketTimeoutMS: 45000,
-    });
-    console.log('[Database] Connected to MongoDB Atlas successfully.');
-
-    // Drop conflicting indexes if they exist from older schemas
-    try { await mongoose.connection.collection('users').dropIndex('email_1'); } catch (e) {}
-    try { await mongoose.connection.collection('companions').dropIndex('username_1'); } catch (e) {}
-
+    await mongoose.connect(MONGO_URI, { family: 4 });
+    console.log('[Database] Connected to MongoDB Atlas.');
     await seedDefaultAdmin();
 
     server.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
     });
   } catch (err) {
-    console.error('[Startup Error] Failed to connect to MongoDB or start server:', err.message);
+    console.error('[Startup Error]:', err.message);
     process.exit(1);
   }
 }
 
 startServer();
-
 export default server;
