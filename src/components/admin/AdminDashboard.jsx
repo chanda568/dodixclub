@@ -120,47 +120,55 @@ export default function AdminDashboard({
     try {
       // 1. Fetch Users from MongoDB
       const resUsers = await fetch(`${BACKEND_URL}/api/users`);
-      const dataUsers = await resUsers.json();
-      if (dataUsers.success && Array.isArray(dataUsers.users)) {
-        setUsersDb(dataUsers.users);
+      if (resUsers.ok) {
+        const dataUsers = await resUsers.json();
+        if (dataUsers.success && Array.isArray(dataUsers.users)) {
+          setUsersDb(dataUsers.users);
+        }
       }
 
       // 2. Fetch Companion Adverts from MongoDB with Strict Deduplication
       const resLadies = await fetch(`${BACKEND_URL}/api/ladies`);
-      const dataLadies = await resLadies.json();
-      if (dataLadies.success && Array.isArray(dataLadies.ladies)) {
-        const processedLadies = dataLadies.ladies.map(lady => {
-          const rawOriginal = lady.originalPhoto || lady.unmaskedPhoto || lady.photo;
-          return {
-            ...lady,
-            originalPhoto: rawOriginal,
-            unmaskedPhoto: rawOriginal,
-            photo: lady.photo || rawOriginal
-          };
-        });
+      if (resLadies.ok) {
+        const dataLadies = await resLadies.json();
+        if (dataLadies.success && Array.isArray(dataLadies.ladies)) {
+          const processedLadies = dataLadies.ladies.map(lady => {
+            const rawOriginal = lady.originalPhoto || lady.unmaskedPhoto || lady.photo;
+            return {
+              ...lady,
+              originalPhoto: rawOriginal,
+              unmaskedPhoto: rawOriginal,
+              photo: lady.photo || rawOriginal
+            };
+          });
 
-        const uniqueLadiesMap = new Map();
-        processedLadies.forEach(lady => {
-          const uniqueKey = lady._id || lady.id || (lady.username || lady.name || '').toLowerCase();
-          if (uniqueKey && !uniqueLadiesMap.has(uniqueKey)) {
-            uniqueLadiesMap.set(uniqueKey, lady);
-          }
-        });
-        setLadies(Array.from(uniqueLadiesMap.values()));
+          const uniqueLadiesMap = new Map();
+          processedLadies.forEach(lady => {
+            const uniqueKey = lady._id || lady.id || (lady.username || lady.name || '').toLowerCase();
+            if (uniqueKey && !uniqueLadiesMap.has(uniqueKey)) {
+              uniqueLadiesMap.set(uniqueKey, lady);
+            }
+          });
+          setLadies(Array.from(uniqueLadiesMap.values()));
+        }
       }
 
       // 3. Fetch Reports from MongoDB
       const resReports = await fetch(`${BACKEND_URL}/api/reports`);
-      const dataReports = await resReports.json();
-      if (dataReports.success && Array.isArray(dataReports.reports)) {
-        setReports(dataReports.reports);
+      if (resReports.ok) {
+        const dataReports = await resReports.json();
+        if (dataReports.success && Array.isArray(dataReports.reports)) {
+          setReports(dataReports.reports);
+        }
       }
 
       // 4. Fetch Announcements from MongoDB
       const resAnnouncements = await fetch(`${BACKEND_URL}/api/announcements`);
-      const dataAnnouncements = await resAnnouncements.json();
-      if (dataAnnouncements.success && Array.isArray(dataAnnouncements.announcements)) {
-        setAnnouncements(dataAnnouncements.announcements);
+      if (resAnnouncements.ok) {
+        const dataAnnouncements = await resAnnouncements.json();
+        if (dataAnnouncements.success && Array.isArray(dataAnnouncements.announcements)) {
+          setAnnouncements(dataAnnouncements.announcements);
+        }
       }
     } catch (err) {
       console.error("Error fetching live backend data from MongoDB:", err);
@@ -169,7 +177,8 @@ export default function AdminDashboard({
 
   useEffect(() => {
     loadBackendData();
-    const interval = setInterval(loadBackendData, 5000);
+    // Optimized to 15 seconds to prevent rate-limiting (429 Too Many Requests) and backend stress
+    const interval = setInterval(loadBackendData, 15000);
     return () => clearInterval(interval);
   }, []);
 
