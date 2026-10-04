@@ -279,7 +279,7 @@ export default function ClientDirectory({
     setStickerPosition(prev => ({ ...prev, x, y }));
   };
 
-  // 4. Save Advertisement to Backend API (Unlimited Ads)
+  // 4. Save Advertisement to Backend API
   const handleSaveLadyProfileManual = async () => {
     if (!formPhone || !formPrice) {
       alert("Please fill in your phone number and rate/price.");
@@ -464,7 +464,7 @@ export default function ClientDirectory({
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col relative selection:bg-pink-500 selection:text-white font-sans">
       {isLoading && <LogoLoader text={loadingText} />}
 
-      {/* STICKER EDITOR MODAL WITH LOADING GESTURE */}
+      {/* STICKER EDITOR MODAL */}
       <AnimatePresence>
         {rawImageForSticker && (
           <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
@@ -539,6 +539,7 @@ export default function ClientDirectory({
         )}
       </AnimatePresence>
 
+      {/* PROFILE DETAIL MODAL */}
       <AnimatePresence>
         {selectedProfile && !isFemaleUser && !isAdminUser && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
@@ -557,11 +558,7 @@ export default function ClientDirectory({
 
               <div className="flex items-center gap-4">
                 <div className="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-pink-500/40 shadow-lg shrink-0 bg-slate-950">
-                  <img 
-                    src={selectedProfile.photo} 
-                    alt={selectedProfile.name} 
-                    className="w-full h-full object-cover" 
-                  />
+                  <img src={selectedProfile.photo} alt={selectedProfile.name} className="w-full h-full object-cover" />
                 </div>
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
@@ -611,6 +608,7 @@ export default function ClientDirectory({
         )}
       </AnimatePresence>
 
+      {/* REPORT MODAL */}
       <AnimatePresence>
         {reportModalOpen && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
@@ -675,6 +673,7 @@ export default function ClientDirectory({
         )}
       </AnimatePresence>
 
+      {/* TOP NAVIGATION BAR */}
       <nav className="sticky top-0 z-40 bg-[#090d16]/90 backdrop-blur-md border-b border-slate-800 px-4 sm:px-8 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button onClick={() => setSidebarOpen(true)} className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-900 border border-slate-800 transition cursor-pointer">
@@ -708,6 +707,7 @@ export default function ClientDirectory({
         </div>
       </nav>
 
+      {/* SIDEBAR DRAWER */}
       <AnimatePresence>
         {sidebarOpen && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex">
@@ -815,6 +815,7 @@ export default function ClientDirectory({
         )}
       </AnimatePresence>
 
+      {/* MAIN LAYOUT CONTAINER */}
       <div className="flex-1 flex max-w-7xl mx-auto w-full px-4 sm:px-8 py-8 gap-8">
         <aside className="hidden md:flex flex-col w-64 shrink-0 space-y-4">
           <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-5 space-y-2 shadow-xl">

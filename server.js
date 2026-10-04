@@ -96,12 +96,11 @@ const companionSchema = new mongoose.Schema({
   extraServices: { type: String, default: '' },
   verificationVideoUrl: { type: String, default: '' },
   verificationVideoName: { type: String, default: '' },
-  approved: { type: Boolean, default: false },
+  approved: { type: Boolean, default: true }, // Direct posting defaults to true
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 }, { bufferCommands: false });
 
-// Add index to companion schema for fast, memory-efficient sorting
 companionSchema.index({ createdAt: -1 });
 
 const announcementSchema = new mongoose.Schema({
@@ -213,7 +212,7 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-// User Management
+// User Management & Admin Actions
 app.get('/api/users', async (req, res) => {
   try {
     const users = await User.find({});
@@ -234,6 +233,54 @@ app.post('/api/users/toggle', async (req, res) => {
     } else {
       res.json({ success: false, error: "User not found." });
     }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/users/reset-password', async (req, res) => {
+  try {
+    const { username, newPassword } = req.body;
+    if (!username || !newPassword) return res.json({ success: false, error: "Username and new password are required." });
+    const cleanUsername = username.toLowerCase().trim();
+    const user = await User.findOne({ username: cleanUsername });
+    if (!user) return res.json({ success: false, error: "User not found." });
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+    res.json({ success: true, message: "Password updated successfully." });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/users/update-location', async (req, res) => {
+  try {
+    const { username, location } = req.body;
+    if (!username || !location) return res.json({ success: false, error: "Username and location are required." });
+    const cleanUsername = username.toLowerCase().trim();
+    const user = await User.findOne({ username: cleanUsername });
+    if (!user) return res.json({ success: false, error: "User not found." });
+
+    user.location = location.trim();
+    await user.save();
+    res.json({ success: true, user });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/users/update-phone', async (req, res) => {
+  try {
+    const { username, phone } = req.body;
+    if (!username || !phone) return res.json({ success: false, error: "Username and phone are required." });
+    const cleanUsername = username.toLowerCase().trim();
+    const user = await User.findOne({ username: cleanUsername });
+    if (!user) return res.json({ success: false, error: "User not found." });
+
+    user.phone = phone.trim();
+    await user.save();
+    res.json({ success: true, user });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -321,7 +368,7 @@ app.delete('/api/reports/:id', async (req, res) => {
   }
 });
 
-// --- Companions / Ads Routes ---
+// --- Companions / Ads Routes (Direct Posting) ---
 app.get('/api/ladies', async (req, res) => {
   try {
     const { location, category, approved } = req.query;
@@ -360,7 +407,7 @@ app.post('/api/ladies', async (req, res) => {
     const newCompanionAd = new Companion({
       ...profileData,
       username: cleanUsername,
-      approved: false,
+      approved: true, // Automatically approved and posted directly
       createdAt: new Date(),
       updatedAt: new Date()
     });
@@ -388,6 +435,33 @@ app.post('/api/ladies/approve', async (req, res) => {
     
     if (companion) {
       companion.approved = true;
+      companion.updatedAt = new Date();
+      await companion.save();
+      res.json({ success: true, companion });
+    } else {
+      res.status(404).json({ success: false, error: 'Companion advertisement not found.' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/ladies/:identifier/price', async (req, res) => {
+  try {
+    const cleanId = req.params.identifier.toLowerCase().trim();
+    const { price } = req.body;
+    if (!price) return res.json({ success: false, error: "Price is required." });
+
+    let companion = null;
+    if (mongoose.Types.ObjectId.isValid(cleanId)) {
+      companion = await Companion.findById(cleanId);
+    }
+    if (!companion) {
+      companion = await Companion.findOne({ $or: [{ username: cleanId }, { name: cleanId }] });
+    }
+
+    if (companion) {
+      companion.price = price.trim();
       companion.updatedAt = new Date();
       await companion.save();
       res.json({ success: true, companion });
