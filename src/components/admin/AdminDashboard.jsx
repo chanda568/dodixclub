@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, Users, Flag, Video, LogOut, MessageSquare, Bell 
 } from 'lucide-react';
-import { AnimatePresence } from 'framer-motion';
 import { LOGO_URL } from '../../data/constants';
 import AdminUsersTab from './AdminUsersTab';
 import AdminCompanionsTab from './AdminCompanionsTab';
@@ -31,7 +30,6 @@ export default function AdminDashboard({
   const [fullScreenImage, setFullScreenImage] = useState(null);
   const [fullScreenVideo, setFullScreenVideo] = useState(null);
   
-  const [isFaceRevealed, setIsFaceRevealed] = useState(false);
   const [isEditingLocation, setIsEditingLocation] = useState(false);
   const [newLocationInput, setNewLocationInput] = useState('');
   const [isEditingPhone, setIsEditingPhone] = useState(false);
@@ -95,7 +93,7 @@ export default function AdminDashboard({
     }
   };
 
-  // Polling loop removed entirely to prevent 429 / 503 gateway overloads
+  // Runs EXACTLY ONCE on mount. No polling intervals!
   useEffect(() => {
     loadBackendData();
   }, []);
@@ -162,7 +160,7 @@ export default function AdminDashboard({
 
   return (
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col font-sans selection:bg-pink-500 selection:text-white">
-      <header className="px-6 py-4 bg-slate-950/80 backdrop-blur-md border-b border-slate-800/80 sticky top-0 z-40 flex items-center justify-between">
+      <header className="px-6 py-4 bg-slate-950/85 backdrop-blur-md border-b border-slate-800/80 sticky top-0 z-40 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <img src={LOGO_URL} alt="Dodix Logo" className="w-10 h-10 rounded-2xl object-cover shadow-lg border border-pink-500/30" />
           <div>
@@ -174,7 +172,7 @@ export default function AdminDashboard({
         </div>
 
         <button 
-          onClick={() => setCurrentUser(null)}
+          onClick={() => setCurrentClient(null)}
           className="p-2.5 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl border border-slate-800 transition flex items-center gap-2 text-xs font-bold cursor-pointer"
         >
           <LogOut size={16} /> Log Out
@@ -241,6 +239,30 @@ export default function AdminDashboard({
             setFullScreenImage={setFullScreenImage}
             setFullScreenVideo={setFullScreenVideo}
           />
+        )}
+
+        {activeSubTab === 'announcements' && (
+          <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl text-center py-16 text-slate-400">
+            <Bell size={32} className="mx-auto mb-2 text-pink-500 opacity-60" />
+            <h3 className="text-sm font-bold text-white">Announcements Management</h3>
+            <p className="text-xs text-slate-500 mt-1">Broadcast system alerts and updates to active users.</p>
+          </div>
+        )}
+
+        {activeSubTab === 'inbox' && (
+          <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl text-center py-16 text-slate-400">
+            <MessageSquare size={32} className="mx-auto mb-2 text-pink-500 opacity-60" />
+            <h3 className="text-sm font-bold text-white">Admin Inbox</h3>
+            <p className="text-xs text-slate-500 mt-1">Review incoming support tickets and user inquiries.</p>
+          </div>
+        )}
+
+        {activeSubTab === 'reports' && (
+          <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl text-center py-16 text-slate-400">
+            <Flag size={32} className="mx-auto mb-2 text-pink-500 opacity-60" />
+            <h3 className="text-sm font-bold text-white">User Reports & Moderation</h3>
+            <p className="text-xs text-slate-500 mt-1">Inspect flagged accounts and moderation flags.</p>
+          </div>
         )}
       </main>
     </div>
