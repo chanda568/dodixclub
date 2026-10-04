@@ -1,21 +1,61 @@
-// src/components/common/LogoLoader.jsx
-import React from 'react';
-import { LOGO_URL } from '../../data/constants';
+import React, { useState } from 'react';
+import LogoLoader from '@/components/common/LogoLoader';
 
-export default function LogoLoader({ text = "Loading..." }) {
+export default function CompanionSubmitForm() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Replace with your actual API endpoint or Supabase insertion call
+      const response = await fetch('/api/submissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ /* your form data */ }),
+      });
+
+      if (!response.ok) throw new Error('Failed to submit');
+
+      // Handle successful submission
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <div className="absolute inset-0 z-50 bg-slate-950/75 backdrop-blur-md flex items-center justify-center">
-      <div className="flex flex-col items-center gap-4 bg-slate-900 border border-slate-800 p-8 rounded-3xl shadow-2xl animate-fade-in">
-        <div className="relative w-16 h-16 flex items-center justify-center">
-          <div className="absolute inset-0 rounded-full border-4 border-pink-500/20 border-t-pink-500 animate-spin"></div>
-          <img 
-            src={LOGO_URL} 
-            alt="Logo Loading" 
-            className="w-10 h-10 rounded-full object-cover border border-pink-500 shadow-md animate-pulse" 
+    <div className="relative min-h-[400px] bg-slate-900 p-6 rounded-2xl border border-slate-800">
+      {/* Loading Overlay */}
+      {isLoading && <LogoLoader text="Submitting entry..." />}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <h2 className="text-lg font-semibold text-white">New Submission</h2>
+        
+        {/* Form fields go here */}
+        <div>
+          <label className="block text-sm text-slate-400 mb-1">Details</label>
+          <input 
+            type="text" 
+            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-pink-500" 
+            placeholder="Enter details..."
           />
         </div>
-        <p className="text-xs font-semibold text-slate-300 tracking-wider">{text}</p>
-      </div>
+
+        {error && <p className="text-xs text-red-400">{error}</p>}
+
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="w-full bg-pink-600 hover:bg-pink-500 text-white font-medium py-2 px-4 rounded-lg transition-colors disabled:opacity-50"
+        >
+          Submit
+        </button>
+      </form>
     </div>
   );
 }
