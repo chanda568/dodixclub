@@ -74,7 +74,7 @@ const companionSchema = new mongoose.Schema({
   approved: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
-}); // Removed bufferCommands restriction here to fix hanging queries
+}, { bufferCommands: false }); // Restored bufferCommands: false to prevent query hanging
 
 companionSchema.index({ createdAt: -1 });
 
