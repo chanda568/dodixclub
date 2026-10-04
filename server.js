@@ -76,8 +76,6 @@ const companionSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 }, { bufferCommands: false });
 
-companionSchema.index({ createdAt: -1 });
-
 const announcementSchema = new mongoose.Schema({
   title: { type: String, required: true },
   content: { type: String, required: true },
@@ -346,18 +344,18 @@ app.get('/api/ladies', async (req, res) => {
     const { location, category, status } = req.query;
     let query = {};
 
-    if (location && typeof location === 'string') {
+    if (location && typeof location === 'string' && location.trim() !== '') {
       query.location = { $regex: new RegExp(location.trim(), 'i') };
     }
-    if (category && typeof category === 'string') {
+    if (category && typeof category === 'string' && category.trim() !== '' && category.toLowerCase() !== 'all') {
       query.category = { $regex: new RegExp(`^${category.trim()}$`, 'i') };
     }
     if (status && status !== 'all') {
       query.status = status;
     }
 
-    // Protected with maxTimeMS to prevent infinite pending states
-    const ladies = await Companion.find(query).sort({ createdAt: -1 }).maxTimeMS(8000).lean();
+    // Optimized execution with maxTimeMS safeguard and limit to prevent hanging queues
+    const ladies = await Companion.find(query).limit(100).maxTimeMS(5000).lean();
     res.json({ success: true, ladies });
   } catch (err) {
     console.error("[API Ladies Error]:", err);
