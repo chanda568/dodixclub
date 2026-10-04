@@ -97,7 +97,8 @@ export default function AdminDashboard({
 
   useEffect(() => {
     loadBackendData();
-    const interval = setInterval(loadBackendData, 15000);
+    // Polling interval increased to 45 seconds to prevent 429 rate limit errors
+    const interval = setInterval(loadBackendData, 45000);
     return () => clearInterval(interval);
   }, []);
 
