@@ -350,8 +350,12 @@ app.get('/api/ladies', async (req, res) => {
     if (location) query.location = { $regex: new RegExp(location.trim(), 'i') };
     if (category) query.category = { $regex: new RegExp(`^${category.trim()}$`, 'i') };
     
-    // Default public feed to only show accepted ads unless specified otherwise
-    query.status = status || 'accepted';
+    // Support status=all for admin views to fetch pending, accepted, and rejected ads simultaneously
+    if (status === 'all') {
+      // Do not apply any status filter
+    } else {
+      query.status = status || 'accepted';
+    }
 
     const ladies = await Companion.find(query).sort({ createdAt: -1 }).allowDiskUse(true);
     res.json({ success: true, ladies });
