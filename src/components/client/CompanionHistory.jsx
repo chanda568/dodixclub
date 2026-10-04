@@ -1,5 +1,6 @@
+// CompanionHistory.jsx
 import React, { useState, useEffect } from 'react';
-import { Clock, CheckCircle, AlertCircle, Trash2 } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, AlertCircle, Trash2 } from 'lucide-react';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL.replace(/\/+$/, '');
 
@@ -49,7 +50,7 @@ export default function CompanionHistory({ currentUser }) {
     <div className="max-w-4xl mx-auto space-y-6 p-4 sm:p-6">
       <div>
         <h2 className="text-xl sm:text-2xl font-bold text-white">Advertisement History</h2>
-        <p className="text-xs sm:text-sm text-slate-400">Monitor your active and pending ad submissions.</p>
+        <p className="text-xs sm:text-sm text-slate-400">Monitor your pending, accepted, and rejected ad submissions.</p>
       </div>
 
       {ads.length === 0 ? (
@@ -60,7 +61,7 @@ export default function CompanionHistory({ currentUser }) {
       ) : (
         <div className="space-y-4">
           {ads.map((ad) => {
-            const isApproved = ad.approved === true;
+            const status = ad.status || 'pending';
             return (
               <div 
                 key={ad._id}
@@ -82,11 +83,17 @@ export default function CompanionHistory({ currentUser }) {
                 </div>
 
                 <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
-                  {isApproved ? (
+                  {status === 'accepted' && (
                     <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-950/40 text-emerald-400 border border-emerald-900/50 text-xs font-semibold rounded-full">
-                      <CheckCircle size={14} /> Approved
+                      <CheckCircle size={14} /> Accepted
                     </span>
-                  ) : (
+                  )}
+                  {status === 'rejected' && (
+                    <span className="flex items-center gap-1.5 px-3 py-1 bg-rose-950/40 text-rose-400 border border-rose-900/50 text-xs font-semibold rounded-full">
+                      <XCircle size={14} /> Rejected
+                    </span>
+                  )}
+                  {status === 'pending' && (
                     <span className="flex items-center gap-1.5 px-3 py-1 bg-amber-950/40 text-amber-400 border border-amber-900/50 text-xs font-semibold rounded-full">
                       <Clock size={14} /> Pending Review
                     </span>

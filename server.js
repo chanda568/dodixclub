@@ -69,7 +69,7 @@ const companionSchema = new mongoose.Schema({
   extraServices: { type: String, default: '' },
   verificationVideoUrl: { type: String, default: '' },
   verificationVideoName: { type: String, default: '' },
-  approved: { type: Boolean, default: true }, // Direct posting defaults to true
+  status: { type: String, enum: ['pending', 'accepted', 'rejected'], default: 'pending' }, // Tracks ad lifecycle status
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 }, { bufferCommands: false });
@@ -341,15 +341,17 @@ app.delete('/api/reports/:id', async (req, res) => {
   }
 });
 
-// --- Companions / Ads Routes (Direct Posting) ---
+// --- Companions / Ads Routes ---
 app.get('/api/ladies', async (req, res) => {
   try {
-    const { location, category, approved } = req.query;
+    const { location, category, status } = req.query;
     let query = {};
 
     if (location) query.location = { $regex: new RegExp(location.trim(), 'i') };
     if (category) query.category = { $regex: new RegExp(`^${category.trim()}$`, 'i') };
-    if (approved !== undefined) query.approved = approved === 'true';
+    
+    // Default public feed to only show accepted ads unless specified otherwise
+    query.status = status || 'accepted';
 
     const ladies = await Companion.find(query).sort({ createdAt: -1 }).allowDiskUse(true);
     res.json({ success: true, ladies });
@@ -380,7 +382,7 @@ app.post('/api/ladies', async (req, res) => {
     const newCompanionAd = new Companion({
       ...profileData,
       username: cleanUsername,
-      approved: true, // Automatically approved and posted directly
+      status: 'pending', // Starts as pending admin review
       createdAt: new Date(),
       updatedAt: new Date()
     });
@@ -392,28 +394,21 @@ app.post('/api/ladies', async (req, res) => {
   }
 });
 
-app.post('/api/ladies/approve', async (req, res) => {
+// Admin Route: Update status to 'accepted' or 'rejected'
+app.post('/api/ladies/update-status', async (req, res) => {
   try {
-    const { username, id } = req.body;
-    let companion = null;
+    const { id, status } = req.body;
+    if (!id || !['accepted', 'rejected', 'pending'].includes(status)) {
+      return res.json({ success: false, error: "Valid ID and status are required." });
+    }
 
-    if (id) {
-      companion = await Companion.findById(id);
-    } else if (username) {
-      const cleanId = username.toLowerCase().trim();
-      companion = await Companion.findOne({
-        $or: [{ username: cleanId }, { name: cleanId }]
-      });
-    }
-    
-    if (companion) {
-      companion.approved = true;
-      companion.updatedAt = new Date();
-      await companion.save();
-      res.json({ success: true, companion });
-    } else {
-      res.status(404).json({ success: false, error: 'Companion advertisement not found.' });
-    }
+    const companion = await Companion.findById(id);
+    if (!companion) return res.status(404).json({ success: false, error: 'Advertisement not found.' });
+
+    companion.status = status;
+    companion.updatedAt = new Date();
+    await companion.save();
+    res.json({ success: true, companion });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
