@@ -349,12 +349,12 @@ app.get('/api/ladies', async (req, res) => {
     if (location) query.location = { $regex: new RegExp(location.trim(), 'i') };
     if (category) query.category = { $regex: new RegExp(`^${category.trim()}$`, 'i') };
     
-    // Updated: Only filter by status if explicitly requested (allows admin view to see pending + accepted)
     if (status && status !== 'all') {
       query.status = status;
     }
 
-    const ladies = await Companion.find(query).sort({ createdAt: -1 }).allowDiskUse(true);
+    // Fixed: Removed invalid .allowDiskUse(true) method from standard find query
+    const ladies = await Companion.find(query).sort({ createdAt: -1 });
     res.json({ success: true, ladies });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
