@@ -292,6 +292,7 @@ export default function AdminDashboard({
             companion={selectedCompanionModal}
             onClose={() => setSelectedCompanionModal(null)}
             onSavePrice={handleSaveCompanionPrice}
+            loadBackendData={loadBackendData}
           />
         )}
       </main>

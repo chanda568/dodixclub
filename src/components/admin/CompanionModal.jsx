@@ -1,17 +1,63 @@
 // src/components/admin/CompanionModal.jsx
 import React, { useState } from 'react';
-import { X, Eye, EyeOff, DollarSign, Video, Check, User } from 'lucide-react';
+import { X, Eye, EyeOff, DollarSign, Video, Check, User, Upload, Loader2 } from 'lucide-react';
 
-export default function CompanionModal({ companion, onClose, onSavePrice }) {
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+
+export default function CompanionModal({ companion, onClose, onSavePrice, loadBackendData }) {
   const [isFaceRevealed, setIsFaceRevealed] = useState(false);
   const [price, setPrice] = useState(companion?.price || '');
   const [selectedVideo, setSelectedVideo] = useState(null);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
 
   if (!companion) return null;
 
+  const companionId = companion._id || companion.id;
+
   const handlePriceSubmit = (e) => {
     e.preventDefault();
-    onSavePrice(companion._id || companion.id, price);
+    onSavePrice(companionId, price);
+  };
+
+  const handleVideoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('video/')) {
+      alert('Please select a valid video file.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = async () => {
+      const base64Video = reader.result;
+      setUploadingVideo(true);
+
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/ladies/${companionId}/upload-video`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ videoBase64: base64Video, videoName: file.name })
+        });
+        const data = await response.json();
+        if (data.success) {
+          alert('Verification video uploaded successfully to S3!');
+          if (loadBackendData) loadBackendData();
+        } else {
+          alert(data.error || 'Failed to upload video.');
+        }
+      } catch (err) {
+        console.error('Error uploading video:', err);
+        alert('Network error while uploading video.');
+      } finally {
+        setUploadingVideo(false);
+      }
+    };
+    reader.onerror = (error) => {
+      console.error('Error reading file:', error);
+      alert('Failed to read video file.');
+    };
   };
 
   const rawPhoto = isFaceRevealed 
@@ -26,6 +72,7 @@ export default function CompanionModal({ companion, onClose, onSavePrice }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 overflow-y-auto">
       <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden text-slate-100">
         
+        {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950">
           <h3 className="text-sm font-bold text-white truncate pr-4">
             Companion Inspection: {displayName}
@@ -38,8 +85,10 @@ export default function CompanionModal({ companion, onClose, onSavePrice }) {
           </button>
         </div>
 
+        {/* Modal Body */}
         <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
           
+          {/* Photo & Privacy Mode Toggle */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold text-slate-300">Profile Photo & Privacy Mode</label>
@@ -73,6 +122,7 @@ export default function CompanionModal({ companion, onClose, onSavePrice }) {
             </div>
           </div>
 
+          {/* Price Management */}
           <form onSubmit={handlePriceSubmit} className="space-y-2 bg-slate-950 p-4 rounded-xl border border-slate-800">
             <label className="block text-xs font-semibold text-slate-300">Edit Companion Rate / Price (ZMW)</label>
             <div className="flex gap-3">
@@ -95,6 +145,7 @@ export default function CompanionModal({ companion, onClose, onSavePrice }) {
             </div>
           </form>
 
+          {/* Existing Videos Section */}
           {(companion.verificationVideoUrl || (companion.videos && companion.videos.length > 0)) && (
             <div className="space-y-3">
               <label className="text-xs font-semibold text-slate-300">Verification / Showcase Videos</label>
@@ -123,8 +174,35 @@ export default function CompanionModal({ companion, onClose, onSavePrice }) {
               </div>
             </div>
           )}
+
+          {/* Upload New Video Section */}
+          <div className="space-y-2 bg-slate-950 p-4 rounded-xl border border-slate-800">
+            <label className="block text-xs font-semibold text-slate-300">Upload New Verification Video</label>
+            <label className={`flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-700 hover:border-pink-500 rounded-xl cursor-pointer transition-colors bg-slate-900/50 ${uploadingVideo ? 'opacity-50 pointer-events-none' : ''}`}>
+              {uploadingVideo ? (
+                <div className="flex items-center gap-2 text-xs text-slate-300">
+                  <Loader2 className="w-5 h-5 animate-spin text-pink-500" /> Uploading to S3...
+                </div>
+              ) : (
+                <>
+                  <Upload className="w-5 h-5 text-slate-400 mb-1" />
+                  <span className="text-xs font-bold text-slate-200">Click to select video file</span>
+                  <span className="text-[10px] text-slate-500">MP4, WebM supported</span>
+                </>
+              )}
+              <input 
+                type="file" 
+                accept="video/*" 
+                onChange={handleVideoUpload} 
+                className="hidden" 
+                disabled={uploadingVideo}
+              />
+            </label>
+          </div>
+
         </div>
 
+        {/* Fullscreen Video Modal Sub-View */}
         {selectedVideo && (
           <div className="absolute inset-0 z-60 bg-black/90 flex flex-col items-center justify-center p-4">
             <button 
