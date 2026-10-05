@@ -1,7 +1,7 @@
 // src/components/client/ClientDirectory.jsx
 import React, { useState, useEffect } from 'react';
 import { 
-  LogOut, MessageSquare, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, Crown, RefreshCw, CheckCircle, Flag, Heart, CreditCard, Settings, Bell, Plus, Trash2, Shield, MessageCircle, Loader2, DollarSign, AlertCircle, Save, Phone
+  LogOut, MessageSquare, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, Crown, RefreshCw, CheckCircle, Flag, Heart, CreditCard, Settings, Bell, Plus, Trash2, Shield, MessageCircle, Loader2, DollarSign, AlertCircle, Save, Phone, Edit3, Sliders
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import LogoLoader from '../common/LogoLoader';
@@ -49,6 +49,10 @@ export default function ClientDirectory({
   const [isSaved, setIsSaved] = useState(false);
   const [selectedSticker, setSelectedSticker] = useState('/logo.jpg');
   
+  // Full-View Photo Editor Modal State
+  const [photoEditorOpen, setPhotoEditorOpen] = useState(false);
+  const [tempPhoto, setTempPhoto] = useState('');
+
   const initialName = currentUser?.username && !['female', 'lady', 'client'].includes(currentUser.username.toLowerCase()) 
     ? currentUser.username 
     : '';
@@ -207,7 +211,7 @@ export default function ClientDirectory({
     window.open(`https://wa.me/${adminPhone}?text=${supportMsg}`, '_blank');
   };
 
-  // 4. Handle Clean Photo Upload with 5MB Limit and Automatically Apply logo.jpg Sticker
+  // 4. Handle Clean Photo Upload and Open Full-View Editor Panel
   const handleCleanPhotoUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -225,14 +229,11 @@ export default function ClientDirectory({
     setErrorMessage('');
     const reader = new FileReader();
     reader.onloadend = () => {
-      setNewAdData((prev) => ({
-        ...prev,
-        photo: reader.result,
-        photoUrl: reader.result
-      }));
+      setTempPhoto(reader.result);
       if (!selectedSticker) {
         setSelectedSticker('/logo.jpg');
       }
+      setPhotoEditorOpen(true);
     };
     reader.readAsDataURL(file);
   };
@@ -297,6 +298,21 @@ export default function ClientDirectory({
     });
   };
 
+  // Confirm and Apply Editing from Full-View Panel
+  const handleConfirmPhotoEdit = async () => {
+    if (!tempPhoto) return;
+    let finalPhoto = tempPhoto;
+    if (selectedSticker) {
+      finalPhoto = await bakeStickerToImage(tempPhoto, selectedSticker);
+    }
+    setNewAdData(prev => ({
+      ...prev,
+      photo: finalPhoto,
+      photoUrl: finalPhoto
+    }));
+    setPhotoEditorOpen(false);
+  };
+
   // 5. Save and Publish Ad using POST
   const handleSaveLadyProfileManual = async (e) => {
     e.preventDefault();
@@ -306,7 +322,7 @@ export default function ClientDirectory({
 
     try {
       let finalPhoto = newAdData.photo;
-      if (selectedSticker && finalPhoto) {
+      if (selectedSticker && finalPhoto && !finalPhoto.includes('data:image')) {
         finalPhoto = await bakeStickerToImage(finalPhoto, selectedSticker);
       }
 
@@ -487,6 +503,105 @@ export default function ClientDirectory({
   return (
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col relative selection:bg-pink-500 selection:text-white font-sans">
       {isLoading && <LogoLoader text={loadingText} />}
+
+      {/* FULL-VIEW PHOTO & MASK EDITING PANEL MODAL */}
+      <AnimatePresence>
+        {photoEditorOpen && (
+          <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="max-w-2xl w-full bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6 relative overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+                <div className="flex items-center gap-2">
+                  <Sliders className="text-pink-500" size={20} />
+                  <h3 className="text-base font-bold text-white">Full-View Photo & Face Mask Editor</h3>
+                </div>
+                <button 
+                  onClick={() => setPhotoEditorOpen(false)}
+                  className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-900 border border-slate-800 transition cursor-pointer"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Full View Image Workspace */}
+              <div className="flex-1 flex items-center justify-center bg-slate-950 rounded-2xl p-4 overflow-hidden border border-slate-800 relative min-h-[320px]">
+                {tempPhoto && (
+                  <div className="relative inline-block max-h-full">
+                    <img src={tempPhoto} alt="Full View Editor Workspace" className="max-h-[50vh] w-auto rounded-xl object-contain shadow-2xl" />
+                    
+                    {/* Centered Circular Mask Preview */}
+                    {selectedSticker && (
+                      <div className="absolute top-1/3 left-1/2 transform -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none">
+                        {selectedSticker.startsWith('/') ? (
+                          <img src={selectedSticker} alt="Logo Mask" className="w-20 h-20 rounded-full object-cover border-4 border-pink-500 shadow-2xl animate-pulse" />
+                        ) : (
+                          <span className="text-6xl">{selectedSticker}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Sticker Selector Toolbar */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-300">Choose Privacy Mask / Sticker:</label>
+                <div className="flex gap-3 flex-wrap items-center bg-slate-900 p-3 rounded-2xl border border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSticker('/logo.jpg')}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition border cursor-pointer flex items-center gap-2 ${
+                      selectedSticker === '/logo.jpg' 
+                        ? 'bg-pink-500/25 border-pink-500 text-white' 
+                        : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'
+                    }`}
+                  >
+                    <img src="/logo.jpg" alt="Logo" className="w-5 h-5 rounded-full object-cover" />
+                    Default Logo
+                  </button>
+
+                  {['🕶️', '🐱', '⭐', '❤️', '🦊', '🙈'].map((sticker) => (
+                    <button
+                      type="button"
+                      key={sticker}
+                      onClick={() => setSelectedSticker(sticker)}
+                      className={`px-3 py-2 rounded-xl text-xl transition border cursor-pointer ${
+                        selectedSticker === sticker 
+                          ? 'bg-pink-500/25 border-pink-500 text-white' 
+                          : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'
+                      }`}
+                    >
+                      {sticker}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                <button 
+                  type="button"
+                  onClick={() => setPhotoEditorOpen(false)}
+                  className="px-5 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="button"
+                  onClick={handleConfirmPhotoEdit}
+                  className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg transition cursor-pointer"
+                >
+                  <CheckCircle size={16} /> Apply Mask & Save Photo
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* PROFILE DETAIL MODAL */}
       <AnimatePresence>
@@ -1126,7 +1241,7 @@ export default function ClientDirectory({
                     ></textarea>
                   </div>
 
-                  {/* Photo Upload & Default Logo Sticker Overlay Section */}
+                  {/* Photo Upload & Full-View Editor trigger */}
                   <div className="space-y-3">
                     <label className="block text-xs font-semibold text-slate-300">Advertisement Photo (Max 5MB)</label>
                     <div className="flex items-center gap-4">
@@ -1141,26 +1256,27 @@ export default function ClientDirectory({
                       </label>
                       {newAdData.photo && (
                         <div className="flex items-center gap-2 text-emerald-400 text-xs font-semibold">
-                          <CheckCircle className="w-4 h-4" /> Photo attached successfully (Circular Logo Mask Applied)
+                          <CheckCircle className="w-4 h-4" /> Photo attached successfully
                         </div>
                       )}
                     </div>
 
                     {newAdData.photo && (
-                      <div className="mt-2 relative inline-block">
-                        <div className="relative w-32 h-32 rounded-2xl overflow-hidden border border-slate-800 bg-slate-950">
+                      <div className="mt-2 relative inline-block group">
+                        <div 
+                          onClick={() => {
+                            setTempPhoto(newAdData.photo);
+                            setPhotoEditorOpen(true);
+                          }}
+                          className="relative w-36 h-36 rounded-2xl overflow-hidden border-2 border-slate-800 hover:border-pink-500 bg-slate-950 cursor-pointer transition shadow-lg group-hover:scale-[1.02]"
+                          title="Click to open full-view photo editor"
+                        >
                           <img src={newAdData.photo} alt="Preview" className="w-full h-full object-cover" />
-                          
-                          {/* Render Logo Sticker / Mask on Face Preview */}
-                          {selectedSticker && (
-                            <div className="absolute top-1/3 left-1/2 transform -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none">
-                              {selectedSticker.startsWith('/') ? (
-                                <img src={selectedSticker} alt="Default Logo Mask" className="w-12 h-12 rounded-full object-cover border-2 border-pink-500 shadow-lg" />
-                              ) : (
-                                <span className="text-3xl">{selectedSticker}</span>
-                              )}
-                            </div>
-                          )}
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition backdrop-blur-[2px]">
+                            <span className="text-white text-xs font-bold flex items-center gap-1.5 bg-pink-600/90 px-3 py-1.5 rounded-xl shadow">
+                              <Edit3 size={14} /> Edit Mask
+                            </span>
+                          </div>
                         </div>
                         <button 
                           type="button"
@@ -1168,48 +1284,11 @@ export default function ClientDirectory({
                             setNewAdData({ ...newAdData, photo: '', photoUrl: '' });
                             setSelectedSticker('/logo.jpg');
                           }}
-                          className="absolute -top-2 -right-2 bg-rose-600 p-1.5 rounded-full text-white hover:bg-rose-500 shadow"
+                          className="absolute -top-2 -right-2 bg-rose-600 p-1.5 rounded-full text-white hover:bg-rose-500 shadow cursor-pointer z-10"
                           title="Remove Photo"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
-                      </div>
-                    )}
-
-                    {/* Sticker / Mask Selector Toolbar */}
-                    {newAdData.photo && (
-                      <div className="mt-3 p-3 bg-slate-900/60 rounded-xl border border-slate-800 max-w-md">
-                        <p className="text-xs text-slate-400 mb-2 font-medium">Privacy Sticker / Mask (Default: logo.jpg):</p>
-                        <div className="flex gap-2 flex-wrap items-center">
-                          {/* Default Logo Option */}
-                          <button
-                            type="button"
-                            onClick={() => setSelectedSticker('/logo.jpg')}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border cursor-pointer flex items-center gap-2 ${
-                              selectedSticker === '/logo.jpg' 
-                                ? 'bg-pink-500/20 border-pink-500 text-white' 
-                                : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'
-                            }`}
-                          >
-                            <img src="/logo.jpg" alt="Logo" className="w-5 h-5 rounded-full object-cover" />
-                            Default Logo
-                          </button>
-
-                          {['🕶️', '🐱', '⭐', '❤️', '🦊', '🙈'].map((sticker) => (
-                            <button
-                              type="button"
-                              key={sticker}
-                              onClick={() => setSelectedSticker(sticker === selectedSticker ? null : sticker)}
-                              className={`px-3 py-1.5 rounded-lg text-lg transition border cursor-pointer ${
-                                selectedSticker === sticker 
-                                  ? 'bg-pink-500/20 border-pink-500 text-white' 
-                                  : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'
-                              }`}
-                            >
-                              {sticker}
-                            </button>
-                          ))}
-                        </div>
                       </div>
                     )}
                   </div>
