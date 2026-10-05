@@ -44,8 +44,8 @@ async function uploadBase64ToS3(base64String, folder = 'uploads') {
       throw new Error('Invalid base64 string format');
     }
 
-    const mimeType = matches.1;
-    const buffer = Buffer.from(matches.2, 'base64');
+    const mimeType = matches[1];
+    const buffer = Buffer.from(matches[2], 'base64');
     
     // Determine extension from mime type
     let extension = 'jpg';
@@ -54,7 +54,7 @@ async function uploadBase64ToS3(base64String, folder = 'uploads') {
     else if (mimeType === 'video/mp4') extension = 'mp4';
     else if (mimeType.includes('video')) extension = 'mp4';
 
-    const fileName = `${folder}/${Date.now()}-${Math.random().toString(36.substring(2, 8))}.${extension}`;
+    const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${extension}`;
 
     const command = new PutObjectCommand({
       Bucket: BUCKET_NAME,
@@ -409,7 +409,6 @@ app.get('/api/ladies', async (req, res) => {
       query.status = status;
     }
 
-    // Optimized execution with maxTimeMS safeguard and limit to prevent hanging queues
     const ladies = await Companion.find(query).limit(100).maxTimeMS(5000).lean();
     res.json({ success: true, ladies });
   } catch (err) {
@@ -425,7 +424,6 @@ app.post('/api/ladies', async (req, res) => {
       return res.json({ success: false, error: "Required fields missing." });
     }
 
-    // Upload base64 media fields to AWS S3 if present
     console.log('[S3 Upload] Processing media attachments for new ad...');
     const uploadedPhoto = await uploadBase64ToS3(profileData.photo, 'photos');
     const uploadedOriginalPhoto = await uploadBase64ToS3(profileData.originalPhoto, 'originals');
