@@ -43,7 +43,7 @@ export default function ClientDirectory({
   const [newContent, setNewContent] = useState('');
   const [newVisibility, setNewVisibility] = useState('all');
 
-  // Advertisement Form State (Integrated cleanly with PUT support & photo/video states)
+  // Advertisement Form State
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -79,11 +79,16 @@ export default function ClientDirectory({
     }
   });
 
-  // 1. Sync Live Listings from Backend on Mount
+  // 1. Sync Live Listings from Backend safely checking JSON content-type
   const fetchBackendLadies = async (isManual = false) => {
     if (isManual) setIsRefreshingCatalog(true);
     try {
       const response = await fetch(`${BACKEND_URL}/api/ladies`);
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        console.error("Server returned non-JSON response from /api/ladies");
+        return;
+      }
       const data = await response.json();
       if (data.success && data.ladies) {
         setLadies(data.ladies);
@@ -261,7 +266,6 @@ export default function ClientDirectory({
       xhr.open('POST', `${BACKEND_URL}/api/ladies/${identifier}/upload-video`, true);
       xhr.setRequestHeader('Content-Type', 'application/json');
 
-      // Track upload progress
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
           const percentComplete = Math.round((event.loaded / event.total) * 100);
@@ -272,6 +276,11 @@ export default function ClientDirectory({
       xhr.onload = () => {
         setUploadingVideo(false);
         try {
+          const contentType = xhr.getResponseHeader("content-type");
+          if (!contentType || !contentType.includes("application/json")) {
+            alert('Server returned non-JSON response while uploading video.');
+            return;
+          }
           const data = JSON.parse(xhr.responseText);
           if (xhr.status >= 200 && xhr.status < 300 && data.success) {
             setVerificationVideoUrl(data.verificationVideoUrl || base64Video);
@@ -295,7 +304,7 @@ export default function ClientDirectory({
     };
   };
 
-  // 6. Save and Publish Ad (PUT / POST fallback integrated)
+  // 6. Save and Publish Ad with robust 404 fallback & content-type checking
   const handleSaveLadyProfileManual = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -305,7 +314,6 @@ export default function ClientDirectory({
     const identifier = currentUser._id || currentUser.id || currentUser.username;
 
     try {
-      // Attempt PUT update first if identifier exists, falling back to POST registration if needed
       let response = await fetch(`${BACKEND_URL}/api/ladies/${identifier}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -318,10 +326,8 @@ export default function ClientDirectory({
         })
       });
 
-      let data = await response.json();
-
-      if (!response.ok && response.status === 404) {
-        // Fallback to POST registration endpoint
+      // Fallback to POST if profile identifier doesn't exist yet (404)
+      if (response.status === 404) {
         response = await fetch(`${BACKEND_URL}/api/ladies`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -333,10 +339,17 @@ export default function ClientDirectory({
             verificationVideoUrl
           })
         });
-        data = await response.json();
       }
 
-      if (!response.ok || (!data.success && !response.ok)) {
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await response.text();
+        throw new Error(`Server error (${response.status}): ${text.substring(0, 120)}`);
+      }
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
         throw new Error(data.message || data.error || 'Failed to save profile configuration.');
       }
 
@@ -366,7 +379,7 @@ export default function ClientDirectory({
     }
   };
 
-  // 7. Submit Report to Backend API
+  // 7. Submit Report to Backend API safely
   const handleReportSubmit = async (e) => {
     e.preventDefault();
     if (!reportedUsername.trim() || !reportReason.trim()) {
@@ -385,6 +398,12 @@ export default function ClientDirectory({
           reason: reportReason.trim()
         })
       });
+
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        alert("Server returned a non-JSON response while submitting report.");
+        return;
+      }
 
       const data = await response.json();
       if (data.success) {
