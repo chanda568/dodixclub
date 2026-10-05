@@ -233,18 +233,16 @@ export default function ClientDirectory({
     reader.readAsDataURL(file);
   };
 
-  // 5. Save and Publish Ad with robust 404 fallback & content-type checking
+  // 5. Save and Publish Ad using POST to prevent 404 PUT errors
   const handleSaveLadyProfileManual = async (e) => {
     e.preventDefault();
     setLoading(true);
     setErrorMessage('');
     setSuccessMessage('');
 
-    const identifier = currentUser._id || currentUser.id || currentUser.username;
-
     try {
-      let response = await fetch(`${BACKEND_URL}/api/ladies/${identifier}`, {
-        method: 'PUT',
+      const response = await fetch(`${BACKEND_URL}/api/ladies`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...newAdData,
@@ -253,20 +251,6 @@ export default function ClientDirectory({
           extraServices: newAdData.bio
         })
       });
-
-      // Fallback to POST if profile identifier doesn't exist yet (404)
-      if (response.status === 404) {
-        response = await fetch(`${BACKEND_URL}/api/ladies`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...newAdData,
-            username: currentUser.username,
-            price: newAdData.rate,
-            extraServices: newAdData.bio
-          })
-        });
-      }
 
       const contentType = response.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
