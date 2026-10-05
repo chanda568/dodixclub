@@ -48,8 +48,9 @@ export default function ClientDirectory({
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   
-  // Video Upload State Variables
+  // Video Upload State Variables & Progress
   const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [verificationVideoUrl, setVerificationVideoUrl] = useState(currentUser?.verificationVideoUrl || '');
   
   const initialName = currentUser?.username && !['female', 'lady', 'client'].includes(currentUser.username.toLowerCase()) 
@@ -231,8 +232,8 @@ export default function ClientDirectory({
     reader.readAsDataURL(file);
   };
 
-  // Handler for companion video upload
-  const handleCompanionVideoUpload = async (e) => {
+  // 5. Updated Companion Video Upload with XMLHttpRequest Progress Tracking
+  const handleCompanionVideoUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
@@ -243,34 +244,52 @@ export default function ClientDirectory({
 
     const reader = new FileReader();
     reader.readAsDataURL(file);
-    reader.onload = async () => {
+    reader.onload = () => {
       const base64Video = reader.result;
       setUploadingVideo(true);
+      setUploadProgress(0);
 
-      try {
-        const identifier = currentUser._id || currentUser.id || currentUser.username;
-        const response = await fetch(`${BACKEND_URL}/api/ladies/${identifier}/upload-video`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ videoBase64: base64Video, videoName: file.name })
-        });
-        const data = await response.json();
-        if (data.success) {
-          setVerificationVideoUrl(data.verificationVideoUrl || base64Video);
-          alert('Verification video successfully uploaded!');
-        } else {
-          alert(data.error || 'Failed to upload video.');
+      const identifier = currentUser._id || currentUser.id || currentUser.username;
+      const xhr = new XMLHttpRequest();
+
+      xhr.open('POST', `${BACKEND_URL}/api/ladies/${identifier}/upload-video`, true);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+
+      // Track upload progress
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percentComplete = Math.round((event.loaded / event.total) * 100);
+          setUploadProgress(percentComplete);
         }
-      } catch (err) {
-        console.error('Error uploading video:', err);
-        alert('Network error while uploading video.');
-      } finally {
+      };
+
+      xhr.onload = () => {
         setUploadingVideo(false);
-      }
+        try {
+          const data = JSON.parse(xhr.responseText);
+          if (xhr.status >= 200 && xhr.status < 300 && data.success) {
+            setVerificationVideoUrl(data.verificationVideoUrl || base64Video);
+            alert('Verification video successfully uploaded!');
+          } else {
+            alert(data.error || 'Failed to upload video.');
+          }
+        } catch (err) {
+          console.error('Error parsing response:', err);
+          alert('Invalid server response.');
+        }
+      };
+
+      xhr.onerror = () => {
+        setUploadingVideo(false);
+        console.error('Network error while uploading video.');
+        alert('Network error while uploading video.');
+      };
+
+      xhr.send(JSON.stringify({ videoBase64: base64Video, videoName: file.name }));
     };
   };
 
-  // 5. Submit Profile / Advertisement Data to Backend
+  // 6. Submit Profile / Advertisement Data to Backend
   const handleSaveLadyProfileManual = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -332,7 +351,7 @@ export default function ClientDirectory({
     }
   };
 
-  // 6. Submit Report to Backend API
+  // 7. Submit Report to Backend API
   const handleReportSubmit = async (e) => {
     e.preventDefault();
     if (!reportedUsername.trim() || !reportReason.trim()) {
@@ -1126,13 +1145,13 @@ export default function ClientDirectory({
                     )}
                   </div>
 
-                  {/* Verification Video Upload Section (Companion Side) */}
+                  {/* Verification Video Upload Section with Progress */}
                   <div className="space-y-2 pt-2 border-t border-slate-800">
                     <label className="block text-xs font-semibold text-slate-300">Verification Video (MP4, WebM supported)</label>
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                       <label className={`cursor-pointer bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 px-4 py-3 rounded-xl font-bold text-xs flex items-center gap-2 transition-colors shadow ${uploadingVideo ? 'opacity-50 pointer-events-none' : ''}`}>
                         <Upload className="w-4 h-4 text-pink-500" />
-                        {uploadingVideo ? 'Uploading Video...' : 'Upload Verification Video'}
+                        {uploadingVideo ? `Uploading Video... ${uploadProgress}%` : 'Upload Verification Video'}
                         <input 
                           type="file" 
                           accept="video/mp4,video/webm,video/*" 
@@ -1141,7 +1160,7 @@ export default function ClientDirectory({
                           disabled={uploadingVideo}
                         />
                       </label>
-                      {verificationVideoUrl && (
+                      {verificationVideoUrl && !uploadingVideo && (
                         <div className="flex items-center gap-2 text-emerald-400 text-xs font-semibold">
                           <CheckCircle className="w-4 h-4" /> Video Active & Verified
                         </div>
