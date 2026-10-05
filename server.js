@@ -1,32 +1,34 @@
-// server.js
-import express from 'express';
-import cors from 'cors';
-import { createServer } from 'http';
-import { WebSocketServer } from 'ws';
-import mongoose from 'mongoose';
-import bcrypt from 'bcryptjs';
-import dotenv from 'dotenv';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-
-dotenv.config();
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+require('dotenv').config();
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE"]
+  }
+});
 
+app.use(cors());
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
-app.use(cors());
-
-const server = createServer(app);
-const wss = new WebSocketServer({ server });
 
 // ==========================================
-// 0. AWS S3 Client Configuration
+// 1. AWS S3 Client Configuration
 // ==========================================
 const s3Client = new S3Client({
   region: process.env.AWS_REGION || 'eu-north-1',
   credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || ''
   }
 });
 
@@ -34,13 +36,13 @@ const BUCKET_NAME = process.env.AWS_BUCKET_NAME || 'dodix-club-media';
 
 async function uploadBase64ToS3(base64String, folder = 'uploads') {
   if (!base64String || !base64String.startsWith('data:')) {
-    return base64String; 
+    return base64String; // Return as-is if it's already a URL
   }
 
   try {
     const matches = base64String.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
     if (!matches || matches.length !== 3) {
-      throw new Error('Invalid base64 string format');
+      throw new Error('Invalid base64 string format.');
     }
 
     const mimeType = matches[1];
@@ -49,7 +51,7 @@ async function uploadBase64ToS3(base64String, folder = 'uploads') {
     let extension = 'jpg';
     if (mimeType === 'image/png') extension = 'png';
     else if (mimeType === 'image/webp') extension = 'webp';
-    else if (mimeType === 'video/mp4' || mimeType.includes('video')) extension = 'mp4';
+    else if (mimeType.includes('video')) extension = 'mp4';
 
     const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${extension}`;
 
@@ -71,7 +73,7 @@ async function uploadBase64ToS3(base64String, folder = 'uploads') {
 }
 
 // ==========================================
-// 1. Mongoose Schemas & Models
+// 2. Mongoose Models & Schemas
 // ==========================================
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true, lowercase: true, trim: true },
@@ -90,21 +92,6 @@ const userSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 }, { bufferCommands: false });
 
-const messageSchema = new mongoose.Schema({
-  id: { type: String, required: true },
-  sender: { type: String, required: true, lowercase: true, trim: true },
-  recipient: { type: String, default: 'public', lowercase: true, trim: true },
-  text: { type: String, required: true },
-  timestamp: { type: Date, default: Date.now }
-}, { bufferCommands: false });
-
-const reportSchema = new mongoose.Schema({
-  reporter: { type: String, required: true, lowercase: true, trim: true },
-  targetUser: { type: String, required: true, lowercase: true, trim: true },
-  reason: { type: String, required: true },
-  timestamp: { type: Date, default: Date.now }
-}, { bufferCommands: false });
-
 const companionSchema = new mongoose.Schema({
   username: { type: String, required: true, lowercase: true, trim: true },
   name: { type: String, required: true },
@@ -121,32 +108,41 @@ const companionSchema = new mongoose.Schema({
   extraServices: { type: String, default: '' },
   verificationVideoUrl: { type: String, default: '' },
   verificationVideoName: { type: String, default: '' },
-  status: { type: String, enum: ['pending', 'accepted', 'rejected'], default: 'pending' },
+  status: { type: String, enum: ['pending', 'accepted', 'rejected', 'active'], default: 'pending' },
   approved: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 }, { bufferCommands: false });
 
-const announcementSchema = new mongoose.Schema({
-  title: { type: String, required: true },
-  content: { type: String, required: true },
-  visibility: { type: String, default: 'all' },
-  createdAt: { type: Date, default: Date.now }
+const reportSchema = new mongoose.Schema({
+  reporter: { type: String, required: true, lowercase: true, trim: true },
+  targetUser: { type: String, required: true, lowercase: true, trim: true },
+  reason: { type: String, required: true },
+  timestamp: { type: Date, default: Date.now }
 }, { bufferCommands: false });
 
-const User = mongoose.models.User || mongoose.model('User', userSchema);
-const Message = mongoose.models.Message || mongoose.model('Message', messageSchema);
-const Report = mongoose.models.Report || mongoose.model('Report', reportSchema);
-const Companion = mongoose.models.Companion || mongoose.model('Companion', companionSchema);
-const Announcement = mongoose.models.Announcement || mongoose.model('Announcement', announcementSchema);
+const messageSchema = new mongoose.Schema({
+  sender: { type: String, required: true, lowercase: true, trim: true },
+  recipient: { type: String, default: 'public', lowercase: true, trim: true },
+  content: { type: String, required: true },
+  timestamp: { type: Date, default: Date.now }
+}, { bufferCommands: false });
 
+const User = mongoose.model('User', userSchema);
+const Companion = mongoose.model('Companion', companionSchema);
+const Report = mongoose.model('Report', reportSchema);
+const Message = mongoose.model('Message', messageSchema);
+
+// ==========================================
+// 3. Helper Functions & Seeding
+// ==========================================
 async function seedDefaultAdmin() {
   try {
     const count = await User.countDocuments();
     if (count === 0) {
       const hashedPassword = await bcrypt.hash('password123', 10);
       const defaultAnswerHash = await bcrypt.hash('admin', 10);
-      await User.insertMany([{
+      await User.create({
         username: 'admin',
         password: hashedPassword,
         gender: 'Male',
@@ -156,7 +152,7 @@ async function seedDefaultAdmin() {
         isEmailVerified: true,
         securityQuestion: 'What was your first pet’s name?',
         securityAnswerHash: defaultAnswerHash
-      }]);
+      });
       console.log('[Database] Seeded default admin into MongoDB.');
     }
   } catch (err) {
@@ -165,12 +161,15 @@ async function seedDefaultAdmin() {
 }
 
 // ==========================================
-// 2. Express REST API Routes
+// 4. REST API Endpoints
 // ==========================================
+
+// Health Check
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'success', message: 'Server is up and running!' });
 });
 
+// Username Availability
 app.get('/api/check-username/:username', async (req, res) => {
   try {
     const cleanUsername = req.params.username.toLowerCase().trim();
@@ -181,6 +180,7 @@ app.get('/api/check-username/:username', async (req, res) => {
   }
 });
 
+// User Authentication
 app.post('/api/login', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -203,7 +203,7 @@ app.post('/api/register', async (req, res) => {
   try {
     const { username, password, email, gender, location, role, phone, plan, securityQuestion, securityAnswer } = req.body;
     if (!username || !password || !gender || !location) {
-      return res.json({ success: false, error: "All fields are required." });
+      return res.json({ success: false, error: "All required fields must be filled." });
     }
 
     const cleanUsername = username.toLowerCase().trim();
@@ -236,6 +236,7 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
+// Users Management
 app.get('/api/users', async (req, res) => {
   try {
     const users = await User.find({}).lean();
@@ -261,7 +262,7 @@ app.post('/api/users/toggle', async (req, res) => {
   }
 });
 
-// Companions / Ads Routes
+// Companions / Ads Endpoints
 app.get('/api/ladies', async (req, res) => {
   try {
     const { location, category, status } = req.query;
@@ -277,7 +278,7 @@ app.get('/api/ladies', async (req, res) => {
       query.status = status;
     }
 
-    const ladies = await Companion.find(query).limit(100).maxTimeMS(5000).lean();
+    const ladies = await Companion.find(query).limit(100).lean();
     res.json({ success: true, ladies });
   } catch (err) {
     console.error("[API Ladies Error]:", err);
@@ -289,20 +290,16 @@ app.post('/api/ladies', async (req, res) => {
   try {
     const profileData = req.body;
     if (!profileData.username || !profileData.phone || !profileData.price) {
-      return res.json({ success: false, error: "Required fields missing." });
+      return res.status(400).json({ success: false, error: "Required fields missing." });
     }
 
-    const uploadedPhoto = await uploadBase64ToS3(profileData.photo, 'photos');
-    const uploadedOriginalPhoto = await uploadBase64ToS3(profileData.originalPhoto, 'originals');
-    const uploadedUnmaskedPhoto = await uploadBase64ToS3(profileData.unmaskedPhoto, 'unmasked');
-    const uploadedVerificationVideo = await uploadBase64ToS3(profileData.verificationVideoUrl, 'videos');
+    profileData.photo = await uploadBase64ToS3(profileData.photo, 'photos');
+    profileData.originalPhoto = await uploadBase64ToS3(profileData.originalPhoto, 'originals');
+    profileData.unmaskedPhoto = await uploadBase64ToS3(profileData.unmaskedPhoto, 'unmasked');
+    profileData.verificationVideoUrl = await uploadBase64ToS3(profileData.verificationVideoUrl, 'videos');
 
     const newCompanionAd = new Companion({
       ...profileData,
-      photo: uploadedPhoto,
-      originalPhoto: uploadedOriginalPhoto,
-      unmaskedPhoto: uploadedUnmaskedPhoto,
-      verificationVideoUrl: uploadedVerificationVideo,
       username: profileData.username.toLowerCase().trim(),
       status: 'pending',
       approved: false,
@@ -318,7 +315,42 @@ app.post('/api/ladies', async (req, res) => {
   }
 });
 
-// Private Verification Video Upload Endpoint
+app.put('/api/ladies/:identifier', async (req, res) => {
+  try {
+    const { identifier } = req.params;
+    const updateData = req.body;
+
+    if (updateData.photo) updateData.photo = await uploadBase64ToS3(updateData.photo, 'photos');
+    if (updateData.originalPhoto) updateData.originalPhoto = await uploadBase64ToS3(updateData.originalPhoto, 'originals');
+    if (updateData.unmaskedPhoto) updateData.unmaskedPhoto = await uploadBase64ToS3(updateData.unmaskedPhoto, 'unmasked');
+    if (updateData.verificationVideoUrl) updateData.verificationVideoUrl = await uploadBase64ToS3(updateData.verificationVideoUrl, 'videos');
+
+    updateData.updatedAt = new Date();
+
+    let companion = null;
+    if (mongoose.Types.ObjectId.isValid(identifier)) {
+      companion = await Companion.findByIdAndUpdate(identifier, updateData, { new: true });
+    }
+    
+    if (!companion) {
+      companion = await Companion.findOneAndUpdate(
+        { username: identifier.toLowerCase().trim() },
+        updateData,
+        { new: true, upsert: true, setDefaultsOnInsert: true }
+      );
+    }
+
+    if (!companion) {
+      return res.status(404).json({ success: false, error: "Companion profile not found." });
+    }
+
+    res.json({ success: true, companion });
+  } catch (err) {
+    console.error("[API Update Companion Error]:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.post('/api/ladies/:identifier/upload-video', async (req, res) => {
   try {
     const cleanId = req.params.identifier.toLowerCase().trim();
@@ -334,7 +366,7 @@ app.post('/api/ladies/:identifier/upload-video', async (req, res) => {
     }
 
     if (!companion) {
-      return res.status(404).json({ success: false, error: 'Companion profile not found.' });
+      return res.status(404).json({ success: false, error: 'Companion profile not found. Please create your ad first.' });
     }
 
     const uploadedVideoUrl = await uploadBase64ToS3(videoBase64, 'verification-videos');
@@ -347,28 +379,6 @@ app.post('/api/ladies/:identifier/upload-video', async (req, res) => {
     res.json({ success: true, verificationVideoUrl: uploadedVideoUrl, companion });
   } catch (err) {
     console.error('[API Video Upload Error]:', err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-app.put('/api/ladies/:identifier/price', async (req, res) => {
-  try {
-    const cleanId = req.params.identifier.toLowerCase().trim();
-    const { price } = req.body;
-    let companion = mongoose.Types.ObjectId.isValid(cleanId) ? await Companion.findById(cleanId) : null;
-    if (!companion) {
-      companion = await Companion.findOne({ $or: [{ username: cleanId }, { name: cleanId }] });
-    }
-
-    if (companion) {
-      companion.price = price.trim();
-      companion.updatedAt = new Date();
-      await companion.save();
-      res.json({ success: true, companion });
-    } else {
-      res.status(404).json({ success: false, error: 'Advertisement not found.' });
-    }
-  } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -386,27 +396,81 @@ app.delete('/api/ladies/:identifier', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 5000;
-const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
-
-async function startServer() {
+// Reports & Messages Endpoints
+app.post('/api/reports', async (req, res) => {
   try {
-    if (!MONGO_URI) {
-      console.error('[Database Error] MONGO_URI missing.');
-      process.exit(1);
+    const { reporter, targetUser, reason } = req.body;
+    if (!reporter || !targetUser || !reason) {
+      return res.status(400).json({ success: false, error: "All report fields are required." });
     }
-    await mongoose.connect(MONGO_URI, { family: 4 });
-    console.log('[Database] Connected to MongoDB Atlas.');
-    await seedDefaultAdmin();
 
-    server.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
+    const newReport = new Report({
+      reporter: reporter.toLowerCase().trim(),
+      targetUser: targetUser.toLowerCase().trim(),
+      reason,
+      timestamp: new Date()
     });
-  } catch (err) {
-    console.error('[Startup Error]:', err.message);
-    process.exit(1);
-  }
-}
 
-startServer();
-export default server;
+    await newReport.save();
+    res.json({ success: true, report: newReport });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/messages', async (req, res) => {
+  try {
+    const messages = await Message.find({}).sort({ timestamp: 1 }).limit(200).lean();
+    res.json({ success: true, messages });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==========================================
+// 5. Socket.io Real-Time Handler
+// ==========================================
+io.on('connection', (socket) => {
+  console.log(`[Socket] User connected: ${socket.id}`);
+
+  socket.on('send-message', async (data) => {
+    try {
+      const { sender, recipient, content } = data;
+      if (!sender || !content) return;
+
+      const newMessage = new Message({
+        sender: sender.toLowerCase().trim(),
+        recipient: recipient ? recipient.toLowerCase().trim() : 'public',
+        content,
+        timestamp: new Date()
+      });
+
+      await newMessage.save();
+      io.emit('receive-message', newMessage);
+    } catch (err) {
+      console.error('[Socket Message Error]:', err);
+    }
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`[Socket] User disconnected: ${socket.id}`);
+  });
+});
+
+// ==========================================
+// 6. Server Initialization
+// ==========================================
+const PORT = process.env.PORT || 5000;
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/dodixclub';
+
+mongoose.connect(MONGO_URI)
+  .then(async () => {
+    console.log('[Database] Connected to MongoDB successfully.');
+    await seedDefaultAdmin();
+    server.listen(PORT, () => {
+      console.log(`[Server] Running on port ${PORT}`);
+    });
+  })
+  .catch(err => {
+    console.error('[Database Connection Error]:', err);
+  });
