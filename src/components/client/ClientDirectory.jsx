@@ -1,10 +1,9 @@
 // src/components/client/ClientDirectory.jsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  LogOut, MessageSquare, Sparkles, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, Crown, ShieldAlert, RefreshCw, CheckCircle, Flag, ChevronRight, Heart, CreditCard, Settings, Send, Upload, Image as ImageIcon, History as HistoryIcon, Bell, Plus, Trash2, Shield, Check, MessageCircle, Activity, Circle, Loader2, DollarSign, AlertCircle, Save, Camera, Phone
+  LogOut, MessageSquare, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, Crown, RefreshCw, CheckCircle, Flag, Heart, CreditCard, Settings, Bell, Plus, Trash2, Shield, MessageCircle, Loader2, DollarSign, AlertCircle, Save, Phone
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LOGO_URL } from '../../data/constants';
 import LogoLoader from '../common/LogoLoader';
 import { encryptStorageData, decryptStorageData } from '../../utils/storageEncryption';
 
@@ -48,11 +47,6 @@ export default function ClientDirectory({
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isSaved, setIsSaved] = useState(false);
-  
-  // Video Upload State Variables & Progress
-  const [uploadingVideo, setUploadingVideo] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [verificationVideoUrl, setVerificationVideoUrl] = useState(currentUser?.verificationVideoUrl || '');
   
   const initialName = currentUser?.username && !['female', 'lady', 'client'].includes(currentUser.username.toLowerCase()) 
     ? currentUser.username 
@@ -239,72 +233,7 @@ export default function ClientDirectory({
     reader.readAsDataURL(file);
   };
 
-  // 5. Companion Video Upload with XMLHttpRequest Progress Tracking & Profile Existence Check
-  const handleCompanionVideoUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('video/')) {
-      alert('Please select a valid video file (MP4, WebM).');
-      return;
-    }
-
-    const identifier = currentUser._id || currentUser.id || currentUser.username;
-    if (!identifier) {
-      alert('Please ensure your account details are loaded before uploading a verification video.');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => {
-      const base64Video = reader.result;
-      setUploadingVideo(true);
-      setUploadProgress(0);
-
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', `${BACKEND_URL}/api/ladies/${identifier}/upload-video`, true);
-      xhr.setRequestHeader('Content-Type', 'application/json');
-
-      xhr.upload.onprogress = (event) => {
-        if (event.lengthComputable) {
-          const percentComplete = Math.round((event.loaded / event.total) * 100);
-          setUploadProgress(percentComplete);
-        }
-      };
-
-      xhr.onload = () => {
-        setUploadingVideo(false);
-        try {
-          const contentType = xhr.getResponseHeader("content-type");
-          if (!contentType || !contentType.includes("application/json")) {
-            alert('Server returned non-JSON response while uploading video.');
-            return;
-          }
-          const data = JSON.parse(xhr.responseText);
-          if (xhr.status >= 200 && xhr.status < 300 && data.success) {
-            setVerificationVideoUrl(data.verificationVideoUrl || base64Video);
-            alert('Verification video successfully uploaded!');
-          } else {
-            alert(data.error || 'Companion profile not found. Please click "Save and Publish Ad" first.');
-          }
-        } catch (err) {
-          console.error('Error parsing response:', err);
-          alert('Invalid server response.');
-        }
-      };
-
-      xhr.onerror = () => {
-        setUploadingVideo(false);
-        console.error('Network error while uploading video.');
-        alert('Network error while uploading video.');
-      };
-
-      xhr.send(JSON.stringify({ videoBase64: base64Video, videoName: file.name }));
-    };
-  };
-
-  // 6. Save and Publish Ad with robust 404 fallback & content-type checking
+  // 5. Save and Publish Ad with robust 404 fallback & content-type checking
   const handleSaveLadyProfileManual = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -321,8 +250,7 @@ export default function ClientDirectory({
           ...newAdData,
           username: currentUser.username,
           price: newAdData.rate,
-          extraServices: newAdData.bio,
-          verificationVideoUrl
+          extraServices: newAdData.bio
         })
       });
 
@@ -335,8 +263,7 @@ export default function ClientDirectory({
             ...newAdData,
             username: currentUser.username,
             price: newAdData.rate,
-            extraServices: newAdData.bio,
-            verificationVideoUrl
+            extraServices: newAdData.bio
           })
         });
       }
@@ -360,7 +287,7 @@ export default function ClientDirectory({
         fetchBackendLadies();
       }
 
-      setSuccessMessage('Profile saved and published successfully! You can now upload your verification video.');
+      setSuccessMessage('Profile saved and published successfully!');
 
       const newHistoryItem = {
         id: Date.now(),
@@ -379,7 +306,7 @@ export default function ClientDirectory({
     }
   };
 
-  // 7. Submit Report to Backend API safely
+  // 6. Submit Report to Backend API safely
   const handleReportSubmit = async (e) => {
     e.preventDefault();
     if (!reportedUsername.trim() || !reportReason.trim()) {
@@ -559,13 +486,6 @@ export default function ClientDirectory({
                 </div>
               )}
 
-              {selectedProfile.verificationVideoUrl && (
-                <div className="space-y-1.5 pt-2">
-                  <span className="text-xs font-bold text-slate-300">Verification Video</span>
-                  <video src={selectedProfile.verificationVideoUrl} controls className="w-full max-h-48 rounded-xl shadow" />
-                </div>
-              )}
-
               <div className="grid grid-cols-1 gap-3 pt-2">
                 <button 
                   onClick={() => {
@@ -721,7 +641,7 @@ export default function ClientDirectory({
                         onClick={() => { setActiveTab('history'); setSidebarOpen(false); }}
                         className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'history' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
                       >
-                        <HistoryIcon size={16} /> History
+                        <Bell size={16} /> History
                       </button>
                     </>
                   )}
@@ -816,7 +736,7 @@ export default function ClientDirectory({
                   onClick={() => setActiveTab('history')}
                   className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'history' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
                 >
-                  <HistoryIcon size={16} /> History
+                  <Bell size={16} /> History
                 </button>
               </>
             )}
@@ -1156,7 +1076,6 @@ export default function ClientDirectory({
                     <label className="block text-xs font-semibold text-slate-300">Advertisement Photo (Max 5MB)</label>
                     <div className="flex items-center gap-4">
                       <label className="cursor-pointer bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white px-4 py-3 rounded-xl font-bold text-xs flex items-center gap-2 transition-colors shadow">
-                        <Upload className="w-4 h-4" />
                         Upload Photo
                         <input 
                           type="file" 
@@ -1184,43 +1103,6 @@ export default function ClientDirectory({
                         </button>
                       </div>
                     )}
-                  </div>
-
-                  {/* Verification Video Upload Section with Progress */}
-                  <div className="space-y-2 pt-2 border-t border-slate-800">
-                    <h3 className="text-sm font-semibold text-white">Verification Video Upload</h3>
-                    <p className="text-xs text-slate-400">
-                      Note: You must save and publish your profile ad above before uploading your verification video.
-                    </p>
-                    <div className="flex flex-col space-y-3">
-                      <input
-                        type="file"
-                        accept="video/*"
-                        onChange={handleCompanionVideoUpload}
-                        disabled={uploadingVideo}
-                        className="block w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-pink-500/10 file:text-pink-400 hover:file:bg-pink-500/20 cursor-pointer"
-                      />
-
-                      {uploadingVideo && (
-                        <div className="w-full bg-slate-900 border border-slate-800 rounded-full h-4 overflow-hidden">
-                          <div
-                            className="bg-gradient-to-r from-pink-600 to-purple-600 h-full text-xs text-white text-center leading-none transition-all duration-300 flex items-center justify-center font-bold"
-                            style={{ width: `${uploadProgress}%` }}
-                          >
-                            {uploadProgress}%
-                          </div>
-                        </div>
-                      )}
-
-                      {verificationVideoUrl && (
-                        <div className="mt-4">
-                          <p className="text-xs font-medium text-emerald-400 mb-2 flex items-center gap-1.5">
-                            <CheckCircle size={14} /> Verification video uploaded successfully!
-                          </p>
-                          <video src={verificationVideoUrl} controls className="w-full max-h-64 rounded-xl shadow border border-slate-800" />
-                        </div>
-                      )}
-                    </div>
                   </div>
 
                   {/* Action Button */}

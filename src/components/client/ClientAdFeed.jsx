@@ -92,7 +92,6 @@ export default function ClientAdFeed() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredAds.map((ad) => {
-            // Robust photo fallback check (photo -> imageUrl -> image)
             const profilePhoto = ad.photo || ad.imageUrl || ad.image;
 
             return (
