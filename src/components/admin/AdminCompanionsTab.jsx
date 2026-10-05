@@ -1,6 +1,6 @@
 // src/components/admin/AdminCompanionsTab.jsx
 import React from 'react';
-import { Video, Search, X, RefreshCw, MapPin, Eye, Edit3, Trash2, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Video, Search, X, RefreshCw, MapPin, Eye, Edit3, Trash2, ShieldCheck, CheckCircle2, User } from 'lucide-react';
 
 export default function AdminCompanionsTab({
   ladies,
@@ -69,30 +69,33 @@ export default function AdminCompanionsTab({
         ) : (
           filteredLadies.map((lady, i) => {
             const displayName = lady.name || lady.username || 'Companion';
-            const mediaUrl = lady.imageUrl || lady.photo || lady.videoUrl;
-            const isVideo = lady.videoUrl || (mediaUrl && mediaUrl.match(/\.(mp4|webm|ogg)$/i));
+            // Robust check for photo/image fields first
+            const mediaUrl = lady.photo || lady.imageUrl || lady.image;
+            const videoSource = lady.videoUrl || lady.verificationVideoUrl;
+            const isVideo = videoSource && videoSource.match(/\.(mp4|webm|ogg|mov)$/i);
 
             return (
               <div key={lady._id || i} className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 flex flex-col justify-between space-y-4 hover:border-slate-700 transition">
                 <div className="flex items-start gap-3">
-                  <div className="relative w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-slate-800 border border-slate-700">
+                  <div className="relative w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-slate-800 border border-slate-700 flex items-center justify-center">
                     {mediaUrl ? (
-                      isVideo ? (
-                        <video 
-                          src={mediaUrl} 
-                          className="w-full h-full object-cover cursor-pointer" 
-                          onClick={() => setFullScreenVideo(mediaUrl)}
-                        />
-                      ) : (
-                        <img 
-                          src={mediaUrl} 
-                          alt={displayName} 
-                          className="w-full h-full object-cover cursor-pointer hover:scale-105 transition"
-                          onClick={() => setFullScreenImage(mediaUrl)}
-                        />
-                      )
+                      <img 
+                        src={mediaUrl} 
+                        alt={displayName} 
+                        className="w-full h-full object-cover cursor-pointer hover:scale-105 transition"
+                        onClick={() => setFullScreenImage(mediaUrl)}
+                      />
+                    ) : videoSource ? (
+                      <video 
+                        src={videoSource} 
+                        className="w-full h-full object-cover cursor-pointer" 
+                        onClick={() => setFullScreenVideo(videoSource)}
+                      />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-500 text-[10px]">No Media</div>
+                      <div className="flex flex-col items-center justify-center text-slate-500 text-[9px]">
+                        <User size={20} className="opacity-40 mb-0.5" />
+                        <span>No Photo</span>
+                      </div>
                     )}
                   </div>
 
@@ -106,7 +109,7 @@ export default function AdminCompanionsTab({
                     </p>
                     <div className="mt-2 flex items-center gap-2">
                       <span className="px-2 py-0.5 bg-pink-950/80 text-pink-400 border border-pink-900/40 rounded-full text-[10px] font-bold">
-                        {lady.rate || 'Standard'}
+                        {lady.rate || lady.category || 'Standard'}
                       </span>
                       {lady.age && (
                         <span className="text-[11px] text-slate-400 font-medium">Age: {lady.age}</span>
