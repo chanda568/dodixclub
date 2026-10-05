@@ -14,12 +14,10 @@ export default function CompanionModal({ companion, onClose, onSavePrice }) {
     onSavePrice(companion._id || companion.id, price);
   };
 
-  // Determine valid photo source with fallback
   const rawPhoto = isFaceRevealed 
-    ? (companion.realPhoto || companion.photo || companion.imageUrl || companion.image)
-    : (companion.maskedPhoto || companion.photo || companion.imageUrl || companion.image);
+    ? (companion.realPhoto || companion.unmaskedPhoto || companion.photo || companion.imageUrl || companion.image)
+    : (companion.maskedPhoto || companion.originalPhoto || companion.photo || companion.imageUrl || companion.image);
 
-  // Clean name display (prevent literal "female" or empty names)
   const displayName = (!companion.name || companion.name.toLowerCase() === 'female') 
     ? (companion.username ? `@${companion.username}` : 'Companion Profile') 
     : companion.name;
@@ -28,7 +26,6 @@ export default function CompanionModal({ companion, onClose, onSavePrice }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 overflow-y-auto">
       <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden text-slate-100">
         
-        {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950">
           <h3 className="text-sm font-bold text-white truncate pr-4">
             Companion Inspection: {displayName}
@@ -41,10 +38,8 @@ export default function CompanionModal({ companion, onClose, onSavePrice }) {
           </button>
         </div>
 
-        {/* Modal Body */}
         <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
           
-          {/* Photo & Privacy Mode Toggle */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold text-slate-300">Profile Photo & Privacy Mode</label>
@@ -78,14 +73,13 @@ export default function CompanionModal({ companion, onClose, onSavePrice }) {
             </div>
           </div>
 
-          {/* Price Management */}
           <form onSubmit={handlePriceSubmit} className="space-y-2 bg-slate-950 p-4 rounded-xl border border-slate-800">
             <label className="block text-xs font-semibold text-slate-300">Edit Companion Rate / Price (ZMW)</label>
             <div className="flex gap-3">
               <div className="relative flex-1">
                 <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input 
-                  type="number"
+                  type="text"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-4 py-2 text-white text-xs focus:outline-none focus:border-pink-500"
@@ -101,12 +95,21 @@ export default function CompanionModal({ companion, onClose, onSavePrice }) {
             </div>
           </form>
 
-          {/* Videos Section */}
-          {companion.videos && companion.videos.length > 0 && (
+          {(companion.verificationVideoUrl || (companion.videos && companion.videos.length > 0)) && (
             <div className="space-y-3">
               <label className="text-xs font-semibold text-slate-300">Verification / Showcase Videos</label>
               <div className="grid grid-cols-2 gap-3">
-                {companion.videos.map((vid, idx) => (
+                {companion.verificationVideoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedVideo(companion.verificationVideoUrl)}
+                    className="flex items-center gap-2 p-3 bg-slate-950 hover:bg-slate-800/80 border border-slate-800 rounded-xl transition-colors text-left cursor-pointer"
+                  >
+                    <Video className="w-5 h-5 text-indigo-400 shrink-0" />
+                    <span className="text-xs text-slate-200 truncate">Verification Video</span>
+                  </button>
+                )}
+                {companion.videos && companion.videos.map((vid, idx) => (
                   <button
                     key={idx}
                     type="button"
@@ -122,7 +125,6 @@ export default function CompanionModal({ companion, onClose, onSavePrice }) {
           )}
         </div>
 
-        {/* Fullscreen Video Modal Sub-View */}
         {selectedVideo && (
           <div className="absolute inset-0 z-60 bg-black/90 flex flex-col items-center justify-center p-4">
             <button 

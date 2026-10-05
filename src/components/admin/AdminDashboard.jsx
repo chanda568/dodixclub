@@ -6,6 +6,7 @@ import {
 import { LOGO_URL } from '../../data/constants';
 import AdminUsersTab from './AdminUsersTab';
 import AdminCompanionsTab from './AdminCompanionsTab';
+import CompanionModal from './CompanionModal';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
@@ -93,7 +94,6 @@ export default function AdminDashboard({
     }
   };
 
-  // Runs EXACTLY ONCE on mount. No polling intervals!
   useEffect(() => {
     loadBackendData();
   }, []);
@@ -158,6 +158,27 @@ export default function AdminDashboard({
     }
   };
 
+  const handleSaveCompanionPrice = async (companionId, newPrice) => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/ladies/${companionId}/price`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ price: newPrice })
+      });
+      const data = await response.json();
+      if (data.success) {
+        alert("Companion price updated successfully!");
+        setSelectedCompanionModal(null);
+        loadBackendData();
+      } else {
+        alert(data.error || "Failed to update price.");
+      }
+    } catch (err) {
+      console.error("Error updating companion price:", err);
+      alert("Error connecting to server.");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col font-sans selection:bg-pink-500 selection:text-white">
       <header className="px-6 py-4 bg-slate-950/85 backdrop-blur-md border-b border-slate-800/80 sticky top-0 z-40 flex items-center justify-between">
@@ -172,7 +193,7 @@ export default function AdminDashboard({
         </div>
 
         <button 
-          onClick={() => setCurrentClient(null)}
+          onClick={() => setCurrentUser(null)}
           className="p-2.5 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl border border-slate-800 transition flex items-center gap-2 text-xs font-bold cursor-pointer"
         >
           <LogOut size={16} /> Log Out
@@ -263,6 +284,15 @@ export default function AdminDashboard({
             <h3 className="text-sm font-bold text-white">User Reports & Moderation</h3>
             <p className="text-xs text-slate-500 mt-1">Inspect flagged accounts and moderation flags.</p>
           </div>
+        )}
+
+        {/* Companion Inspection & Edit Modal */}
+        {selectedCompanionModal && (
+          <CompanionModal 
+            companion={selectedCompanionModal}
+            onClose={() => setSelectedCompanionModal(null)}
+            onSavePrice={handleSaveCompanionPrice}
+          />
         )}
       </main>
     </div>
