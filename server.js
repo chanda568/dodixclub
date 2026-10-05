@@ -12,7 +12,6 @@ dotenv.config();
 
 const app = express();
 
-// Middleware setup for large payload support (images, videos, etc.)
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
 app.use(cors());
@@ -35,7 +34,7 @@ const BUCKET_NAME = process.env.AWS_BUCKET_NAME || 'dodix-club-media';
 
 async function uploadBase64ToS3(base64String, folder = 'uploads') {
   if (!base64String || !base64String.startsWith('data:')) {
-    return base64String; // Return as-is if it's already a URL or empty
+    return base64String; 
   }
 
   try {
@@ -47,12 +46,10 @@ async function uploadBase64ToS3(base64String, folder = 'uploads') {
     const mimeType = matches[1];
     const buffer = Buffer.from(matches[2], 'base64');
     
-    // Determine extension from mime type
     let extension = 'jpg';
     if (mimeType === 'image/png') extension = 'png';
     else if (mimeType === 'image/webp') extension = 'webp';
-    else if (mimeType === 'video/mp4') extension = 'mp4';
-    else if (mimeType.includes('video')) extension = 'mp4';
+    else if (mimeType === 'video/mp4' || mimeType.includes('video')) extension = 'mp4';
 
     const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${extension}`;
 
@@ -65,7 +62,6 @@ async function uploadBase64ToS3(base64String, folder = 'uploads') {
 
     await s3Client.send(command);
     
-    // Construct public S3 URL
     const region = process.env.AWS_REGION || 'eu-north-1';
     return `https://${BUCKET_NAME}.s3.${region}.amazonaws.com/${fileName}`;
   } catch (err) {
@@ -177,7 +173,6 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'success', message: 'Server is up and running!' });
 });
 
-// Authentication & Users
 app.get('/api/check-username/:username', async (req, res) => {
   try {
     const cleanUsername = req.params.username.toLowerCase().trim();
@@ -268,132 +263,7 @@ app.post('/api/users/toggle', async (req, res) => {
   }
 });
 
-app.post('/api/users/reset-password', async (req, res) => {
-  try {
-    const { username, newPassword } = req.body;
-    if (!username || !newPassword) return res.json({ success: false, error: "Username and new password are required." });
-    const user = await User.findOne({ username: username.toLowerCase().trim() });
-    if (!user) return res.json({ success: false, error: "User not found." });
-
-    user.password = await bcrypt.hash(newPassword, 10);
-    await user.save();
-    res.json({ success: true, message: "Password updated successfully." });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-app.post('/api/users/update-location', async (req, res) => {
-  try {
-    const { username, location } = req.body;
-    const user = await User.findOne({ username: username?.toLowerCase().trim() });
-    if (!user) return res.json({ success: false, error: "User not found." });
-
-    user.location = location.trim();
-    await user.save();
-    res.json({ success: true, user });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-app.post('/api/users/update-phone', async (req, res) => {
-  try {
-    const { username, phone } = req.body;
-    const user = await User.findOne({ username: username?.toLowerCase().trim() });
-    if (!user) return res.json({ success: false, error: "User not found." });
-
-    user.phone = phone.trim();
-    await user.save();
-    res.json({ success: true, user });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-app.delete('/api/users/:username', async (req, res) => {
-  try {
-    const cleanUsername = req.params.username?.toLowerCase().trim();
-    await User.findOneAndDelete({ username: cleanUsername });
-    await Companion.deleteMany({ username: cleanUsername });
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// Announcements
-app.get('/api/announcements', async (req, res) => {
-  try {
-    const announcements = await Announcement.find({}).sort({ createdAt: -1 }).lean();
-    res.json({ success: true, announcements });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-app.post('/api/announcements', async (req, res) => {
-  try {
-    const { title, content, visibility } = req.body;
-    if (!title || !content) return res.json({ success: false, error: "Title and content required." });
-
-    const newAnnouncement = new Announcement({ title, content, visibility: visibility || 'all' });
-    await newAnnouncement.save();
-    res.json({ success: true, announcement: newAnnouncement });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-app.delete('/api/announcements/:id', async (req, res) => {
-  try {
-    await Announcement.findByIdAndDelete(req.params.id);
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// Messages & Reports
-app.get('/api/messages', async (req, res) => {
-  try {
-    const messages = await Message.find({}).sort({ timestamp: 1 }).lean();
-    res.json({ success: true, messages });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-app.post('/api/reports', async (req, res) => {
-  try {
-    const { reporter, targetUser, reason } = req.body;
-    const newReport = new Report({ reporter: reporter.toLowerCase().trim(), targetUser: targetUser.toLowerCase().trim(), reason });
-    await newReport.save();
-    res.json({ success: true, report: newReport });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-app.get('/api/reports', async (req, res) => {
-  try {
-    const reports = await Report.find({}).sort({ timestamp: -1 }).lean();
-    res.json({ success: true, reports });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-app.delete('/api/reports/:id', async (req, res) => {
-  try {
-    await Report.findByIdAndDelete(req.params.id);
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// Companions / Ads Routes (With AWS S3 Media Offloading)
+// Companions / Ads Routes
 app.get('/api/ladies', async (req, res) => {
   try {
     const { location, category, status } = req.query;
@@ -424,7 +294,6 @@ app.post('/api/ladies', async (req, res) => {
       return res.json({ success: false, error: "Required fields missing." });
     }
 
-    console.log('[S3 Upload] Processing media attachments for new ad...');
     const uploadedPhoto = await uploadBase64ToS3(profileData.photo, 'photos');
     const uploadedOriginalPhoto = await uploadBase64ToS3(profileData.originalPhoto, 'originals');
     const uploadedUnmaskedPhoto = await uploadBase64ToS3(profileData.unmaskedPhoto, 'unmasked');
@@ -444,7 +313,6 @@ app.post('/api/ladies', async (req, res) => {
     });
 
     await newCompanionAd.save();
-    console.log('[S3 Upload] Advertisement created successfully with S3 links.');
     res.json({ success: true, companion: newCompanionAd });
   } catch (err) {
     console.error('[API Ladies Create Error]:', err);
@@ -452,20 +320,35 @@ app.post('/api/ladies', async (req, res) => {
   }
 });
 
-app.post('/api/ladies/approve', async (req, res) => {
+// Private Verification Video Upload Endpoint (Admin & Companion Use)
+app.post('/api/ladies/:identifier/upload-video', async (req, res) => {
   try {
-    const { id, username } = req.body;
-    let query = mongoose.Types.ObjectId.isValid(id) ? { _id: id } : { username: username?.toLowerCase().trim() };
-    
-    const companion = await Companion.findOne(query);
-    if (!companion) return res.status(404).json({ success: false, error: 'Advertisement not found.' });
+    const cleanId = req.params.identifier.toLowerCase().trim();
+    const { videoBase64, videoName } = req.body;
 
-    companion.status = 'accepted';
-    companion.approved = true;
+    if (!videoBase64) {
+      return res.status(400).json({ success: false, error: 'Video data is required.' });
+    }
+
+    let companion = mongoose.Types.ObjectId.isValid(cleanId) ? await Companion.findById(cleanId) : null;
+    if (!companion) {
+      companion = await Companion.findOne({ $or: [{ username: cleanId }, { name: cleanId }] });
+    }
+
+    if (!companion) {
+      return res.status(404).json({ success: false, error: 'Companion profile not found.' });
+    }
+
+    const uploadedVideoUrl = await uploadBase64ToS3(videoBase64, 'verification-videos');
+
+    companion.verificationVideoUrl = uploadedVideoUrl;
+    if (videoName) companion.verificationVideoName = videoName;
     companion.updatedAt = new Date();
     await companion.save();
-    res.json({ success: true, companion });
+
+    res.json({ success: true, verificationVideoUrl: uploadedVideoUrl, companion });
   } catch (err) {
+    console.error('[API Video Upload Error]:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -503,30 +386,6 @@ app.delete('/api/ladies/:identifier', async (req, res) => {
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
-});
-
-// ==========================================
-// 3. WebSocket Real-Time Chat
-// ==========================================
-wss.on('connection', (ws) => {
-  let currentUsername = null;
-
-  ws.on('message', async (data) => {
-    try {
-      const parsed = JSON.parse(data.toString());
-      if (parsed.type === 'auth' && parsed.username) {
-        currentUsername = parsed.username.toLowerCase().trim();
-        activeClients.set(currentUsername, ws);
-        return;
-      }
-    } catch (err) {
-      console.error("[WS] Error:", err);
-    }
-  });
-
-  ws.on('close', () => {
-    if (currentUsername) activeClients.delete(currentUsername);
-  });
 });
 
 const PORT = process.env.PORT || 5000;
