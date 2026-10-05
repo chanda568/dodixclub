@@ -43,10 +43,11 @@ export default function ClientDirectory({
   const [newContent, setNewContent] = useState('');
   const [newVisibility, setNewVisibility] = useState('all');
 
-  // New Advertisement Form State (Integrated)
+  // Advertisement Form State (Integrated cleanly with PUT support & photo/video states)
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [isSaved, setIsSaved] = useState(false);
   
   // Video Upload State Variables & Progress
   const [uploadingVideo, setUploadingVideo] = useState(false);
@@ -58,13 +59,13 @@ export default function ClientDirectory({
     : '';
 
   const [newAdData, setNewAdData] = useState({
-    name: initialName,
-    category: 'VIP',
-    location: userLockedLocation,
-    phone: '',
-    rate: '',
-    photo: '',
-    bio: ''
+    name: currentUser.name || initialName,
+    category: currentUser.category || 'VIP',
+    location: currentUser.location || userLockedLocation,
+    phone: currentUser.phone || '',
+    rate: currentUser.rate || '',
+    photo: currentUser.photo || currentUser.photoUrl || '',
+    bio: currentUser.bio || ''
   });
 
   const [profileHistory, setProfileHistory] = useState(() => {
@@ -226,19 +227,26 @@ export default function ClientDirectory({
     reader.onloadend = () => {
       setNewAdData((prev) => ({
         ...prev,
-        photo: reader.result
+        photo: reader.result,
+        photoUrl: reader.result
       }));
     };
     reader.readAsDataURL(file);
   };
 
-  // 5. Updated Companion Video Upload with XMLHttpRequest Progress Tracking
+  // 5. Companion Video Upload with XMLHttpRequest Progress Tracking & Profile Existence Check
   const handleCompanionVideoUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
     if (!file.type.startsWith('video/')) {
       alert('Please select a valid video file (MP4, WebM).');
+      return;
+    }
+
+    const identifier = currentUser._id || currentUser.id || currentUser.username;
+    if (!identifier) {
+      alert('Please ensure your account details are loaded before uploading a verification video.');
       return;
     }
 
@@ -249,9 +257,7 @@ export default function ClientDirectory({
       setUploadingVideo(true);
       setUploadProgress(0);
 
-      const identifier = currentUser._id || currentUser.id || currentUser.username;
       const xhr = new XMLHttpRequest();
-
       xhr.open('POST', `${BACKEND_URL}/api/ladies/${identifier}/upload-video`, true);
       xhr.setRequestHeader('Content-Type', 'application/json');
 
@@ -271,7 +277,7 @@ export default function ClientDirectory({
             setVerificationVideoUrl(data.verificationVideoUrl || base64Video);
             alert('Verification video successfully uploaded!');
           } else {
-            alert(data.error || 'Failed to upload video.');
+            alert(data.error || 'Companion profile not found. Please click "Save and Publish Ad" first.');
           }
         } catch (err) {
           console.error('Error parsing response:', err);
@@ -289,19 +295,20 @@ export default function ClientDirectory({
     };
   };
 
-  // 6. Submit Profile / Advertisement Data to Backend
+  // 6. Save and Publish Ad (PUT / POST fallback integrated)
   const handleSaveLadyProfileManual = async (e) => {
     e.preventDefault();
     setLoading(true);
     setErrorMessage('');
     setSuccessMessage('');
 
+    const identifier = currentUser._id || currentUser.id || currentUser.username;
+
     try {
-      const response = await fetch(`${BACKEND_URL}/api/ladies`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json' 
-        },
+      // Attempt PUT update first if identifier exists, falling back to POST registration if needed
+      let response = await fetch(`${BACKEND_URL}/api/ladies/${identifier}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...newAdData,
           username: currentUser.username,
@@ -311,28 +318,36 @@ export default function ClientDirectory({
         })
       });
 
-      const data = await response.json();
+      let data = await response.json();
 
-      if (!response.ok || !data.success) {
+      if (!response.ok && response.status === 404) {
+        // Fallback to POST registration endpoint
+        response = await fetch(`${BACKEND_URL}/api/ladies`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...newAdData,
+            username: currentUser.username,
+            price: newAdData.rate,
+            extraServices: newAdData.bio,
+            verificationVideoUrl
+          })
+        });
+        data = await response.json();
+      }
+
+      if (!response.ok || (!data.success && !response.ok)) {
         throw new Error(data.message || data.error || 'Failed to save profile configuration.');
       }
 
+      setIsSaved(true);
       if (data.companion) {
-        setLadies([data.companion, ...ladies]);
+        setLadies([data.companion, ...ladies.filter(l => l._id !== data.companion._id && l.id !== data.companion.id)]);
       } else {
         fetchBackendLadies();
       }
 
-      setSuccessMessage('Profile and advertisement successfully registered!');
-      setNewAdData({
-        name: '',
-        category: 'VIP',
-        location: userLockedLocation,
-        phone: '',
-        rate: '',
-        photo: '',
-        bio: ''
-      });
+      setSuccessMessage('Profile saved and published successfully! You can now upload your verification video.');
 
       const newHistoryItem = {
         id: Date.now(),
@@ -491,7 +506,7 @@ export default function ClientDirectory({
 
               <div className="flex items-center gap-4">
                 <div className="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-pink-500/40 shadow-lg shrink-0 bg-slate-950">
-                  <img src={selectedProfile.photo} alt={selectedProfile.name} className="w-full h-full object-cover" />
+                  <img src={selectedProfile.photo || selectedProfile.photoUrl} alt={selectedProfile.name} className="w-full h-full object-cover" />
                 </div>
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
@@ -510,7 +525,7 @@ export default function ClientDirectory({
               <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800/80">
                 <div className="p-3 bg-slate-900 border border-slate-800/80 rounded-2xl">
                   <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block">Rate / Price</span>
-                  <span className="text-sm font-extrabold text-emerald-400">ZMW {selectedProfile.price}</span>
+                  <span className="text-sm font-extrabold text-emerald-400">ZMW {selectedProfile.price || selectedProfile.rate}</span>
                 </div>
                 <div className="p-3 bg-slate-900 border border-slate-800/80 rounded-2xl">
                   <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block">Hosting Available</span>
@@ -518,10 +533,17 @@ export default function ClientDirectory({
                 </div>
               </div>
 
-              {selectedProfile.extraServices && (
+              {(selectedProfile.extraServices || selectedProfile.bio) && (
                 <div className="space-y-1.5 p-4 bg-slate-900/60 border border-slate-800 rounded-2xl">
                   <span className="text-xs font-bold text-slate-300">Services & Preferences</span>
-                  <p className="text-xs text-slate-400 leading-relaxed">{selectedProfile.extraServices}</p>
+                  <p className="text-xs text-slate-400 leading-relaxed">{selectedProfile.extraServices || selectedProfile.bio}</p>
+                </div>
+              )}
+
+              {selectedProfile.verificationVideoUrl && (
+                <div className="space-y-1.5 pt-2">
+                  <span className="text-xs font-bold text-slate-300">Verification Video</span>
+                  <video src={selectedProfile.verificationVideoUrl} controls className="w-full max-h-48 rounded-xl shadow" />
                 </div>
               )}
 
@@ -1136,7 +1158,7 @@ export default function ClientDirectory({
                         <img src={newAdData.photo} alt="Preview" className="w-full h-full object-cover" />
                         <button 
                           type="button"
-                          onClick={() => setNewAdData({ ...newAdData, photo: '' })}
+                          onClick={() => setNewAdData({ ...newAdData, photo: '', photoUrl: '' })}
                           className="absolute top-2 right-2 bg-rose-600 p-1.5 rounded-full text-white hover:bg-rose-500 shadow"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -1147,22 +1169,36 @@ export default function ClientDirectory({
 
                   {/* Verification Video Upload Section with Progress */}
                   <div className="space-y-2 pt-2 border-t border-slate-800">
-                    <label className="block text-xs font-semibold text-slate-300">Verification Video (MP4, WebM supported)</label>
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                      <label className={`cursor-pointer bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 px-4 py-3 rounded-xl font-bold text-xs flex items-center gap-2 transition-colors shadow ${uploadingVideo ? 'opacity-50 pointer-events-none' : ''}`}>
-                        <Upload className="w-4 h-4 text-pink-500" />
-                        {uploadingVideo ? `Uploading Video... ${uploadProgress}%` : 'Upload Verification Video'}
-                        <input 
-                          type="file" 
-                          accept="video/mp4,video/webm,video/*" 
-                          onChange={handleCompanionVideoUpload} 
-                          className="hidden" 
-                          disabled={uploadingVideo}
-                        />
-                      </label>
-                      {verificationVideoUrl && !uploadingVideo && (
-                        <div className="flex items-center gap-2 text-emerald-400 text-xs font-semibold">
-                          <CheckCircle className="w-4 h-4" /> Video Active & Verified
+                    <h3 className="text-sm font-semibold text-white">Verification Video Upload</h3>
+                    <p className="text-xs text-slate-400">
+                      Note: You must save and publish your profile ad above before uploading your verification video.
+                    </p>
+                    <div className="flex flex-col space-y-3">
+                      <input
+                        type="file"
+                        accept="video/*"
+                        onChange={handleCompanionVideoUpload}
+                        disabled={uploadingVideo}
+                        className="block w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-pink-500/10 file:text-pink-400 hover:file:bg-pink-500/20 cursor-pointer"
+                      />
+
+                      {uploadingVideo && (
+                        <div className="w-full bg-slate-900 border border-slate-800 rounded-full h-4 overflow-hidden">
+                          <div
+                            className="bg-gradient-to-r from-pink-600 to-purple-600 h-full text-xs text-white text-center leading-none transition-all duration-300 flex items-center justify-center font-bold"
+                            style={{ width: `${uploadProgress}%` }}
+                          >
+                            {uploadProgress}%
+                          </div>
+                        </div>
+                      )}
+
+                      {verificationVideoUrl && (
+                        <div className="mt-4">
+                          <p className="text-xs font-medium text-emerald-400 mb-2 flex items-center gap-1.5">
+                            <CheckCircle size={14} /> Verification video uploaded successfully!
+                          </p>
+                          <video src={verificationVideoUrl} controls className="w-full max-h-64 rounded-xl shadow border border-slate-800" />
                         </div>
                       )}
                     </div>
@@ -1289,7 +1325,7 @@ export default function ClientDirectory({
                       >
                         <div className="relative h-72 overflow-hidden bg-slate-950">
                           <img 
-                            src={lady.photo} 
+                            src={lady.photo || lady.photoUrl} 
                             alt={lady.name} 
                             className="w-full h-full object-cover group-hover:scale-105 transition duration-500" 
                           />
@@ -1313,7 +1349,7 @@ export default function ClientDirectory({
                             </div>
                             <div className="bg-slate-950/80 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-xl text-right">
                               <span className="text-[9px] text-slate-400 block font-bold">RATE</span>
-                              <span className="text-emerald-400 font-black text-xs">ZMW {lady.price}</span>
+                              <span className="text-emerald-400 font-black text-xs">ZMW {lady.price || lady.rate}</span>
                             </div>
                           </div>
                         </div>
