@@ -42,12 +42,12 @@ export default function ClientDirectory({
   const [newContent, setNewContent] = useState('');
   const [newVisibility, setNewVisibility] = useState('all');
 
-  // Advertisement Form State & Sticker State
+  // Advertisement Form State & Default Logo Sticker State
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isSaved, setIsSaved] = useState(false);
-  const [selectedSticker, setSelectedSticker] = useState(null);
+  const [selectedSticker, setSelectedSticker] = useState('/logo.jpg');
   
   const initialName = currentUser?.username && !['female', 'lady', 'client'].includes(currentUser.username.toLowerCase()) 
     ? currentUser.username 
@@ -207,7 +207,7 @@ export default function ClientDirectory({
     window.open(`https://wa.me/${adminPhone}?text=${supportMsg}`, '_blank');
   };
 
-  // 4. Handle Clean Photo Upload with 5MB Limit and Validation
+  // 4. Handle Clean Photo Upload with 5MB Limit and Automatically Apply logo.jpg Sticker
   const handleCleanPhotoUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -230,11 +230,15 @@ export default function ClientDirectory({
         photo: reader.result,
         photoUrl: reader.result
       }));
+      // Automatically default sticker to logo.jpg if none is explicitly chosen yet
+      if (!selectedSticker) {
+        setSelectedSticker('/logo.jpg');
+      }
     };
     reader.readAsDataURL(file);
   };
 
-  // Canvas helper to bake sticker directly into image before upload
+  // Canvas helper to bake sticker (logo.jpg or emoji) directly into image before upload
   const bakeStickerToImage = (imageSrc, sticker) => {
     return new Promise((resolve) => {
       if (!sticker || !imageSrc) {
@@ -250,20 +254,34 @@ export default function ClientDirectory({
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0);
 
-        // Draw sticker over the face area
-        ctx.font = `${Math.floor(canvas.width * 0.22)}px serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(sticker, canvas.width / 2, canvas.height * 0.35);
-
-        resolve(canvas.toDataURL('image/jpeg', 0.9));
+        if (sticker.startsWith('/') || sticker.includes('.')) {
+          // It's an image file sticker like logo.jpg
+          const stickerImg = new Image();
+          stickerImg.crossOrigin = 'anonymous';
+          stickerImg.onload = () => {
+            const size = canvas.width * 0.28; // 28% width for privacy mask
+            const x = (canvas.width - size) / 2;
+            const y = canvas.height * 0.25;
+            ctx.drawImage(stickerImg, x, y, size, size);
+            resolve(canvas.toDataURL('image/jpeg', 0.9));
+          };
+          stickerImg.onerror = () => resolve(canvas.toDataURL('image/jpeg', 0.9));
+          stickerImg.src = sticker;
+        } else {
+          // Emoji sticker fallback
+          ctx.font = `${Math.floor(canvas.width * 0.22)}px serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(sticker, canvas.width / 2, canvas.height * 0.35);
+          resolve(canvas.toDataURL('image/jpeg', 0.9));
+        }
       };
       img.onerror = () => resolve(imageSrc);
       img.src = imageSrc;
     });
   };
 
-  // 5. Save and Publish Ad using POST to prevent 404 PUT errors
+  // 5. Save and Publish Ad using POST
   const handleSaveLadyProfileManual = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -271,7 +289,6 @@ export default function ClientDirectory({
     setSuccessMessage('');
 
     try {
-      // Bake selected sticker onto photo if attached
       let finalPhoto = newAdData.photo;
       if (selectedSticker && finalPhoto) {
         finalPhoto = await bakeStickerToImage(finalPhoto, selectedSticker);
@@ -1093,7 +1110,7 @@ export default function ClientDirectory({
                     ></textarea>
                   </div>
 
-                  {/* Photo Upload & Sticker Overlay Section */}
+                  {/* Photo Upload & Default Logo Sticker Overlay Section */}
                   <div className="space-y-3">
                     <label className="block text-xs font-semibold text-slate-300">Advertisement Photo (Max 5MB)</label>
                     <div className="flex items-center gap-4">
@@ -1108,7 +1125,7 @@ export default function ClientDirectory({
                       </label>
                       {newAdData.photo && (
                         <div className="flex items-center gap-2 text-emerald-400 text-xs font-semibold">
-                          <CheckCircle className="w-4 h-4" /> Photo attached successfully
+                          <CheckCircle className="w-4 h-4" /> Photo attached successfully (Logo Sticker Default Applied)
                         </div>
                       )}
                     </div>
@@ -1118,10 +1135,14 @@ export default function ClientDirectory({
                         <div className="relative w-32 h-32 rounded-2xl overflow-hidden border border-slate-800 bg-slate-950">
                           <img src={newAdData.photo} alt="Preview" className="w-full h-full object-cover" />
                           
-                          {/* Render Sticker on Face Preview */}
+                          {/* Render Logo Sticker / Mask on Face Preview */}
                           {selectedSticker && (
-                            <div className="absolute top-1/3 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-3xl select-none cursor-move">
-                              {selectedSticker}
+                            <div className="absolute top-1/3 left-1/2 transform -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none">
+                              {selectedSticker.startsWith('/') ? (
+                                <img src={selectedSticker} alt="Default Logo Mask" className="w-12 h-12 rounded-full object-cover border-2 border-pink-500 shadow-lg" />
+                              ) : (
+                                <span className="text-3xl">{selectedSticker}</span>
+                              )}
                             </div>
                           )}
                         </div>
@@ -1129,7 +1150,7 @@ export default function ClientDirectory({
                           type="button"
                           onClick={() => {
                             setNewAdData({ ...newAdData, photo: '', photoUrl: '' });
-                            setSelectedSticker(null);
+                            setSelectedSticker('/logo.jpg');
                           }}
                           className="absolute -top-2 -right-2 bg-rose-600 p-1.5 rounded-full text-white hover:bg-rose-500 shadow"
                           title="Remove Photo"
@@ -1142,8 +1163,22 @@ export default function ClientDirectory({
                     {/* Sticker / Mask Selector Toolbar */}
                     {newAdData.photo && (
                       <div className="mt-3 p-3 bg-slate-900/60 rounded-xl border border-slate-800 max-w-md">
-                        <p className="text-xs text-slate-400 mb-2 font-medium">Add Privacy Sticker / Mask to Face:</p>
+                        <p className="text-xs text-slate-400 mb-2 font-medium">Privacy Sticker / Mask (Default: logo.jpg):</p>
                         <div className="flex gap-2 flex-wrap items-center">
+                          {/* Default Logo Option */}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedSticker('/logo.jpg')}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border cursor-pointer flex items-center gap-2 ${
+                              selectedSticker === '/logo.jpg' 
+                                ? 'bg-pink-500/20 border-pink-500 text-white' 
+                                : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'
+                            }`}
+                          >
+                            <img src="/logo.jpg" alt="Logo" className="w-5 h-5 rounded-full object-cover" />
+                            Default Logo
+                          </button>
+
                           {['🕶️', '🐱', '⭐', '❤️', '🦊', '🙈'].map((sticker) => (
                             <button
                               type="button"
@@ -1158,15 +1193,6 @@ export default function ClientDirectory({
                               {sticker}
                             </button>
                           ))}
-                          {selectedSticker && (
-                            <button
-                              type="button"
-                              onClick={() => setSelectedSticker(null)}
-                              className="text-xs text-rose-400 hover:underline ml-auto cursor-pointer font-semibold"
-                            >
-                              Clear Sticker
-                            </button>
-                          )}
                         </div>
                       </div>
                     )}
