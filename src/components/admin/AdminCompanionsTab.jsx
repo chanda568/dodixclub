@@ -1,5 +1,5 @@
 // src/components/admin/AdminCompanionsTab.jsx
-import React from 'react';
+import React, { useState } from 'react';
 import { Video, Search, X, RefreshCw, MapPin, Eye, Edit3, Trash2, ShieldCheck, CheckCircle2, User } from 'lucide-react';
 
 export default function AdminCompanionsTab({
@@ -12,6 +12,13 @@ export default function AdminCompanionsTab({
   setFullScreenImage,
   setFullScreenVideo
 }) {
+  // Track failed image loads per companion ID/index to show fallback smoothly
+  const [imageErrors, setImageErrors] = useState({});
+
+  const handleImageError = (key) => {
+    setImageErrors(prev => ({ ...prev, [key]: true }));
+  };
+
   const filteredLadies = ladies.filter(lady => {
     const name = lady.name || lady.username || '';
     return name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -68,22 +75,23 @@ export default function AdminCompanionsTab({
           </div>
         ) : (
           filteredLadies.map((lady, i) => {
+            const companionKey = lady._id || i;
             const displayName = lady.name || lady.username || 'Companion';
-            // Robust check for photo/image fields first
             const mediaUrl = lady.photo || lady.imageUrl || lady.image;
             const videoSource = lady.videoUrl || lady.verificationVideoUrl;
-            const isVideo = videoSource && videoSource.match(/\.(mp4|webm|ogg|mov)$/i);
+            const hasValidImage = mediaUrl && !imageErrors[companionKey];
 
             return (
-              <div key={lady._id || i} className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 flex flex-col justify-between space-y-4 hover:border-slate-700 transition">
+              <div key={companionKey} className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 flex flex-col justify-between space-y-4 hover:border-slate-700 transition">
                 <div className="flex items-start gap-3">
                   <div className="relative w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-slate-800 border border-slate-700 flex items-center justify-center">
-                    {mediaUrl ? (
+                    {hasValidImage ? (
                       <img 
                         src={mediaUrl} 
                         alt={displayName} 
                         className="w-full h-full object-cover cursor-pointer hover:scale-105 transition"
                         onClick={() => setFullScreenImage(mediaUrl)}
+                        onError={() => handleImageError(companionKey)}
                       />
                     ) : videoSource ? (
                       <video 
