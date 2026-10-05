@@ -164,8 +164,6 @@ async function seedDefaultAdmin() {
   }
 }
 
-const activeClients = new Map();
-
 // ==========================================
 // 2. Express REST API Routes
 // ==========================================
@@ -320,7 +318,7 @@ app.post('/api/ladies', async (req, res) => {
   }
 });
 
-// Private Verification Video Upload Endpoint (Admin & Companion Use)
+// Private Verification Video Upload Endpoint
 app.post('/api/ladies/:identifier/upload-video', async (req, res) => {
   try {
     const cleanId = req.params.identifier.toLowerCase().trim();

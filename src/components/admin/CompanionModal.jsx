@@ -1,8 +1,8 @@
 // src/components/admin/CompanionModal.jsx
 import React, { useState } from 'react';
-import { X, Eye, EyeOff, DollarSign, Video, Check, User, Upload, Loader2, ShieldCheck } from 'lucide-react';
+import { X, Eye, EyeOff, DollarSign, Video, Check, User, Upload, Loader2 } from 'lucide-react';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || 'https://dodixclub-backend.onrender.com').replace(/\/+$/, '');
 
 export default function CompanionModal({ companion, onClose, onSavePrice, loadBackendData }) {
   const [isFaceRevealed, setIsFaceRevealed] = useState(false);
@@ -54,6 +54,10 @@ export default function CompanionModal({ companion, onClose, onSavePrice, loadBa
         setUploadingVideo(false);
       }
     };
+    reader.onerror = (error) => {
+      console.error('Error reading file:', error);
+      alert('Failed to read video file.');
+    };
   };
 
   const rawPhoto = isFaceRevealed 
@@ -70,8 +74,8 @@ export default function CompanionModal({ companion, onClose, onSavePrice, loadBa
         
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950">
-          <h3 className="text-sm font-bold text-white truncate pr-4 flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-pink-500" /> Companion Inspection: {displayName}
+          <h3 className="text-sm font-bold text-white truncate pr-4">
+            Companion Inspection: {displayName}
           </h3>
           <button 
             onClick={onClose}
@@ -141,63 +145,66 @@ export default function CompanionModal({ companion, onClose, onSavePrice, loadBa
             </div>
           </form>
 
-          {/* Verification Video Section (Admin View Only) */}
-          <div className="space-y-3 bg-slate-950 p-4 rounded-xl border border-slate-800">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                <Video className="w-4 h-4 text-pink-500" /> Private Admin Verification Video
-              </label>
-              <span className="text-[10px] bg-pink-500/10 text-pink-400 px-2 py-0.5 rounded-full border border-pink-500/20 font-medium">Hidden from Public</span>
-            </div>
-
-            {companion.verificationVideoUrl ? (
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedVideo(companion.verificationVideoUrl)}
-                  className="w-full flex items-center justify-between p-3 bg-slate-900 hover:bg-slate-800/80 border border-slate-800 rounded-xl transition-colors text-left cursor-pointer"
-                >
-                  <div className="flex items-center gap-2">
+          {/* Existing Videos Section */}
+          {(companion.verificationVideoUrl || (companion.videos && companion.videos.length > 0)) && (
+            <div className="space-y-3">
+              <label className="text-xs font-semibold text-slate-300">Verification / Showcase Videos</label>
+              <div className="grid grid-cols-2 gap-3">
+                {companion.verificationVideoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedVideo(companion.verificationVideoUrl)}
+                    className="flex items-center gap-2 p-3 bg-slate-950 hover:bg-slate-800/80 border border-slate-800 rounded-xl transition-colors text-left cursor-pointer"
+                  >
                     <Video className="w-5 h-5 text-indigo-400 shrink-0" />
-                    <span className="text-xs text-slate-200 font-medium">Play Verification Video</span>
-                  </div>
-                  <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-1 rounded-lg">Available</span>
-                </button>
-              </div>
-            ) : (
-              <p className="text-xs text-slate-500 italic">No verification video uploaded by companion yet.</p>
-            )}
-
-            {/* Upload/Replace Video By Admin */}
-            <div className="pt-2">
-              <label className={`flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-700 hover:border-pink-500 rounded-xl cursor-pointer transition-colors bg-slate-900/50 ${uploadingVideo ? 'opacity-50 pointer-events-none' : ''}`}>
-                {uploadingVideo ? (
-                  <div className="flex items-center gap-2 text-xs text-slate-300">
-                    <Loader2 className="w-5 h-5 animate-spin text-pink-500" /> Uploading to S3...
-                  </div>
-                ) : (
-                  <>
-                    <Upload className="w-5 h-5 text-slate-400 mb-1" />
-                    <span className="text-xs font-bold text-slate-200">{companion.verificationVideoUrl ? 'Replace Verification Video' : 'Upload Verification Video'}</span>
-                    <span className="text-[10px] text-slate-500">MP4, WebM supported</span>
-                  </>
+                    <span className="text-xs text-slate-200 truncate">Verification Video</span>
+                  </button>
                 )}
-                <input 
-                  type="file" 
-                  accept="video/*" 
-                  onChange={handleVideoUpload} 
-                  className="hidden" 
-                  disabled={uploadingVideo}
-                />
-              </label>
+                {companion.videos && companion.videos.map((vid, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setSelectedVideo(vid)}
+                    className="flex items-center gap-2 p-3 bg-slate-950 hover:bg-slate-800/80 border border-slate-800 rounded-xl transition-colors text-left cursor-pointer"
+                  >
+                    <Video className="w-5 h-5 text-indigo-400 shrink-0" />
+                    <span className="text-xs text-slate-200 truncate">Video #{idx + 1}</span>
+                  </button>
+                ))}
+              </div>
             </div>
+          )}
+
+          {/* Upload New Video Section */}
+          <div className="space-y-2 bg-slate-950 p-4 rounded-xl border border-slate-800">
+            <label className="block text-xs font-semibold text-slate-300">Upload New Verification Video</label>
+            <label className={`flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-700 hover:border-pink-500 rounded-xl cursor-pointer transition-colors bg-slate-900/50 ${uploadingVideo ? 'opacity-50 pointer-events-none' : ''}`}>
+              {uploadingVideo ? (
+                <div className="flex items-center gap-2 text-xs text-slate-300">
+                  <Loader2 className="w-5 h-5 animate-spin text-pink-500" /> Uploading to S3...
+                </div>
+              ) : (
+                <>
+                  <Upload className="w-5 h-5 text-slate-400 mb-1" />
+                  <span className="text-xs font-bold text-slate-200">Click to select video file</span>
+                  <span className="text-[10px] text-slate-500">MP4, WebM supported</span>
+                </>
+              )}
+              <input 
+                type="file" 
+                accept="video/*" 
+                onChange={handleVideoUpload} 
+                className="hidden" 
+                disabled={uploadingVideo}
+              />
+            </label>
           </div>
 
         </div>
 
-        {/* Fullscreen Video Playback Modal */}
+        {/* Fullscreen Video Modal Sub-View */}
         {selectedVideo && (
-          <div className="absolute inset-0 z-60 bg-black/95 flex flex-col items-center justify-center p-4">
+          <div className="absolute inset-0 z-60 bg-black/90 flex flex-col items-center justify-center p-4">
             <button 
               onClick={() => setSelectedVideo(null)}
               className="absolute top-4 right-4 text-slate-400 hover:text-white p-2 bg-slate-800 rounded-full cursor-pointer"
