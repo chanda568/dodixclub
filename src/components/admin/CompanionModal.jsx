@@ -1,14 +1,11 @@
 // src/components/admin/CompanionModal.jsx
 import React, { useState } from 'react';
-import { X, Eye, EyeOff, DollarSign, Video, Check, User, Upload, Loader2, ShieldCheck, AlertCircle } from 'lucide-react';
+import { X, Eye, EyeOff, DollarSign, Video, Check, User, ShieldCheck, AlertCircle } from 'lucide-react';
 
-const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || 'https://dodixclub-backend.onrender.com').replace(/\/+$/, '');
-
-export default function CompanionModal({ companion, onClose, onSavePrice, loadBackendData }) {
+export default function CompanionModal({ companion, onClose, onSavePrice }) {
   const [isFaceRevealed, setIsFaceRevealed] = useState(false);
   const [price, setPrice] = useState(companion?.price || '');
   const [selectedVideo, setSelectedVideo] = useState(null);
-  const [uploadingVideo, setUploadingVideo] = useState(false);
 
   if (!companion) return null;
 
@@ -18,47 +15,6 @@ export default function CompanionModal({ companion, onClose, onSavePrice, loadBa
   const handlePriceSubmit = (e) => {
     e.preventDefault();
     onSavePrice(companionId, price);
-  };
-
-  const handleVideoUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('video/')) {
-      alert('Please select a valid video file.');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = async () => {
-      const base64Video = reader.result;
-      setUploadingVideo(true);
-
-      try {
-        const response = await fetch(`${BACKEND_URL}/api/ladies/${companionId}/upload-video`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ videoBase64: base64Video, videoName: file.name })
-        });
-        const data = await response.json();
-        if (data.success) {
-          alert('Verification video uploaded successfully to S3!');
-          if (loadBackendData) loadBackendData();
-        } else {
-          alert(data.error || 'Failed to upload video.');
-        }
-      } catch (err) {
-        console.error('Error uploading video:', err);
-        alert('Network error while uploading video.');
-      } finally {
-        setUploadingVideo(false);
-      }
-    };
-    reader.onerror = (error) => {
-      console.error('Error reading file:', error);
-      alert('Failed to read video file.');
-    };
   };
 
   const rawPhoto = isFaceRevealed 
@@ -85,7 +41,7 @@ export default function CompanionModal({ companion, onClose, onSavePrice, loadBa
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shrink-0">
-                <AlertCircle size={12} /> Video Pending
+                <AlertCircle size={12} /> Video Pending Review
               </span>
             )}
           </div>
@@ -157,59 +113,38 @@ export default function CompanionModal({ companion, onClose, onSavePrice, loadBa
             </div>
           </form>
 
-          {/* Existing Videos Section */}
-          {(companion.verificationVideoUrl || (companion.videos && companion.videos.length > 0)) && (
-            <div className="space-y-3">
-              <label className="text-xs font-semibold text-slate-300">Verification / Showcase Videos</label>
-              <div className="grid grid-cols-2 gap-3">
-                {companion.verificationVideoUrl && (
+          {/* Verification Video Review / Receiver Section */}
+          <div className="space-y-3 bg-slate-950 p-4 rounded-2xl border border-slate-800">
+            <label className="block text-xs font-semibold text-slate-300">Companion Verification Video (Admin Review)</label>
+            {hasVerificationVideo ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-emerald-400 font-bold flex items-center gap-1.5">
+                    <ShieldCheck size={14} /> Video uploaded by companion
+                  </span>
                   <button
                     type="button"
                     onClick={() => setSelectedVideo(companion.verificationVideoUrl)}
-                    className="flex items-center gap-2 p-3 bg-slate-950 hover:bg-slate-800/80 border border-slate-800 rounded-xl transition-colors text-left cursor-pointer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-pink-600 hover:bg-pink-500 text-white rounded-xl text-xs font-bold transition shadow cursor-pointer"
                   >
-                    <Video className="w-5 h-5 text-indigo-400 shrink-0" />
-                    <span className="text-xs text-slate-200 truncate">Verification Video</span>
+                    <Video size={14} /> Play Fullscreen
                   </button>
-                )}
-                {companion.videos && companion.videos.map((vid, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setSelectedVideo(vid)}
-                    className="flex items-center gap-2 p-3 bg-slate-950 hover:bg-slate-800/80 border border-slate-800 rounded-xl transition-colors text-left cursor-pointer"
-                  >
-                    <Video className="w-5 h-5 text-indigo-400 shrink-0" />
-                    <span className="text-xs text-slate-200 truncate">Video #{idx + 1}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Upload New Video Section */}
-          <div className="space-y-2 bg-slate-950 p-4 rounded-2xl border border-slate-800">
-            <label className="block text-xs font-semibold text-slate-300">Upload / Update Verification Video</label>
-            <label className={`flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-700 hover:border-pink-500 rounded-xl cursor-pointer transition-colors bg-slate-900/50 ${uploadingVideo ? 'opacity-50 pointer-events-none' : ''}`}>
-              {uploadingVideo ? (
-                <div className="flex items-center gap-2 text-xs text-slate-300">
-                  <Loader2 className="w-5 h-5 animate-spin text-pink-500" /> Uploading to S3...
                 </div>
-              ) : (
-                <>
-                  <Upload className="w-5 h-5 text-slate-400 mb-1" />
-                  <span className="text-xs font-bold text-slate-200">Click to select video file</span>
-                  <span className="text-[10px] text-slate-500">MP4, WebM supported</span>
-                </>
-              )}
-              <input 
-                type="file" 
-                accept="video/*" 
-                onChange={handleVideoUpload} 
-                className="hidden" 
-                disabled={uploadingVideo}
-              />
-            </label>
+                <div className="relative rounded-xl overflow-hidden bg-black aspect-video max-h-48 flex items-center justify-center border border-slate-800">
+                  <video 
+                    src={companion.verificationVideoUrl} 
+                    className="w-full h-full object-cover"
+                    controls
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="py-6 text-center space-y-2 bg-slate-900/50 rounded-xl border border-dashed border-slate-800">
+                <AlertCircle className="w-6 h-6 text-amber-400 mx-auto opacity-80" />
+                <p className="text-xs text-slate-400 font-medium">No verification video uploaded by this companion yet.</p>
+                <span className="text-[10px] text-slate-500 block">Companions upload their verification video directly from their portal dashboard.</span>
+              </div>
+            )}
           </div>
 
         </div>

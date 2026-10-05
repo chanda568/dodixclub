@@ -48,6 +48,10 @@ export default function ClientDirectory({
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   
+  // Video Upload State Variables
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [verificationVideoUrl, setVerificationVideoUrl] = useState(currentUser?.verificationVideoUrl || '');
+  
   const initialName = currentUser?.username && !['female', 'lady', 'client'].includes(currentUser.username.toLowerCase()) 
     ? currentUser.username 
     : '';
@@ -103,7 +107,7 @@ export default function ClientDirectory({
       try {
         const usersDbKey = 'dodix_users_db';
         const savedUsers = localStorage.getItem(usersDbKey);
-        let usersList = savedUsers ? (decryptStorageData(savedUsers) || []) : [];
+        let usersList = savedUsers ? (decryptStorageData(usersDbKey) || []) : [];
 
         const nowIso = new Date().toISOString();
         const userIndex = usersList.findIndex(u => u.username?.toLowerCase() === currentUser.username.toLowerCase());
@@ -227,6 +231,45 @@ export default function ClientDirectory({
     reader.readAsDataURL(file);
   };
 
+  // Handler for companion video upload
+  const handleCompanionVideoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('video/')) {
+      alert('Please select a valid video file (MP4, WebM).');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = async () => {
+      const base64Video = reader.result;
+      setUploadingVideo(true);
+
+      try {
+        const identifier = currentUser._id || currentUser.id || currentUser.username;
+        const response = await fetch(`${BACKEND_URL}/api/ladies/${identifier}/upload-video`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ videoBase64: base64Video, videoName: file.name })
+        });
+        const data = await response.json();
+        if (data.success) {
+          setVerificationVideoUrl(data.verificationVideoUrl || base64Video);
+          alert('Verification video successfully uploaded!');
+        } else {
+          alert(data.error || 'Failed to upload video.');
+        }
+      } catch (err) {
+        console.error('Error uploading video:', err);
+        alert('Network error while uploading video.');
+      } finally {
+        setUploadingVideo(false);
+      }
+    };
+  };
+
   // 5. Submit Profile / Advertisement Data to Backend
   const handleSaveLadyProfileManual = async (e) => {
     e.preventDefault();
@@ -244,7 +287,8 @@ export default function ClientDirectory({
           ...newAdData,
           username: currentUser.username,
           price: newAdData.rate,
-          extraServices: newAdData.bio
+          extraServices: newAdData.bio,
+          verificationVideoUrl
         })
       });
 
@@ -1080,6 +1124,29 @@ export default function ClientDirectory({
                         </button>
                       </div>
                     )}
+                  </div>
+
+                  {/* Verification Video Upload Section (Companion Side) */}
+                  <div className="space-y-2 pt-2 border-t border-slate-800">
+                    <label className="block text-xs font-semibold text-slate-300">Verification Video (MP4, WebM supported)</label>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                      <label className={`cursor-pointer bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 px-4 py-3 rounded-xl font-bold text-xs flex items-center gap-2 transition-colors shadow ${uploadingVideo ? 'opacity-50 pointer-events-none' : ''}`}>
+                        <Upload className="w-4 h-4 text-pink-500" />
+                        {uploadingVideo ? 'Uploading Video...' : 'Upload Verification Video'}
+                        <input 
+                          type="file" 
+                          accept="video/mp4,video/webm,video/*" 
+                          onChange={handleCompanionVideoUpload} 
+                          className="hidden" 
+                          disabled={uploadingVideo}
+                        />
+                      </label>
+                      {verificationVideoUrl && (
+                        <div className="flex items-center gap-2 text-emerald-400 text-xs font-semibold">
+                          <CheckCircle className="w-4 h-4" /> Video Active & Verified
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Action Button */}
