@@ -42,11 +42,12 @@ export default function ClientDirectory({
   const [newContent, setNewContent] = useState('');
   const [newVisibility, setNewVisibility] = useState('all');
 
-  // Advertisement Form State
+  // Advertisement Form State & Sticker State
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isSaved, setIsSaved] = useState(false);
+  const [selectedSticker, setSelectedSticker] = useState(null);
   
   const initialName = currentUser?.username && !['female', 'lady', 'client'].includes(currentUser.username.toLowerCase()) 
     ? currentUser.username 
@@ -233,6 +234,35 @@ export default function ClientDirectory({
     reader.readAsDataURL(file);
   };
 
+  // Canvas helper to bake sticker directly into image before upload
+  const bakeStickerToImage = (imageSrc, sticker) => {
+    return new Promise((resolve) => {
+      if (!sticker || !imageSrc) {
+        resolve(imageSrc);
+        return;
+      }
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || img.width;
+        canvas.height = img.naturalHeight || img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+
+        // Draw sticker over the face area
+        ctx.font = `${Math.floor(canvas.width * 0.22)}px serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(sticker, canvas.width / 2, canvas.height * 0.35);
+
+        resolve(canvas.toDataURL('image/jpeg', 0.9));
+      };
+      img.onerror = () => resolve(imageSrc);
+      img.src = imageSrc;
+    });
+  };
+
   // 5. Save and Publish Ad using POST to prevent 404 PUT errors
   const handleSaveLadyProfileManual = async (e) => {
     e.preventDefault();
@@ -241,11 +271,19 @@ export default function ClientDirectory({
     setSuccessMessage('');
 
     try {
+      // Bake selected sticker onto photo if attached
+      let finalPhoto = newAdData.photo;
+      if (selectedSticker && finalPhoto) {
+        finalPhoto = await bakeStickerToImage(finalPhoto, selectedSticker);
+      }
+
       const response = await fetch(`${BACKEND_URL}/api/ladies`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...newAdData,
+          photo: finalPhoto,
+          photoUrl: finalPhoto,
           username: currentUser.username,
           price: newAdData.rate,
           extraServices: newAdData.bio
@@ -1055,8 +1093,8 @@ export default function ClientDirectory({
                     ></textarea>
                   </div>
 
-                  {/* Photo Upload Section */}
-                  <div className="space-y-2">
+                  {/* Photo Upload & Sticker Overlay Section */}
+                  <div className="space-y-3">
                     <label className="block text-xs font-semibold text-slate-300">Advertisement Photo (Max 5MB)</label>
                     <div className="flex items-center gap-4">
                       <label className="cursor-pointer bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white px-4 py-3 rounded-xl font-bold text-xs flex items-center gap-2 transition-colors shadow">
@@ -1076,15 +1114,60 @@ export default function ClientDirectory({
                     </div>
 
                     {newAdData.photo && (
-                      <div className="mt-4 relative w-32 h-32 rounded-2xl overflow-hidden border border-slate-800 bg-slate-950">
-                        <img src={newAdData.photo} alt="Preview" className="w-full h-full object-cover" />
+                      <div className="mt-2 relative inline-block">
+                        <div className="relative w-32 h-32 rounded-2xl overflow-hidden border border-slate-800 bg-slate-950">
+                          <img src={newAdData.photo} alt="Preview" className="w-full h-full object-cover" />
+                          
+                          {/* Render Sticker on Face Preview */}
+                          {selectedSticker && (
+                            <div className="absolute top-1/3 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-3xl select-none cursor-move">
+                              {selectedSticker}
+                            </div>
+                          )}
+                        </div>
                         <button 
                           type="button"
-                          onClick={() => setNewAdData({ ...newAdData, photo: '', photoUrl: '' })}
-                          className="absolute top-2 right-2 bg-rose-600 p-1.5 rounded-full text-white hover:bg-rose-500 shadow"
+                          onClick={() => {
+                            setNewAdData({ ...newAdData, photo: '', photoUrl: '' });
+                            setSelectedSticker(null);
+                          }}
+                          className="absolute -top-2 -right-2 bg-rose-600 p-1.5 rounded-full text-white hover:bg-rose-500 shadow"
+                          title="Remove Photo"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
+                      </div>
+                    )}
+
+                    {/* Sticker / Mask Selector Toolbar */}
+                    {newAdData.photo && (
+                      <div className="mt-3 p-3 bg-slate-900/60 rounded-xl border border-slate-800 max-w-md">
+                        <p className="text-xs text-slate-400 mb-2 font-medium">Add Privacy Sticker / Mask to Face:</p>
+                        <div className="flex gap-2 flex-wrap items-center">
+                          {['🕶️', '🐱', '⭐', '❤️', '🦊', '🙈'].map((sticker) => (
+                            <button
+                              type="button"
+                              key={sticker}
+                              onClick={() => setSelectedSticker(sticker === selectedSticker ? null : sticker)}
+                              className={`px-3 py-1.5 rounded-lg text-lg transition border cursor-pointer ${
+                                selectedSticker === sticker 
+                                  ? 'bg-pink-500/20 border-pink-500 text-white' 
+                                  : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'
+                              }`}
+                            >
+                              {sticker}
+                            </button>
+                          ))}
+                          {selectedSticker && (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedSticker(null)}
+                              className="text-xs text-rose-400 hover:underline ml-auto cursor-pointer font-semibold"
+                            >
+                              Clear Sticker
+                            </button>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
