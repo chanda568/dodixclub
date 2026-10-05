@@ -230,7 +230,6 @@ export default function ClientDirectory({
         photo: reader.result,
         photoUrl: reader.result
       }));
-      // Automatically default sticker to logo.jpg if none is explicitly chosen yet
       if (!selectedSticker) {
         setSelectedSticker('/logo.jpg');
       }
@@ -238,7 +237,7 @@ export default function ClientDirectory({
     reader.readAsDataURL(file);
   };
 
-  // Canvas helper to bake sticker (logo.jpg or emoji) directly into image before upload
+  // Canvas helper to bake sticker (clipped in a perfect circle for logo.jpg) directly into image
   const bakeStickerToImage = (imageSrc, sticker) => {
     return new Promise((resolve) => {
       if (!sticker || !imageSrc) {
@@ -262,7 +261,24 @@ export default function ClientDirectory({
             const size = canvas.width * 0.28; // 28% width for privacy mask
             const x = (canvas.width - size) / 2;
             const y = canvas.height * 0.25;
+
+            // Clip drawing context to a circle to avoid square bounding boxes
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2, true);
+            ctx.closePath();
+            ctx.clip();
+
             ctx.drawImage(stickerImg, x, y, size, size);
+            ctx.restore();
+
+            // Optional border ring around the sticker mask
+            ctx.beginPath();
+            ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2, true);
+            ctx.lineWidth = Math.max(2, canvas.width * 0.005);
+            ctx.strokeStyle = '#ec4899'; // pink-500 match
+            ctx.stroke();
+
             resolve(canvas.toDataURL('image/jpeg', 0.9));
           };
           stickerImg.onerror = () => resolve(canvas.toDataURL('image/jpeg', 0.9));
@@ -1125,7 +1141,7 @@ export default function ClientDirectory({
                       </label>
                       {newAdData.photo && (
                         <div className="flex items-center gap-2 text-emerald-400 text-xs font-semibold">
-                          <CheckCircle className="w-4 h-4" /> Photo attached successfully (Logo Sticker Default Applied)
+                          <CheckCircle className="w-4 h-4" /> Photo attached successfully (Circular Logo Mask Applied)
                         </div>
                       )}
                     </div>
