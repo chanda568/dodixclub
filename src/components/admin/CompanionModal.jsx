@@ -1,6 +1,6 @@
 // src/components/admin/CompanionModal.jsx
 import React, { useState } from 'react';
-import { X, Eye, EyeOff, DollarSign, Video, Check, User, Upload, Loader2 } from 'lucide-react';
+import { X, Eye, EyeOff, DollarSign, Video, Check, User, Upload, Loader2, ShieldCheck, AlertCircle } from 'lucide-react';
 
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || 'https://dodixclub-backend.onrender.com').replace(/\/+$/, '');
 
@@ -13,6 +13,7 @@ export default function CompanionModal({ companion, onClose, onSavePrice, loadBa
   if (!companion) return null;
 
   const companionId = companion._id || companion.id;
+  const hasVerificationVideo = Boolean(companion?.verificationVideoUrl);
 
   const handlePriceSubmit = (e) => {
     e.preventDefault();
@@ -70,13 +71,24 @@ export default function CompanionModal({ companion, onClose, onSavePrice, loadBa
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 overflow-y-auto">
-      <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden text-slate-100">
+      <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl overflow-hidden text-slate-100">
         
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950">
-          <h3 className="text-sm font-bold text-white truncate pr-4">
-            Companion Inspection: {displayName}
-          </h3>
+          <div className="flex items-center gap-3 truncate pr-4">
+            <h3 className="text-sm font-bold text-white truncate">
+              {displayName}
+            </h3>
+            {hasVerificationVideo ? (
+              <span className="inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shrink-0">
+                <ShieldCheck size={12} /> Verified Video Active
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shrink-0">
+                <AlertCircle size={12} /> Video Pending
+              </span>
+            )}
+          </div>
           <button 
             onClick={onClose}
             className="text-slate-400 hover:text-white transition-colors p-1.5 rounded-xl hover:bg-slate-800 cursor-pointer"
@@ -123,7 +135,7 @@ export default function CompanionModal({ companion, onClose, onSavePrice, loadBa
           </div>
 
           {/* Price Management */}
-          <form onSubmit={handlePriceSubmit} className="space-y-2 bg-slate-950 p-4 rounded-xl border border-slate-800">
+          <form onSubmit={handlePriceSubmit} className="space-y-2 bg-slate-950 p-4 rounded-2xl border border-slate-800">
             <label className="block text-xs font-semibold text-slate-300">Edit Companion Rate / Price (ZMW)</label>
             <div className="flex gap-3">
               <div className="relative flex-1">
@@ -176,8 +188,8 @@ export default function CompanionModal({ companion, onClose, onSavePrice, loadBa
           )}
 
           {/* Upload New Video Section */}
-          <div className="space-y-2 bg-slate-950 p-4 rounded-xl border border-slate-800">
-            <label className="block text-xs font-semibold text-slate-300">Upload New Verification Video</label>
+          <div className="space-y-2 bg-slate-950 p-4 rounded-2xl border border-slate-800">
+            <label className="block text-xs font-semibold text-slate-300">Upload / Update Verification Video</label>
             <label className={`flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-700 hover:border-pink-500 rounded-xl cursor-pointer transition-colors bg-slate-900/50 ${uploadingVideo ? 'opacity-50 pointer-events-none' : ''}`}>
               {uploadingVideo ? (
                 <div className="flex items-center gap-2 text-xs text-slate-300">
