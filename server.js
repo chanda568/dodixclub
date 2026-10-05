@@ -6,6 +6,7 @@ import { WebSocketServer } from 'ws';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 
 dotenv.config();
 
@@ -18,6 +19,60 @@ app.use(cors());
 
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
+
+// ==========================================
+// 0. AWS S3 Client Configuration
+// ==========================================
+const s3Client = new S3Client({
+  region: process.env.AWS_REGION || 'eu-north-1',
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  }
+});
+
+const BUCKET_NAME = process.env.AWS_BUCKET_NAME || 'dodix-club-media';
+
+async function uploadBase64ToS3(base64String, folder = 'uploads') {
+  if (!base64String || !base64String.startsWith('data:')) {
+    return base64String; // Return as-is if it's already a URL or empty
+  }
+
+  try {
+    const matches = base64String.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+      throw new Error('Invalid base64 string format');
+    }
+
+    const mimeType = matches.1;
+    const buffer = Buffer.from(matches.2, 'base64');
+    
+    // Determine extension from mime type
+    let extension = 'jpg';
+    if (mimeType === 'image/png') extension = 'png';
+    else if (mimeType === 'image/webp') extension = 'webp';
+    else if (mimeType === 'video/mp4') extension = 'mp4';
+    else if (mimeType.includes('video')) extension = 'mp4';
+
+    const fileName = `${folder}/${Date.now()}-${Math.random().toString(36.substring(2, 8))}.${extension}`;
+
+    const command = new PutObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: fileName,
+      Body: buffer,
+      ContentType: mimeType,
+    });
+
+    await s3Client.send(command);
+    
+    // Construct public S3 URL
+    const region = process.env.AWS_REGION || 'eu-north-1';
+    return `https://${BUCKET_NAME}.s3.${region}.amazonaws.com/${fileName}`;
+  } catch (err) {
+    console.error('[S3 Upload Error]:', err);
+    throw err;
+  }
+}
 
 // ==========================================
 // 1. Mongoose Schemas & Models
@@ -338,7 +393,7 @@ app.delete('/api/reports/:id', async (req, res) => {
   }
 });
 
-// Companions / Ads Routes
+// Companions / Ads Routes (With AWS S3 Media Offloading)
 app.get('/api/ladies', async (req, res) => {
   try {
     const { location, category, status } = req.query;
@@ -370,8 +425,19 @@ app.post('/api/ladies', async (req, res) => {
       return res.json({ success: false, error: "Required fields missing." });
     }
 
+    // Upload base64 media fields to AWS S3 if present
+    console.log('[S3 Upload] Processing media attachments for new ad...');
+    const uploadedPhoto = await uploadBase64ToS3(profileData.photo, 'photos');
+    const uploadedOriginalPhoto = await uploadBase64ToS3(profileData.originalPhoto, 'originals');
+    const uploadedUnmaskedPhoto = await uploadBase64ToS3(profileData.unmaskedPhoto, 'unmasked');
+    const uploadedVerificationVideo = await uploadBase64ToS3(profileData.verificationVideoUrl, 'videos');
+
     const newCompanionAd = new Companion({
       ...profileData,
+      photo: uploadedPhoto,
+      originalPhoto: uploadedOriginalPhoto,
+      unmaskedPhoto: uploadedUnmaskedPhoto,
+      verificationVideoUrl: uploadedVerificationVideo,
       username: profileData.username.toLowerCase().trim(),
       status: 'pending',
       approved: false,
@@ -380,8 +446,10 @@ app.post('/api/ladies', async (req, res) => {
     });
 
     await newCompanionAd.save();
+    console.log('[S3 Upload] Advertisement created successfully with S3 links.');
     res.json({ success: true, companion: newCompanionAd });
   } catch (err) {
+    console.error('[API Ladies Create Error]:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
