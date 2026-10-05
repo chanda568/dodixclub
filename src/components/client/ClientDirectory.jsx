@@ -1,7 +1,7 @@
 // src/components/client/ClientDirectory.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  LogOut, MessageSquare, Sparkles, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, Crown, ShieldAlert, RefreshCw, CheckCircle, Flag, ChevronRight, Heart, CreditCard, Settings, Send, Upload, Image as ImageIcon, History as HistoryIcon, Bell, Plus, Trash2, Shield, Check, MessageCircle, Activity, Circle, Loader2
+  LogOut, MessageSquare, Sparkles, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, Crown, ShieldAlert, RefreshCw, CheckCircle, Flag, ChevronRight, Heart, CreditCard, Settings, Send, Upload, Image as ImageIcon, History as HistoryIcon, Bell, Plus, Trash2, Shield, Check, MessageCircle, Activity, Circle, Loader2, DollarSign, AlertCircle, Save, Camera, Phone
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LOGO_URL } from '../../data/constants';
@@ -30,7 +30,6 @@ export default function ClientDirectory({
   const [reportReason, setReportReason] = useState('');
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
   const [isRefreshingCatalog, setIsRefreshingCatalog] = useState(false);
-  const [isStickerProcessing, setIsStickerProcessing] = useState(false);
   
   const userLockedLocation = currentUser?.location || 'Lusaka';
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -43,6 +42,36 @@ export default function ClientDirectory({
   const [newTitle, setNewTitle] = useState('');
   const [newContent, setNewContent] = useState('');
   const [newVisibility, setNewVisibility] = useState('all');
+
+  // New Advertisement Form State (Integrated)
+  const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  
+  const initialName = currentUser?.username && !['female', 'lady', 'client'].includes(currentUser.username.toLowerCase()) 
+    ? currentUser.username 
+    : '';
+
+  const [newAdData, setNewAdData] = useState({
+    name: initialName,
+    category: 'VIP',
+    location: userLockedLocation,
+    phone: '',
+    rate: '',
+    photo: '',
+    bio: ''
+  });
+
+  const [profileHistory, setProfileHistory] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`dodix_history_${currentUser?.username}`);
+      return saved ? (decryptStorageData(saved) || []) : [
+        { id: 1, action: 'Profile Initialized', timestamp: new Date().toISOString(), status: 'Ready' }
+      ];
+    } catch {
+      return [];
+    }
+  });
 
   // 1. Sync Live Listings from Backend on Mount
   const fetchBackendLadies = async (isManual = false) => {
@@ -128,7 +157,7 @@ export default function ClientDirectory({
           {
             id: 2,
             title: 'Exclusive Notice for Female Companions',
-            content: 'Please ensure your masked advertisement photos are updated regularly. You can post advertisements without daily limits.',
+            content: 'Please ensure your advertisement photos and details are updated regularly.',
             visibility: 'female',
             timestamp: new Date().toISOString()
           }
@@ -172,178 +201,94 @@ export default function ClientDirectory({
     window.open(`https://wa.me/${adminPhone}?text=${supportMsg}`, '_blank');
   };
 
-  const initialName = currentUser?.username && !['female', 'lady', 'client'].includes(currentUser.username.toLowerCase()) 
-    ? currentUser.username 
-    : '';
-
-  const [formName, setFormName] = useState(initialName);
-  const [formCategory, setFormCategory] = useState('VIP');
-  const [formPrice, setFormPrice] = useState('');
-  const [formLocation, setFormLocation] = useState(userLockedLocation);
-  const [formSpecific, setFormSpecific] = useState('');
-  const [formPhone, setFormPhone] = useState('');
-  const [formPhoto, setFormPhoto] = useState('');         
-  const [originalPhoto, setOriginalPhoto] = useState(''); 
-  const [formAge, setFormAge] = useState('23');
-  const [formHosting, setFormHosting] = useState('Yes');
-  const [formServices, setFormServices] = useState('');
-
-  const [rawImageForSticker, setRawImageForSticker] = useState(null);
-  const [stickerPosition, setStickerPosition] = useState({ x: 50, y: 30, size: 62 });
-  const [isDraggingSticker, setIsDraggingSticker] = useState(false);
-  const stickerContainerRef = useRef(null);
-
-  const [isSubmittingAd, setIsSubmittingAd] = useState(false);
-
-  const [profileHistory, setProfileHistory] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`dodix_history_${currentUser?.username}`);
-      return saved ? (decryptStorageData(saved) || []) : [
-        { id: 1, action: 'Profile Initialized', timestamp: new Date().toISOString(), status: 'Ready' }
-      ];
-    } catch {
-      return [];
-    }
-  });
-
+  // 4. Handle Clean Photo Upload with 5MB Limit and Validation
   const handleCleanPhotoUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      alert("Please upload a valid image file.");
+      setErrorMessage('Please upload a valid image file.');
       return;
     }
 
-    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
-    if (file.size > MAX_FILE_SIZE) {
-      alert("File size exceeds 5MB limit. Please choose a smaller image.");
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMessage('File size must be under 5MB.');
       return;
     }
 
+    setErrorMessage('');
     const reader = new FileReader();
     reader.onloadend = () => {
-      const base64 = reader.result;
-      setOriginalPhoto(base64);
-      setRawImageForSticker(base64);
-      setStickerPosition({ x: 50, y: 30, size: 62 });
+      setNewAdData((prev) => ({
+        ...prev,
+        photo: reader.result
+      }));
     };
     reader.readAsDataURL(file);
   };
 
-  const handleApplyStickerAndSave = () => {
-    if (!rawImageForSticker) return;
-    setIsStickerProcessing(true);
-
-    setTimeout(() => {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-
-        ctx.drawImage(img, 0, 0);
-
-        const stickerImg = new Image();
-        stickerImg.crossOrigin = "anonymous";
-        stickerImg.onload = () => {
-          const sX = (stickerPosition.x / 100) * canvas.width;
-          const sY = (stickerPosition.y / 100) * canvas.height;
-          const sRadius = (62 / 200) * Math.min(canvas.width, canvas.height);
-
-          ctx.save();
-          ctx.beginPath();
-          ctx.arc(sX, sY, sRadius, 0, Math.PI * 2, true);
-          ctx.closePath();
-          ctx.clip();
-          ctx.drawImage(stickerImg, sX - sRadius, sY - sRadius, sRadius * 2, sRadius * 2);
-          ctx.restore();
-
-          setFormPhoto(canvas.toDataURL('image/jpeg', 0.9));
-          setRawImageForSticker(null);
-          setIsStickerProcessing(false);
-        };
-        stickerImg.src = LOGO_URL;
-      };
-      img.src = rawImageForSticker;
-    }, 250);
-  };
-
-  const handlePointerMoveOnStickerArea = (e) => {
-    if (!isDraggingSticker || !stickerContainerRef.current) return;
-    const rect = stickerContainerRef.current.getBoundingClientRect();
-    const x = Math.max(10, Math.min(90, ((e.clientX - rect.left) / rect.width) * 100));
-    const y = Math.max(10, Math.min(90, ((e.clientY - rect.top) / rect.height) * 100));
-    setStickerPosition(prev => ({ ...prev, x, y }));
-  };
-
-  // 4. Save Advertisement to Backend API
-  const handleSaveLadyProfileManual = async () => {
-    if (!formPhone || !formPrice) {
-      alert("Please fill in your phone number and rate/price.");
-      return;
-    }
-
-    if (!formPhoto) {
-      alert("Please upload and mask your advertisement photo.");
-      return;
-    }
-
-    setIsSubmittingAd(true);
-    const cleanPhone = `260${formPhone.trim().replace(/^0+/, '')}`;
-
-    const newAdData = {
-      username: currentUser.username,
-      name: formName || currentUser.username,
-      category: formCategory,
-      price: formPrice,
-      location: formLocation,
-      specificLocation: formSpecific,
-      phone: cleanPhone,
-      photo: formPhoto,
-      originalPhoto: originalPhoto,
-      unmaskedPhoto: originalPhoto,
-      age: formAge,
-      hosting: formHosting,
-      extraServices: formServices,
-      approved: false
-    };
+  // 5. Submit Profile / Advertisement Data to Backend
+  const handleSaveLadyProfileManual = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMessage('');
+    setSuccessMessage('');
 
     try {
       const response = await fetch(`${BACKEND_URL}/api/ladies`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newAdData)
+        headers: { 
+          'Content-Type': 'application/json' 
+        },
+        body: JSON.stringify({
+          ...newAdData,
+          username: currentUser.username,
+          price: newAdData.rate,
+          extraServices: newAdData.bio
+        })
       });
+
       const data = await response.json();
 
-      if (data.success) {
-        setLadies([data.companion, ...ladies]);
-        alert(`Advertisement successfully submitted! It will be visible to clients after admin review and approval.`);
-        
-        const newHistoryItem = {
-          id: Date.now(),
-          action: `Submitted Advertisement`,
-          timestamp: new Date().toISOString(),
-          status: 'Pending Admin Approval'
-        };
-        const updatedHistory = [newHistoryItem, ...profileHistory];
-        setProfileHistory(updatedHistory);
-        localStorage.setItem(`dodix_history_${currentUser?.username}`, encryptStorageData(updatedHistory));
-      } else {
-        alert(data.error || "Failed to post advertisement.");
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || data.error || 'Failed to save profile configuration.');
       }
+
+      if (data.companion) {
+        setLadies([data.companion, ...ladies]);
+      } else {
+        fetchBackendLadies();
+      }
+
+      setSuccessMessage('Profile and advertisement successfully registered!');
+      setNewAdData({
+        name: '',
+        category: 'VIP',
+        location: userLockedLocation,
+        phone: '',
+        rate: '',
+        photo: '',
+        bio: ''
+      });
+
+      const newHistoryItem = {
+        id: Date.now(),
+        action: `Submitted Advertisement`,
+        timestamp: new Date().toISOString(),
+        status: 'Pending Admin Approval'
+      };
+      const updatedHistory = [newHistoryItem, ...profileHistory];
+      setProfileHistory(updatedHistory);
+      localStorage.setItem(`dodix_history_${currentUser?.username}`, encryptStorageData(updatedHistory));
+
     } catch (err) {
-      console.error("Error posting ad to backend:", err);
-      alert("Network error connecting to server.");
+      setErrorMessage(err.message || 'An error occurred while connecting to the server.');
     } finally {
-      setIsSubmittingAd(false);
+      setLoading(false);
     }
   };
 
-  // 5. Submit Report to Backend API
+  // 6. Submit Report to Backend API
   const handleReportSubmit = async (e) => {
     e.preventDefault();
     if (!reportedUsername.trim() || !reportReason.trim()) {
@@ -463,81 +408,6 @@ export default function ClientDirectory({
   return (
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col relative selection:bg-pink-500 selection:text-white font-sans">
       {isLoading && <LogoLoader text={loadingText} />}
-
-      {/* STICKER EDITOR MODAL */}
-      <AnimatePresence>
-        {rawImageForSticker && (
-          <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="max-w-xl w-full bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4 relative"
-            >
-              {isStickerProcessing && (
-                <div className="absolute inset-0 bg-black/70 backdrop-blur-xs z-20 flex flex-col items-center justify-center gap-3 rounded-3xl">
-                  <Loader2 size={36} className="animate-spin text-pink-500" />
-                  <span className="text-xs font-bold text-white tracking-wide">Processing & Masking Privacy Sticker...</span>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                <div className="flex items-center gap-2">
-                  <Sparkles size={18} className="text-pink-500" />
-                  <h3 className="text-sm font-bold text-white">Position Privacy Sticker over Face</h3>
-                </div>
-                <button onClick={() => setRawImageForSticker(null)} disabled={isStickerProcessing} className="p-1.5 text-slate-400 hover:text-white rounded-lg cursor-pointer">
-                  <X size={18} />
-                </button>
-              </div>
-
-              <p className="text-xs text-slate-400">Drag the circular sticker over your face to ensure complete privacy protection for your public advertisement.</p>
-
-              <div 
-                ref={stickerContainerRef}
-                onPointerDown={() => setIsDraggingSticker(true)}
-                onPointerUp={() => setIsDraggingSticker(false)}
-                onPointerMove={handlePointerMoveOnStickerArea}
-                className="relative w-full h-80 bg-black rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center select-none cursor-crosshair touch-none"
-              >
-                <img src={rawImageForSticker} alt="Raw Upload" className="max-h-full max-w-full object-contain pointer-events-none" />
-                
-                <div 
-                  style={{
-                    left: `${stickerPosition.x}%`,
-                    top: `${stickerPosition.y}%`,
-                    width: `62px`,
-                    height: `62px`,
-                    transform: 'translate(-50%, -50%)'
-                  }}
-                  className="absolute rounded-full overflow-hidden border-2 border-pink-500 shadow-2xl bg-slate-950/80 backdrop-blur-sm pointer-events-none flex items-center justify-center"
-                >
-                  <img src={LOGO_URL} alt="Sticker Mask" className="w-full h-full object-cover scale-110 pointer-events-none" />
-                  <div className="absolute inset-0 bg-pink-500/10 rounded-full" />
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button 
-                  onClick={() => setRawImageForSticker(null)}
-                  disabled={isStickerProcessing}
-                  className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition cursor-pointer disabled:opacity-50"
-                >
-                  Back
-                </button>
-                <button 
-                  onClick={handleApplyStickerAndSave}
-                  disabled={isStickerProcessing}
-                  className="flex-1 py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                >
-                  {isStickerProcessing ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} 
-                  {isStickerProcessing ? 'Applying Mask...' : 'Save Masked Photo ✓'}
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
 
       {/* PROFILE DETAIL MODAL */}
       <AnimatePresence>
@@ -1064,170 +934,166 @@ export default function ClientDirectory({
                 </div>
               </div>
             ) : (
-              <div className="space-y-6 max-w-3xl">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-2xl font-black text-white tracking-tight">Post Advertisement</h2>
-                    <p className="text-xs text-slate-400 mt-1">Upload your photo and position the privacy sticker over your face.</p>
-                  </div>
-                  <div className="bg-emerald-950/60 border border-emerald-800/50 px-4 py-2 rounded-2xl text-center shadow-md">
-                    <span className="text-[10px] text-emerald-300 uppercase font-bold block">Posting Status</span>
-                    <span className="text-xs font-extrabold text-white">Unlimited Ads</span>
-                  </div>
+              <div className="space-y-6 max-w-4xl mx-auto">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                  <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2 text-white">
+                    <User className="text-pink-400" /> Companion Directory & Profile Management
+                  </h1>
                 </div>
 
-                <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-300">Display Name / Pseudonym</label>
+                {/* Status Banners */}
+                {successMessage && (
+                  <div className="mb-6 p-4 bg-emerald-900/50 border border-emerald-500/50 rounded-2xl flex items-center gap-3 text-emerald-200 text-xs">
+                    <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+                    <span>{successMessage}</span>
+                  </div>
+                )}
+
+                {errorMessage && (
+                  <div className="mb-6 p-4 bg-rose-900/50 border border-rose-500/50 rounded-2xl flex items-center gap-3 text-rose-200 text-xs">
+                    <AlertCircle className="w-5 h-5 text-rose-400 flex-shrink-0" />
+                    <span>{errorMessage}</span>
+                  </div>
+                )}
+
+                {/* Profile Submission Form */}
+                <form onSubmit={handleSaveLadyProfileManual} className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Name */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">Companion Name</label>
                       <input 
                         type="text" 
-                        value={formName} 
-                        onChange={(e) => setFormName(e.target.value)} 
-                        className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition" 
+                        required
+                        value={newAdData.name}
+                        onChange={(e) => setNewAdData({ ...newAdData, name: e.target.value })}
+                        placeholder="Enter name"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
                       />
                     </div>
 
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-300">Category</label>
+                    {/* Category */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">Category / Tier</label>
                       <select 
-                        value={formCategory} 
-                        onChange={(e) => setFormCategory(e.target.value)} 
-                        className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
+                        value={newAdData.category}
+                        onChange={(e) => setNewAdData({ ...newAdData, category: e.target.value })}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
                       >
                         <option value="VIP">VIP</option>
+                        <option value="Elite">Elite</option>
                         <option value="Standard">Standard</option>
                       </select>
                     </div>
 
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-300">Rate / Price (ZMW)</label>
-                      <input 
-                        type="text" 
-                        placeholder="e.g. 300" 
-                        value={formPrice} 
-                        onChange={(e) => setFormPrice(e.target.value)} 
-                        className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition" 
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-300">Age</label>
-                      <input 
-                        type="text" 
-                        value={formAge} 
-                        onChange={(e) => setFormAge(e.target.value)} 
-                        className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition" 
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-300">City / Location</label>
-                      <input 
-                        type="text" 
-                        value={formLocation} 
-                        onChange={(e) => setFormLocation(e.target.value)} 
-                        className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition" 
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-300">Specific Area (e.g. Chalala)</label>
-                      <input 
-                        type="text" 
-                        placeholder="e.g. Chalala" 
-                        value={formSpecific} 
-                        onChange={(e) => setFormSpecific(e.target.value)} 
-                        className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition" 
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-300">WhatsApp Phone Number</label>
-                      <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl overflow-hidden focus-within:border-pink-500 transition">
-                        <span className="px-3 py-3 bg-slate-950 text-pink-400 font-bold border-r border-slate-800 select-none text-xs">
-                          +260
-                        </span>
+                    {/* Location */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">Location</label>
+                      <div className="relative">
+                        <MapPin className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500" />
                         <input 
-                          type="tel" 
-                          placeholder="970000000" 
-                          value={formPhone} 
-                          onChange={(e) => setFormPhone(e.target.value.replace(/\D/g, ''))} 
-                          className="w-full px-3 py-3 bg-transparent text-xs text-slate-200 focus:outline-none" 
+                          type="text" 
+                          required
+                          value={newAdData.location}
+                          onChange={(e) => setNewAdData({ ...newAdData, location: e.target.value })}
+                          placeholder="City / Region"
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
                         />
                       </div>
                     </div>
 
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-300">Hosting Available</label>
-                      <select 
-                        value={formHosting} 
-                        onChange={(e) => setFormHosting(e.target.value)} 
-                        className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
-                      >
-                        <option value="Yes">Yes</option>
-                        <option value="No">No</option>
-                      </select>
+                    {/* Phone */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">Contact Phone</label>
+                      <div className="relative">
+                        <Phone className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500" />
+                        <input 
+                          type="text" 
+                          required
+                          value={newAdData.phone}
+                          onChange={(e) => setNewAdData({ ...newAdData, phone: e.target.value })}
+                          placeholder="+260..."
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Rate */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">Hourly/Service Rate (ZMW)</label>
+                      <div className="relative">
+                        <DollarSign className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500" />
+                        <input 
+                          type="number" 
+                          required
+                          value={newAdData.rate}
+                          onChange={(e) => setNewAdData({ ...newAdData, rate: e.target.value })}
+                          placeholder="0.00"
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-300">Services & Preferences Bio</label>
+                  {/* Bio */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">Profile Bio / Description</label>
                     <textarea 
-                      rows="3" 
-                      placeholder="Describe what you enjoy doing..." 
-                      value={formServices} 
-                      onChange={(e) => setFormServices(e.target.value)} 
-                      className="w-full p-4 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition resize-none" 
-                    />
+                      rows="3"
+                      value={newAdData.bio}
+                      onChange={(e) => setNewAdData({ ...newAdData, bio: e.target.value })}
+                      placeholder="Tell clients about preferences and availability..."
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-4 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition resize-none"
+                    ></textarea>
                   </div>
 
-                  {/* MEDIA UPLOAD & MASKING SECTION */}
-                  <div className="space-y-3 pt-2 border-t border-slate-800">
-                    <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                      <ImageIcon size={14} className="text-pink-500" /> Photo Upload & Privacy Masking (Max 5MB)
-                    </label>
-
-                    <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl space-y-3">
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                        <div className="space-y-1">
-                          <span className="text-xs font-bold text-white block">Upload Photo</span>
-                          <span className="text-[11px] text-slate-400 block">
-                            {originalPhoto ? '✅ Photo captured for review.' : '⚠️ Required: Upload photo first.'}
-                          </span>
-                        </div>
-                        <label className="px-4 py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold rounded-xl text-xs transition cursor-pointer flex items-center gap-2 shadow">
-                          <Upload size={14} /> Choose & Upload Photo
-                          <input type="file" accept="image/*" onChange={handleCleanPhotoUpload} className="hidden" />
-                        </label>
-                      </div>
-
-                      {formPhoto && (
-                        <div className="flex items-center gap-3 pt-2 border-t border-slate-800/80">
-                          <div className="relative w-14 h-14 rounded-xl overflow-hidden border border-slate-700 bg-black shrink-0">
-                            <img src={formPhoto} alt="Masked Preview" className="w-full h-full object-cover" />
-                          </div>
-                          <div className="flex-1">
-                            <span className="text-xs font-bold text-emerald-400 block">Privacy Mask Applied Successfully!</span>
-                            <span className="text-[10px] text-slate-400">Public directory will display the sticker version; admins have the original.</span>
-                          </div>
+                  {/* Photo Upload Section */}
+                  <div className="space-y-2">
+                    <label className="block text-xs font-semibold text-slate-300">Advertisement Photo (Max 5MB)</label>
+                    <div className="flex items-center gap-4">
+                      <label className="cursor-pointer bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white px-4 py-3 rounded-xl font-bold text-xs flex items-center gap-2 transition-colors shadow">
+                        <Upload className="w-4 h-4" />
+                        Upload Photo
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={handleCleanPhotoUpload} 
+                          className="hidden" 
+                        />
+                      </label>
+                      {newAdData.photo && (
+                        <div className="flex items-center gap-2 text-emerald-400 text-xs font-semibold">
+                          <CheckCircle className="w-4 h-4" /> Photo attached successfully
                         </div>
                       )}
                     </div>
+
+                    {newAdData.photo && (
+                      <div className="mt-4 relative w-32 h-32 rounded-2xl overflow-hidden border border-slate-800 bg-slate-950">
+                        <img src={newAdData.photo} alt="Preview" className="w-full h-full object-cover" />
+                        <button 
+                          type="button"
+                          onClick={() => setNewAdData({ ...newAdData, photo: '' })}
+                          className="absolute top-2 right-2 bg-rose-600 p-1.5 rounded-full text-white hover:bg-rose-500 shadow"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
+                  {/* Action Button */}
                   <div className="pt-4 border-t border-slate-800 flex justify-end">
                     <button 
-                      type="button" 
-                      disabled={isSubmittingAd}
-                      onClick={handleSaveLadyProfileManual}
-                      className="px-8 py-3.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg transition cursor-pointer disabled:opacity-50 flex items-center gap-2"
+                      type="submit" 
+                      disabled={loading}
+                      className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold px-8 py-3.5 rounded-xl text-xs flex items-center gap-2 shadow-lg transition-colors disabled:opacity-50 cursor-pointer"
                     >
-                      {isSubmittingAd && <Loader2 size={16} className="animate-spin" />}
-                      {isSubmittingAd ? 'Submitting Ad to Server...' : 'Submit Advertisement for Approval'}
+                      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                      {loading ? 'Saving Profile...' : 'Save and Publish Ad'}
                     </button>
                   </div>
-                </div>
+                </form>
               </div>
             )
           ) : (
@@ -1308,7 +1174,7 @@ export default function ClientDirectory({
                   </div>
 
                   <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
-                    {['All', 'VIP', 'Standard'].map((cat) => (
+                    {['All', 'VIP', 'Elite', 'Standard'].map((cat) => (
                       <button 
                         key={cat} 
                         onClick={() => setSelectedCategory(cat)} 
@@ -1367,7 +1233,7 @@ export default function ClientDirectory({
                         </div>
 
                         <div className="p-5 flex flex-col gap-3 flex-grow justify-between">
-                          <p className="text-slate-400 text-xs line-clamp-2">{lady.extraServices || "Available for social companionship and elite events."}</p>
+                          <p className="text-slate-400 text-xs line-clamp-2">{lady.extraServices || lady.bio || "Available for social companionship and elite events."}</p>
                           
                           <div className="grid grid-cols-2 gap-2 pt-3 border-t border-slate-800/60">
                             <button 
