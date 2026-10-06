@@ -11,6 +11,7 @@ import AgeGate from './components/common/AgeGate';
 import AuthScreen from './components/auth/AuthScreen';
 import AdminDashboard from './components/admin/AdminDashboard';
 import ClientDirectory from './components/client/ClientDirectory';
+import PageTransition from './components/common/PageTransition';
 
 // Sanitize BACKEND_URL by removing any trailing slashes to prevent malformed requests
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000').replace(/\/+$/, '');
@@ -47,7 +48,6 @@ export default function App() {
   const socketRef = useRef(null);
 
   const handleLogout = () => {
-    // Clear storage immediately to prevent stale session resurrection
     sessionStorage.removeItem('dodix_current_user');
     if (socketRef.current) {
       socketRef.current.close();
@@ -71,13 +71,11 @@ export default function App() {
   };
 
   const fetchUsersFromBackend = async () => {
-    // Guard clause: abort immediately if user logged out
     if (!currentUser || !currentUser.username) return;
     try {
       const res = await fetch(`${BACKEND_URL}/api/users`);
       const data = await res.json();
       
-      // Double check currentUser wasn't cleared while awaiting fetch
       const currentStored = sessionStorage.getItem('dodix_current_user');
       if (!currentStored) return;
 
@@ -116,7 +114,6 @@ export default function App() {
     fetchUsersFromBackend();
     fetchLadiesFromBackend();
     const interval = setInterval(() => {
-      // Only poll if user is still logged in
       const activeCheck = sessionStorage.getItem('dodix_current_user');
       if (activeCheck) {
         fetchUsersFromBackend();
@@ -223,36 +220,44 @@ export default function App() {
   };
 
   if (!isAgeVerified) {
-    return <AgeGate onVerify={handleAgeVerification} />;
+    return (
+      <PageTransition>
+        <AgeGate onVerify={handleAgeVerification} />
+      </PageTransition>
+    );
   }
 
   if (!currentUser) {
     return (
-      <AuthScreen 
-        setCurrentUser={setCurrentUser} 
-        isLoading={isLoading} 
-        loadingText={loadingText} 
-        triggerLoadingAction={triggerLoadingAction}
-      />
+      <PageTransition>
+        <AuthScreen 
+          setCurrentUser={setCurrentUser} 
+          isLoading={isLoading} 
+          loadingText={loadingText} 
+          triggerLoadingAction={triggerLoadingAction}
+        />
+      </PageTransition>
     );
   }
 
   if (currentUser.role === 'admin' || currentUser.username?.toLowerCase() === 'admin') {
     return (
-      <AdminDashboard 
-        currentUser={currentUser}
-        setCurrentUser={handleLogout}
-        usersDb={usersDb}
-        setUsersDb={setUsersDb}
-        ladies={ladies}
-        setLadies={setLadies}
-        messages={messages}
-        setMessages={setMessages}
-        sendChatMessage={sendChatMessage}
-        isLoading={isLoading}
-        loadingText={loadingText}
-        triggerLoadingAction={triggerLoadingAction}
-      />
+      <PageTransition>
+        <AdminDashboard 
+          currentUser={currentUser}
+          setCurrentUser={handleLogout}
+          usersDb={usersDb}
+          setUsersDb={setUsersDb}
+          ladies={ladies}
+          setLadies={setLadies}
+          messages={messages}
+          setMessages={setMessages}
+          sendChatMessage={sendChatMessage}
+          isLoading={isLoading}
+          loadingText={loadingText}
+          triggerLoadingAction={triggerLoadingAction}
+        />
+      </PageTransition>
     );
   }
 
@@ -262,103 +267,107 @@ export default function App() {
     const wasEverActivated = currentUser.wasActivatedBefore === true;
 
     return (
-      <div className="min-h-screen bg-[#090d16] text-slate-100 flex items-center justify-center p-4 font-sans selection:bg-pink-500 selection:text-white">
-        <div className="max-w-md w-full bg-[#0b101d] border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 text-center relative">
-          <div className="w-12 h-12 bg-red-950/60 border border-red-800/40 text-red-400 rounded-2xl mx-auto flex items-center justify-center">
-            <Clock size={24} />
-          </div>
-
-          <div>
-            <h2 className="text-lg font-extrabold text-white">
-              {wasEverActivated ? 'Account Suspended' : 'Account Pending Activation'}
-            </h2>
-            <p className="text-xs text-slate-400 mt-1">
-              {wasEverActivated ? (
-                <>Your account (<span className="text-pink-400 font-semibold">@{currentUser?.username}</span>) has been suspended by administration.</>
-              ) : (
-                <>Your account (<span className="text-pink-400 font-semibold">@{currentUser?.username}</span>) is awaiting admin activation.</>
-              )}
-            </p>
-          </div>
-
-          {currentUser?.gender?.toLowerCase() === 'female' && (
-            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 text-left space-y-3">
-              <div className="space-y-1">
-                <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <MessageCircle size={14} className="text-emerald-400" /> Companion Verification Required
-                </h3>
-                <p className="text-[11px] text-slate-400 leading-relaxed">
-                  Please provide your WhatsApp number below for profile review and activation.
-                </p>
-              </div>
-
-              {isSubmittedWhatsApp || currentUser?.phone ? (
-                <div className="p-3 bg-emerald-950/40 border border-emerald-900/50 rounded-xl text-xs text-emerald-300 font-medium text-center">
-                  ✓ WhatsApp Number Registered: <span className="font-bold">{currentUser?.phone || whatsappInput}</span>
-                </div>
-              ) : (
-                <form onSubmit={handleSaveWhatsappForVerification} className="space-y-2.5">
-                  <input 
-                    type="text"
-                    value={whatsappInput}
-                    onChange={(e) => setWhatsappInput(e.target.value)}
-                    placeholder="e.g. +260970000000"
-                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-pink-500 transition"
-                    required
-                  />
-                  <button 
-                    type="submit"
-                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-lg transition"
-                  >
-                    Submit WhatsApp for Verification
-                  </button>
-                </form>
-              )}
+      <PageTransition>
+        <div className="min-h-screen bg-[#090d16] text-slate-100 flex items-center justify-center p-4 font-sans selection:bg-pink-500 selection:text-white">
+          <div className="max-w-md w-full bg-[#0b101d] border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 text-center relative">
+            <div className="w-12 h-12 bg-red-950/60 border border-red-800/40 text-red-400 rounded-2xl mx-auto flex items-center justify-center">
+              <Clock size={24} />
             </div>
-          )}
 
-          <div className="space-y-3 pt-2">
-            <button 
-              onClick={handleOpenSupportWhatsApp}
-              className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <MessageCircle size={15} /> Support Center (WhatsApp Activation Query)
-            </button>
+            <div>
+              <h2 className="text-lg font-extrabold text-white">
+                {wasEverActivated ? 'Account Suspended' : 'Account Pending Activation'}
+              </h2>
+              <p className="text-xs text-slate-400 mt-1">
+                {wasEverActivated ? (
+                  <>Your account (<span className="text-pink-400 font-semibold">@{currentUser?.username}</span>) has been suspended by administration.</>
+                ) : (
+                  <>Your account (<span className="text-pink-400 font-semibold">@{currentUser?.username}</span>) is awaiting admin activation.</>
+                )}
+              </p>
+            </div>
 
-            <button 
-              onClick={() => {
-                fetchUsersFromBackend();
-                fetchLadiesFromBackend();
-              }}
-              className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-bold rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <RefreshCw size={14} /> Sync & Check Status
-            </button>
+            {currentUser?.gender?.toLowerCase() === 'female' && (
+              <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 text-left space-y-3">
+                <div className="space-y-1">
+                  <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <MessageCircle size={14} className="text-emerald-400" /> Companion Verification Required
+                  </h3>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Please provide your WhatsApp number below for profile review and activation.
+                  </p>
+                </div>
 
-            <button 
-              onClick={handleLogout}
-              className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition border border-slate-700 flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <LogOut size={14} /> Log Out
-            </button>
+                {isSubmittedWhatsApp || currentUser?.phone ? (
+                  <div className="p-3 bg-emerald-950/40 border border-emerald-900/50 rounded-xl text-xs text-emerald-300 font-medium text-center">
+                    ✓ WhatsApp Number Registered: <span className="font-bold">{currentUser?.phone || whatsappInput}</span>
+                  </div>
+                ) : (
+                  <form onSubmit={handleSaveWhatsappForVerification} className="space-y-2.5">
+                    <input 
+                      type="text"
+                      value={whatsappInput}
+                      onChange={(e) => setWhatsappInput(e.target.value)}
+                      placeholder="e.g. +260970000000"
+                      className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-pink-500 transition"
+                      required
+                    />
+                    <button 
+                      type="submit"
+                      className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-lg transition"
+                    >
+                      Submit WhatsApp for Verification
+                    </button>
+                  </form>
+                )}
+              </div>
+            )}
+
+            <div className="space-y-3 pt-2">
+              <button 
+                onClick={handleOpenSupportWhatsApp}
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <MessageCircle size={15} /> Support Center (WhatsApp Activation Query)
+              </button>
+
+              <button 
+                onClick={() => {
+                  fetchUsersFromBackend();
+                  fetchLadiesFromBackend();
+                }}
+                className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-bold rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <RefreshCw size={14} /> Sync & Check Status
+              </button>
+
+              <button 
+                onClick={handleLogout}
+                className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition border border-slate-700 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <LogOut size={14} /> Log Out
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      </PageTransition>
     );
   }
 
   return (
-    <ClientDirectory 
-      currentUser={currentUser}
-      setCurrentUser={handleLogout}
-      ladies={ladies}
-      setLadies={setLadies}
-      messages={messages}
-      setMessages={setMessages}
-      sendChatMessage={sendChatMessage}
-      isLoading={isLoading}
-      loadingText={loadingText}
-      triggerLoadingAction={triggerLoadingAction}
-    />
+    <PageTransition>
+      <ClientDirectory 
+        currentUser={currentUser}
+        setCurrentUser={handleLogout}
+        ladies={ladies}
+        setLadies={setLadies}
+        messages={messages}
+        setMessages={setMessages}
+        sendChatMessage={sendChatMessage}
+        isLoading={isLoading}
+        loadingText={loadingText}
+        triggerLoadingAction={triggerLoadingAction}
+      />
+    </PageTransition>
   );
 }
