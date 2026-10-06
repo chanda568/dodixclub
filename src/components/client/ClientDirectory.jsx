@@ -524,6 +524,7 @@ export default function ClientDirectory({
 
   return (
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col relative selection:bg-pink-500 selection:text-white font-sans">
+      <canvas ref={canvasRef} className="hidden" />
       {isLoading && <LogoLoader text={loadingText} />}
 
       {/* PROFILE DETAIL MODAL */}
@@ -1444,33 +1445,35 @@ export default function ClientDirectory({
 
                           <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end">
                             <div>
-                              <h3 className="text-white font-black text-lg drop-shadow-md">
-                                {lady.name}, <span className="font-normal text-slate-300">{lady.age || '23'}</span>
-                              </h3>
-                              <p className="text-slate-300 text-xs flex items-center gap-1 mt-0.5">
-                                <MapPin size={12} className="text-pink-500" /> {lady.specificLocation || lady.location}
-                              </p>
+                              <h3 className="text-white font-black text-lg drop-shadow-md">{lady.name}, {lady.age || '23'}</h3>
+                              <p className="text-xs text-pink-400 font-bold uppercase tracking-wider">{lady.category || 'VIP'} Companion</p>
                             </div>
-                            <div className="bg-slate-950/80 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-xl text-right">
-                              <span className="text-[9px] text-slate-400 block font-bold">RATE</span>
-                              <span className="text-emerald-400 font-black text-xs">ZMW {lady.price || lady.rate}</span>
-                            </div>
+                            <span className="bg-emerald-500/90 text-slate-950 font-black text-xs px-3 py-1 rounded-xl shadow-lg">
+                              ZMW {lady.price || lady.rate}
+                            </span>
                           </div>
                         </div>
 
-                        <div className="p-5 flex flex-col gap-3 flex-grow justify-between">
-                          <p className="text-slate-400 text-xs line-clamp-2">{lady.extraServices || lady.bio || "Available for social companionship and elite events."}</p>
-                          
-                          <div className="grid grid-cols-2 gap-2 pt-3 border-t border-slate-800/60">
+                        <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                          <div className="space-y-2">
+                            <p className="text-xs text-slate-400 flex items-center gap-1.5">
+                              <MapPin size={14} className="text-pink-500" /> {lady.specificLocation || lady.location}
+                            </p>
+                            {(lady.extraServices || lady.bio) && (
+                              <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">{lady.extraServices || lady.bio}</p>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800/80">
                             <button 
                               onClick={() => setSelectedProfile(lady)}
-                              className="py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 border border-slate-800 transition cursor-pointer"
+                              className="py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
                             >
-                              <User size={14} className="text-slate-400" /> View Profile
+                              View Profile
                             </button>
                             <button 
                               onClick={() => handleOpenWhatsApp(lady)}
-                              className="py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-lg transition cursor-pointer"
+                              className="py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md transition cursor-pointer"
                             >
                               <MessageSquare size={14} /> WhatsApp
                             </button>
@@ -1485,9 +1488,6 @@ export default function ClientDirectory({
           )}
         </main>
       </div>
-
-      {/* Hidden Canvas for Processing Image Exports */}
-      <canvas ref={canvasRef} className="hidden" />
     </div>
   );
 }
