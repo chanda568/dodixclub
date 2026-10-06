@@ -17,9 +17,10 @@ export default function CompanionModal({ companion, onClose, onSavePrice }) {
     onSavePrice(companionId, price);
   };
 
+  // Correctly mapping to backend schema fields (photo, originalPhoto, unmaskedPhoto)
   const rawPhoto = isFaceRevealed 
-    ? (companion.realPhoto || companion.unmaskedPhoto || companion.photo || companion.imageUrl || companion.image)
-    : (companion.maskedPhoto || companion.originalPhoto || companion.photo || companion.imageUrl || companion.image);
+    ? (companion.unmaskedPhoto || companion.originalPhoto || companion.photo)
+    : (companion.photo || companion.originalPhoto);
 
   const displayName = (!companion.name || companion.name.toLowerCase() === 'female') 
     ? (companion.username ? `@${companion.username}` : 'Companion Profile') 
