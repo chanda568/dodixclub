@@ -17,9 +17,9 @@ export default function CompanionModal({ companion, onClose, onSavePrice }) {
     onSavePrice(companionId, price);
   };
 
-  // Correctly mapping to backend schema fields (photo, originalPhoto, unmaskedPhoto)
+  // Strictly targeting the baked-in masked photo vs original/unmasked photo
   const rawPhoto = isFaceRevealed 
-    ? (companion.unmaskedPhoto || companion.originalPhoto || companion.photo)
+    ? (companion.originalPhoto || companion.unmaskedPhoto || companion.photo)
     : (companion.photo || companion.originalPhoto);
 
   const displayName = (!companion.name || companion.name.toLowerCase() === 'female') 
@@ -75,28 +75,19 @@ export default function CompanionModal({ companion, onClose, onSavePrice }) {
               </button>
             </div>
 
+            {/* Locked Container to Prevent Shifting */}
             <div className="relative aspect-square w-48 mx-auto rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 shadow-inner flex items-center justify-center">
               {rawPhoto ? (
                 <img 
+                  key={isFaceRevealed ? 'unmasked' : 'masked'}
                   src={rawPhoto} 
                   alt={displayName}
-                  className={`w-full h-full object-cover transition-all duration-300 ${
-                    !isFaceRevealed ? 'filter blur-md brightness-75 scale-105' : ''
-                  }`}
+                  className="w-full h-full object-cover object-center absolute inset-0 transition-opacity duration-150"
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center text-slate-600">
                   <User size={48} className="opacity-40 mb-1" />
                   <span className="text-[10px]">No Photo</span>
-                </div>
-              )}
-
-              {/* Privacy Overlay Label when Masked */}
-              {!isFaceRevealed && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/40 pointer-events-none">
-                  <span className="text-[10px] font-bold text-white bg-black/70 px-3 py-1 rounded-full border border-slate-700 shadow">
-                    Face Protected
-                  </span>
                 </div>
               )}
             </div>
