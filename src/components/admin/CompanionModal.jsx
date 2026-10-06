@@ -82,7 +82,7 @@ export default function CompanionModal({ companion, onClose, onSavePrice }) {
                   key={isFaceRevealed ? 'unmasked' : 'masked'}
                   src={rawPhoto} 
                   alt={displayName}
-                  className="w-full h-full object-cover object-center absolute inset-0 transition-opacity duration-150"
+                  className="w-full h-full object-contain object-center absolute inset-0 transition-opacity duration-150"
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center text-slate-600">
