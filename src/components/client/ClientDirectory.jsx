@@ -1,7 +1,7 @@
 // src/components/client/ClientDirectory.jsx
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-  LogOut, MessageSquare, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, Crown, RefreshCw, CheckCircle, Flag, Heart, CreditCard, Settings, Bell, Plus, Trash2, Shield, MessageCircle, Loader2, DollarSign, AlertCircle, Save, Phone, Edit3, Sliders, Move, Check, Award, Filter, ArrowRight, ArrowLeft
+  LogOut, MessageSquare, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, Crown, RefreshCw, CheckCircle, Flag, Heart, CreditCard, Settings, Bell, Plus, Trash2, Shield, MessageCircle, Loader2, DollarSign, AlertCircle, Save, Phone, Edit3, Sliders, Move, Check, Award, Filter, ArrowRight, ArrowLeft, Upload, Sparkles, FileText, Camera
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import LogoLoader from '../common/LogoLoader';
@@ -45,22 +45,27 @@ export default function ClientDirectory({
   const [newContent, setNewContent] = useState('');
   const [newVisibility, setNewVisibility] = useState('all');
 
-  // Multi-step Companion Form Wizard State ('photo_step' vs 'details_step')
+  // Multi-step Companion Form Wizard State ('photo_step' | 'details_step' | 'success_step')
   const [profileStep, setProfileStep] = useState('photo_step');
 
-  // Advertisement Form State & Default Logo Sticker State
+  // Advertisement Form State & Privacy Mask Studio States
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const [selectedSticker, setSelectedSticker] = useState(brandLogo);
-  
-  // Draggable Sticker State inside Photo Editor
-  const [stickerPos, setStickerPos] = useState({ x: 0, y: 0 });
-  const [isDraggingSticker, setIsDraggingSticker] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
+  // Privacy Mask Customization States
+  const [stickerType, setStickerType] = useState('logo'); // 'emoji' | 'logo'
+  const [selectedEmoji, setSelectedEmoji] = useState('🕶️');
+  const [customLogo, setCustomLogo] = useState(brandLogo);
+  
+  // Draggable Sticker Interaction States inside Photo Editor
+  const [stickerPos, setStickerPos] = useState({ x: 120, y: 120 });
+  const [stickerSize, setStickerSize] = useState(80);
+  const [isDraggingSticker, setIsDraggingSticker] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+
+  const containerRef = useRef(null);
   const canvasRef = useRef(null);
-  const previewImageRef = useRef(null);
 
   const initialName = currentUser?.username && !['female', 'lady', 'client'].includes(currentUser.username.toLowerCase()) 
     ? currentUser.username 
@@ -75,7 +80,9 @@ export default function ClientDirectory({
     photo: currentUser.photo || currentUser.photoUrl || '',
     originalPhoto: currentUser.originalPhoto || currentUser.photo || currentUser.photoUrl || '',
     unmaskedPhoto: currentUser.unmaskedPhoto || currentUser.photo || currentUser.photoUrl || '',
-    bio: currentUser.bio || ''
+    bio: currentUser.bio || '',
+    department: currentUser.department || '',
+    title: currentUser.title || 'Elite Companion'
   });
 
   const [profileHistory, setProfileHistory] = useState(() => {
@@ -216,7 +223,7 @@ export default function ClientDirectory({
   };
 
   // 4. Handle Clean Photo Upload
-  const handleCleanPhotoUpload = (e) => {
+  const handlePhotoUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
@@ -225,42 +232,65 @@ export default function ClientDirectory({
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      setErrorMessage('File size must be under 5MB.');
+    if (file.size > 10 * 1024 * 1024) {
+      setErrorMessage('File size must be under 10MB.');
       return;
     }
 
     setErrorMessage('');
     const reader = new FileReader();
-    reader.onloadend = () => {
-      const baseResult = reader.result;
+    reader.onload = (event) => {
+      const result = event.target.result;
       setNewAdData(prev => ({
         ...prev,
-        originalPhoto: baseResult,
-        unmaskedPhoto: baseResult,
-        photo: baseResult
+        originalPhoto: result,
+        unmaskedPhoto: result,
+        photo: result
       }));
-      setStickerPos({ x: 0, y: 0 });
-      if (!selectedSticker) {
-        setSelectedSticker(brandLogo);
-      }
+      setStickerPos({ x: 100, y: 100 });
     };
     reader.readAsDataURL(file);
   };
 
-  // Drag handlers for movable sticker
+  // Handle Custom Logo upload for sticker
+  const handleLogoUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setCustomLogo(event.target.result);
+        setStickerType('logo');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Mouse Drag Handlers for Sticker
   const handleStickerMouseDown = (e) => {
-    e.stopPropagation();
+    e.preventDefault();
     setIsDraggingSticker(true);
-    setDragStart({ x: e.clientX - stickerPos.x, y: e.clientY - stickerPos.y });
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    setDragOffset({
+      x: (e.clientX - rect.left) - stickerPos.x,
+      y: (e.clientY - rect.top) - stickerPos.y
+    });
   };
 
   const handleMouseMove = (e) => {
-    if (!isDraggingSticker) return;
-    setStickerPos({
-      x: e.clientX - dragStart.x,
-      y: e.clientY - dragStart.y
-    });
+    if (!isDraggingSticker || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    
+    let newX = (e.clientX - rect.left) - dragOffset.x;
+    let newY = (e.clientY - rect.top) - dragOffset.y;
+
+    const maxX = rect.width - stickerSize;
+    const maxY = rect.height - stickerSize;
+
+    newX = Math.max(0, Math.min(newX, maxX));
+    newY = Math.max(0, Math.min(newY, maxY));
+
+    setStickerPos({ x: newX, y: newY });
   };
 
   const handleMouseUp = () => {
@@ -276,124 +306,95 @@ export default function ClientDirectory({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDraggingSticker, dragStart]);
+  }, [isDraggingSticker, dragOffset, stickerSize]);
 
-  // Flatten Sticker Helper supporting Images, Logos, and Emojis
-  const flattenStickerToImage = (originalImgSrc, stickerImgSrc, stickerBox, containerBox) => {
-    return new Promise((resolve, reject) => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
+  // Flatten Sticker to Canvas (Bake Privacy Mask)
+  const flattenStickerToImage = () => {
+    return new Promise((resolve) => {
+      const currentPhoto = newAdData.originalPhoto || newAdData.photo;
+      if (!currentPhoto || !containerRef.current) {
+        resolve(currentPhoto);
+        return;
+      }
 
+      const containerBox = containerRef.current.getBoundingClientRect();
       const baseImage = new Image();
       baseImage.crossOrigin = 'anonymous';
-      baseImage.src = originalImgSrc;
+      baseImage.src = currentPhoto;
 
       baseImage.onload = () => {
+        const canvas = canvasRef.current || document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
         canvas.width = baseImage.naturalWidth;
         canvas.height = baseImage.naturalHeight;
 
-        // 1. Draw the clean original photo at full resolution
         ctx.drawImage(baseImage, 0, 0);
 
-        const isImageSticker = typeof stickerImgSrc === 'string' && (
-          stickerImgSrc.startsWith('data:image') || 
-          stickerImgSrc.startsWith('/') || 
-          stickerImgSrc.startsWith('http') || 
-          stickerImgSrc.includes('.')
-        );
+        const scaleX = baseImage.naturalWidth / containerBox.width;
+        const scaleY = baseImage.naturalHeight / containerBox.height;
 
-        if (isImageSticker) {
-          const stickerImage = new Image();
-          stickerImage.crossOrigin = 'anonymous';
-          stickerImage.src = stickerImgSrc;
+        const renderX = stickerPos.x * scaleX;
+        const renderY = stickerPos.y * scaleY;
+        const renderSize = stickerSize * Math.max(scaleX, scaleY);
 
-          stickerImage.onload = () => {
-            // 2. Map UI sticker coordinates proportionally to actual image dimensions
-            const scaleX = baseImage.naturalWidth / containerBox.width;
-            const scaleY = baseImage.naturalHeight / containerBox.height;
-
-            const renderX = stickerBox.left * scaleX;
-            const renderY = stickerBox.top * scaleY;
-            const renderWidth = stickerBox.width * scaleX;
-            const renderHeight = stickerBox.height * scaleY;
-
-            // 3. Draw the sticker permanently onto the canvas pixels
-            ctx.drawImage(stickerImage, renderX, renderY, renderWidth, renderHeight);
-
-            // 4. Export the final composite image as base64
-            const flattenedBase64 = canvas.toDataURL('image/jpeg', 0.92);
-            resolve(flattenedBase64);
-          };
-
-          stickerImage.onerror = () => resolve(originalImgSrc);
-        } else {
-          // Emoji sticker support
-          const scaleX = baseImage.naturalWidth / containerBox.width;
-          const scaleY = baseImage.naturalHeight / containerBox.height;
-
-          const renderX = stickerBox.left * scaleX;
-          const renderY = stickerBox.top * scaleY;
-          const renderHeight = stickerBox.height * scaleY;
-
-          ctx.font = `${renderHeight}px serif`;
+        if (stickerType === 'emoji') {
+          ctx.font = `${renderSize}px sans-serif`;
           ctx.textBaseline = 'top';
-          ctx.fillText(stickerImgSrc, renderX, renderY);
-
-          const flattenedBase64 = canvas.toDataURL('image/jpeg', 0.92);
-          resolve(flattenedBase64);
+          ctx.fillText(selectedEmoji, renderX, renderY);
+          resolve(canvas.toDataURL('image/jpeg', 0.92));
+        } else if (stickerType === 'logo' && customLogo) {
+          const logoImg = new Image();
+          logoImg.crossOrigin = 'anonymous';
+          logoImg.src = customLogo;
+          logoImg.onload = () => {
+            ctx.drawImage(logoImg, renderX, renderY, renderSize, renderSize);
+            resolve(canvas.toDataURL('image/jpeg', 0.92));
+          };
+          logoImg.onerror = () => resolve(currentPhoto);
+        } else {
+          resolve(currentPhoto);
         }
       };
 
-      baseImage.onerror = () => resolve(originalImgSrc);
+      baseImage.onerror = () => resolve(currentPhoto);
     });
   };
 
-  // Click "Next" after masking to proceed to profile details
+  // Proceed to Profile Details Step
   const handleProceedToDetails = async () => {
-    if (!newAdData.originalPhoto && !newAdData.photo) {
-      setErrorMessage('Please upload a photo first.');
+    const currentPhoto = newAdData.originalPhoto || newAdData.photo;
+    if (!currentPhoto) {
+      setErrorMessage('Please upload a source photograph first.');
       return;
     }
 
     setLoading(true);
-    let finalMaskedPhoto = newAdData.originalPhoto || newAdData.photo;
-    
-    if (selectedSticker) {
-      const stickerElement = document.getElementById('privacy-sticker');
-      const containerElement = document.getElementById('photo-container');
-
-      if (stickerElement && containerElement) {
-        const stickerBox = stickerElement.getBoundingClientRect();
-        const containerBox = containerElement.getBoundingClientRect();
-
-        finalMaskedPhoto = await flattenStickerToImage(
-          newAdData.originalPhoto || newAdData.photo, 
-          selectedSticker, 
-          {
-            left: stickerBox.left - containerBox.left,
-            top: stickerBox.top - containerBox.top,
-            width: stickerBox.width,
-            height: stickerBox.height
-          },
-          containerBox
-        );
-      }
-    }
-
+    const finalMasked = await flattenStickerToImage();
     setNewAdData(prev => ({
       ...prev,
-      photo: finalMaskedPhoto,
-      photoUrl: finalMaskedPhoto,
+      photo: finalMasked,
+      photoUrl: finalMasked,
       unmaskedPhoto: prev.originalPhoto || prev.photo
     }));
-
     setLoading(false);
     setProfileStep('details_step');
   };
 
-  // 5. Save and Publish Ad using POST
-  const handleSaveLadyProfileManual = async (e) => {
+  // Form Field Updates
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setNewAdData(prev => ({ ...prev, [name]: value }));
+  };
+
+  // 5. Save and Publish Ad to Backend
+  const handleFormSubmit = async (e) => {
     e.preventDefault();
+    if (!newAdData.name.trim() || !newAdData.rate) {
+      alert("Please fill in your name and rate.");
+      return;
+    }
+
     setLoading(true);
     setErrorMessage('');
     setSuccessMessage('');
@@ -434,6 +435,7 @@ export default function ClientDirectory({
       }
 
       setSuccessMessage('Profile saved and published successfully!');
+      setProfileStep('success_step');
 
       const newHistoryItem = {
         id: Date.now(),
@@ -450,6 +452,16 @@ export default function ClientDirectory({
     } finally {
       setLoading(false);
     }
+  };
+
+  const resetDirectoryForm = () => {
+    setProfileStep('photo_step');
+    setNewAdData(prev => ({
+      ...prev,
+      photo: '',
+      originalPhoto: '',
+      unmaskedPhoto: ''
+    }));
   };
 
   // 6. Submit Report to Backend API
@@ -932,7 +944,7 @@ export default function ClientDirectory({
             {isFemaleUser && (
               <button 
                 onClick={() => setReportModalOpen(true)}
-                className="w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 text-red-400 hover:bg-red-950/40 border border-red-900/30 transition mt-4 cursor-pointer"
+                className="w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 text-red-400 hover:bg-red-950/40 border border-red-900/30 transition mt-2 cursor-pointer"
               >
                 <Flag size={16} /> Report Time Waster
               </button>
@@ -940,611 +952,612 @@ export default function ClientDirectory({
           </div>
         </aside>
 
-        <main className="flex-1 overflow-hidden">
-          {isAdminUser && activeTab === 'news' ? (
-            <div className="space-y-6 max-w-5xl">
-              <div>
-                <h2 className="text-2xl font-black text-white tracking-tight">Admin Command Center & User Activity</h2>
-                <p className="text-xs text-slate-400 mt-1">Monitor platform announcements and broadcast updates.</p>
+        {/* MAIN CONTENT AREA */}
+        <main className="flex-1 space-y-6">
+          {/* TAB 1: DIRECTORY (FOR MALE / CLIENT USERS) */}
+          {activeTab === 'directory' && !isFemaleUser && !isAdminUser && (
+            <div className="space-y-6 animate-fadeIn">
+              <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <h2 className="text-xl font-extrabold text-white">Verified Companion Directory</h2>
+                  <p className="text-xs text-slate-400">Showing elite verified listings in <span className="text-pink-400 font-semibold">{userLockedLocation}</span></p>
+                </div>
+
+                <div className="flex items-center gap-2 w-full md:w-auto">
+                  <div className="relative flex-1 md:w-64">
+                    <Search size={16} className="absolute left-3.5 top-3 text-slate-500" />
+                    <input 
+                      type="text" 
+                      placeholder="Search name or location..." 
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <form onSubmit={handleCreateAnnouncement} className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-4">
-                <div className="flex items-center gap-2 pb-2 border-b border-slate-800">
-                  <Shield size={18} className="text-pink-500" />
-                  <h3 className="text-sm font-extrabold text-white">Broadcast New Announcement</h3>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-300">Announcement Title</label>
-                  <input 
-                    type="text" 
-                    placeholder="e.g. System Maintenance Notice" 
-                    value={newTitle} 
-                    onChange={(e) => setNewTitle(e.target.value)} 
-                    className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition" 
-                    required 
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-300">Target Audience Visibility</label>
-                  <select 
-                    value={newVisibility} 
-                    onChange={(e) => setNewVisibility(e.target.value)} 
-                    className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
+              {/* Categories */}
+              <div className="flex gap-2 overflow-x-auto pb-2">
+                {['All', 'VIP', 'Elite', 'Standard'].map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${selectedCategory === cat ? 'bg-pink-600 text-white shadow-lg' : 'bg-[#0b101d] text-slate-400 border border-slate-800 hover:border-slate-700'}`}
                   >
-                    <option value="all">Visible to All Users</option>
-                    <option value="female">Visible Only to Females</option>
-                    <option value="male">Visible Only to Males</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-300">Announcement Content</label>
-                  <textarea 
-                    rows="3" 
-                    placeholder="Write message details here..." 
-                    value={newContent} 
-                    onChange={(e) => setNewContent(e.target.value)} 
-                    className="w-full p-4 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition resize-none" 
-                    required 
-                  />
-                </div>
-
-                <div className="flex justify-end pt-2">
-                  <button 
-                    type="submit" 
-                    className="px-6 py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center gap-2 cursor-pointer"
-                  >
-                    <Plus size={16} /> Publish Announcement
+                    {cat} Companions
                   </button>
-                </div>
-              </form>
-            </div>
-          ) : activeTab === 'news' ? (
-            <div className="space-y-6 max-w-3xl">
-              <div>
-                <h2 className="text-2xl font-black text-white tracking-tight">News & Announcements</h2>
-                <p className="text-xs text-slate-400 mt-1">Important updates and status broadcasts from platform administration.</p>
+                ))}
               </div>
 
-              <div className="space-y-4 pt-2">
-                {visibleAnnouncements.length === 0 ? (
-                  <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-12 text-center space-y-3">
-                    <Bell size={24} className="mx-auto text-slate-500" />
-                    <h3 className="text-sm font-bold text-white">No announcements available</h3>
-                    <p className="text-xs text-slate-500">Check back later for news updates.</p>
+              {/* Listings Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredLadies.length === 0 ? (
+                  <div className="col-span-full py-16 text-center bg-[#0b101d] border border-slate-800/80 rounded-3xl space-y-3">
+                    <AlertCircle size={32} className="mx-auto text-slate-500" />
+                    <p className="text-sm font-bold text-slate-300">No active companions found in {userLockedLocation}.</p>
+                    <p className="text-xs text-slate-500">Try checking back later or refreshing the catalog.</p>
                   </div>
                 ) : (
-                  visibleAnnouncements.map((item) => (
-                    <div key={item.id} className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 shadow-xl space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-pink-400">
-                          {item.timestamp ? new Date(item.timestamp).toLocaleString('en-GB', {
-                            day: 'numeric',
-                            month: 'short',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          }) : 'Just now'}
-                        </span>
-                        <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-purple-950 text-purple-400 border border-purple-800/40">
-                          Announcement
-                        </span>
+                  filteredLadies.map((lady) => (
+                    <div 
+                      key={lady._id || lady.id}
+                      onClick={() => setSelectedProfile(lady)}
+                      className="bg-[#0b101d] border border-slate-800/80 rounded-3xl overflow-hidden shadow-xl hover:border-pink-500/50 transition cursor-pointer group flex flex-col justify-between"
+                    >
+                      <div className="relative h-56 bg-slate-950 overflow-hidden">
+                        <img 
+                          src={lady.photo || lady.photoUrl} 
+                          alt={lady.name} 
+                          className="w-full h-full object-cover group-hover:scale-105 transition duration-500" 
+                        />
+                        <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-extrabold text-pink-400 uppercase tracking-wider border border-white/10">
+                          {lady.category || 'VIP'}
+                        </div>
+                        <div className="absolute bottom-3 left-3 bg-emerald-500/90 text-slate-950 px-2.5 py-0.5 rounded-full text-[9px] font-black flex items-center gap-1 shadow">
+                          <ShieldCheck size={11} /> VERIFIED
+                        </div>
                       </div>
-                      <h3 className="text-base font-extrabold text-white">{item.title}</h3>
+
+                      <div className="p-5 space-y-4 flex-1 flex flex-col justify-between">
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-base font-extrabold text-white">{lady.name}, {lady.age || '23'}</h3>
+                            <span className="text-sm font-black text-emerald-400">ZMW {lady.price || lady.rate}</span>
+                          </div>
+                          <p className="text-xs text-slate-400 flex items-center gap-1">
+                            <MapPin size={13} className="text-pink-500" /> {lady.specificLocation || lady.location}
+                          </p>
+                        </div>
+
+                        <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between">
+                          <span className="text-[10px] text-slate-500 font-bold uppercase">Click for details</span>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenWhatsApp(lady);
+                            }}
+                            className="p-2 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white rounded-xl border border-emerald-500/30 transition cursor-pointer"
+                          >
+                            <MessageSquare size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: POST ADVERTISEMENT & PRIVACY MASK STUDIO (FOR FEMALE USERS) */}
+          {activeTab === 'myprofile' && isFemaleUser && (
+            <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-8 animate-fadeIn">
+              {/* Wizard Progress Header */}
+              <div className="border-b border-slate-800 pb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2.5 bg-pink-600/20 text-pink-400 rounded-2xl border border-pink-500/30">
+                      <ShieldCheck className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold tracking-tight text-white">Companion Profile & Privacy Studio</h2>
+                      <p className="text-xs text-slate-400">Publish your verified listing with built-in privacy watermarking.</p>
+                    </div>
+                  </div>
+                  <div className="text-xs font-semibold px-3 py-1.5 bg-slate-900 rounded-full text-pink-300 border border-slate-800">
+                    {profileStep === 'photo_step' && 'Step 1: Photo & Privacy Mask'}
+                    {profileStep === 'details_step' && 'Step 2: Profile Details'}
+                    {profileStep === 'success_step' && 'Step 3: Verification Complete'}
+                  </div>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-800">
+                  <div 
+                    className="bg-gradient-to-r from-pink-500 to-purple-500 h-full transition-all duration-500 ease-out"
+                    style={{ 
+                      width: profileStep === 'photo_step' ? '33%' : profileStep === 'details_step' ? '66%' : '100%' 
+                    }}
+                  />
+                </div>
+              </div>
+
+              {errorMessage && (
+                <div className="p-4 bg-red-950/50 border border-red-800/50 rounded-2xl text-xs text-red-300">
+                  {errorMessage}
+                </div>
+              )}
+
+              {successMessage && (
+                <div className="p-4 bg-emerald-950/50 border border-emerald-800/50 rounded-2xl text-xs text-emerald-300">
+                  {successMessage}
+                </div>
+              )}
+
+              {/* STEP 1: PHOTO & PRIVACY MASK */}
+              {profileStep === 'photo_step' && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                    
+                    {/* Left: Upload & Controls */}
+                    <div className="space-y-6">
+                      <div className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 shadow-inner">
+                        <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Upload Source Photograph</label>
+                        <div className="flex items-center justify-center w-full">
+                          <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-700 border-dashed rounded-xl cursor-pointer bg-slate-900 hover:bg-slate-800 hover:border-pink-500 transition-all">
+                            <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4 text-center">
+                              <Upload className="w-8 h-8 mb-2 text-pink-400" />
+                              <p className="text-xs text-slate-300 font-medium">Click to upload photo</p>
+                              <p className="text-[10px] text-slate-500 mt-1">PNG, JPG or WEBP (Max 10MB)</p>
+                            </div>
+                            <input type="file" className="hidden" accept="image/*" onChange={handlePhotoUpload} />
+                          </label>
+                        </div>
+                      </div>
+
+                      {newAdData.originalPhoto && (
+                        <div className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 space-y-4">
+                          <h3 className="text-xs font-bold text-pink-300 uppercase tracking-wider flex items-center gap-2">
+                            <Sparkles className="w-4 h-4" /> Privacy Mask Configuration
+                          </h3>
+                          
+                          {/* Sticker Type Toggle */}
+                          <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
+                            <button
+                              type="button"
+                              onClick={() => setStickerType('logo')}
+                              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${stickerType === 'logo' ? 'bg-pink-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
+                            >
+                              Brand Logo Watermark
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setStickerType('emoji')}
+                              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${stickerType === 'emoji' ? 'bg-pink-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
+                            >
+                              Emoji Mask
+                            </button>
+                          </div>
+
+                          {stickerType === 'emoji' ? (
+                            <div>
+                              <label className="block text-[10px] uppercase font-bold text-slate-400 mb-2">Select Mask Emoji</label>
+                              <div className="flex gap-2">
+                                {['🕶️', '🐱', '🦊', '⭐', '🔒', '👻'].map(emoji => (
+                                  <button
+                                    key={emoji}
+                                    type="button"
+                                    onClick={() => setSelectedEmoji(emoji)}
+                                    className={`p-2.5 text-xl rounded-xl border transition-all cursor-pointer ${selectedEmoji === emoji ? 'bg-pink-600/30 border-pink-500 scale-105' : 'bg-slate-950 border-slate-800 hover:border-slate-600'}`}
+                                  >
+                                    {emoji}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <div>
+                              <label className="block text-[10px] uppercase font-bold text-slate-400 mb-2">Custom Watermark Logo</label>
+                              <input type="file" accept="image/*" onChange={handleLogoUpload} className="text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-pink-600 file:text-white hover:file:bg-pink-700 cursor-pointer" />
+                            </div>
+                          )}
+
+                          {/* Size slider */}
+                          <div>
+                            <div className="flex justify-between text-xs text-slate-400 mb-1 font-semibold">
+                              <span>Mask Scale</span>
+                              <span>{stickerSize}px</span>
+                            </div>
+                            <input 
+                              type="range" 
+                              min="40" 
+                              max="180" 
+                              value={stickerSize} 
+                              onChange={(e) => setStickerSize(Number(e.target.value))}
+                              className="w-full accent-pink-500 bg-slate-950 rounded-lg cursor-pointer"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Right: Interactive Preview Area */}
+                    <div className="bg-slate-900/30 p-6 rounded-2xl border border-slate-800 flex flex-col items-center justify-center min-h-[380px]">
+                      {newAdData.originalPhoto ? (
+                        <div className="space-y-3 w-full flex flex-col items-center">
+                          <p className="text-xs text-slate-400 flex items-center gap-1.5 font-medium">
+                            <Move className="w-3.5 h-3.5 text-pink-400" /> Drag watermark over sensitive face regions
+                          </p>
+                          
+                          {/* Container for photo + movable sticker */}
+                          <div 
+                            id="photo-container"
+                            ref={containerRef}
+                            className="relative inline-block overflow-hidden rounded-2xl border border-slate-800 shadow-xl select-none max-w-full"
+                            style={{ maxHeight: '350px' }}
+                          >
+                            <img 
+                              src={newAdData.originalPhoto} 
+                              alt="Source Preview" 
+                              className="block max-h-[350px] w-auto object-contain pointer-events-none" 
+                            />
+                            
+                            {/* Draggable Sticker Element */}
+                            <div
+                              id="privacy-sticker"
+                              onMouseDown={handleStickerMouseDown}
+                              className="absolute cursor-move flex items-center justify-center transition-shadow hover:ring-2 hover:ring-pink-400 rounded-xl"
+                              style={{
+                                left: `${stickerPos.x}px`,
+                                top: `${stickerPos.y}px`,
+                                width: `${stickerSize}px`,
+                                height: `${stickerSize}px`,
+                                fontSize: `${stickerSize * 0.75}px`
+                              }}
+                            >
+                              {stickerType === 'emoji' ? (
+                                <span className="drop-shadow-md">{selectedEmoji}</span>
+                              ) : customLogo ? (
+                                <img src={customLogo} alt="Logo Watermark" className="w-full h-full object-contain drop-shadow-md rounded-lg" />
+                              ) : (
+                                <span className="drop-shadow-md">🕶️</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center space-y-3 text-slate-500">
+                          <Camera className="w-12 h-12 mx-auto opacity-40 text-pink-500" />
+                          <p className="text-xs font-bold">Upload a photograph to activate privacy masking studio.</p>
+                        </div>
+                      )}
+                    </div>
+
+                  </div>
+
+                  {/* Step 1 Footer Action */}
+                  <div className="flex justify-end pt-4 border-t border-slate-800">
+                    <button
+                      type="button"
+                      disabled={!newAdData.originalPhoto || loading}
+                      onClick={handleProceedToDetails}
+                      className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-xs transition-all shadow-lg ${newAdData.originalPhoto && !loading ? 'bg-pink-600 hover:bg-pink-500 text-white cursor-pointer' : 'bg-slate-900 text-slate-500 cursor-not-allowed border border-slate-800'}`}
+                    >
+                      {loading ? <Loader2 size={16} className="animate-spin" /> : <>Next: Profile Details <ArrowRight className="w-4 h-4" /></>}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 2: PROFILE DETAILS */}
+              {profileStep === 'details_step' && (
+                <form onSubmit={handleFormSubmit} className="space-y-6 animate-fadeIn">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    
+                    {/* Thumbnail Preview Card */}
+                    <div className="md:col-span-1 bg-slate-900/50 p-5 rounded-2xl border border-slate-800 flex flex-col items-center text-center space-y-4">
+                      <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Masked Photo Preview</span>
+                      <div className="w-32 h-32 rounded-2xl overflow-hidden border-2 border-pink-500/50 shadow-lg bg-slate-950">
+                        {newAdData.photo && <img src={newAdData.photo} alt="Masked profile" className="w-full h-full object-cover" />}
+                      </div>
+                      <p className="text-[11px] text-slate-400">This masked version will be published publicly on your elite directory card.</p>
+                      
+                      <button
+                        type="button"
+                        onClick={() => setProfileStep('photo_step')}
+                        className="text-xs text-pink-400 hover:text-pink-300 underline font-bold cursor-pointer"
+                      >
+                        Adjust Mask Positioning
+                      </button>
+                    </div>
+
+                    {/* Form Fields */}
+                    <div className="md:col-span-2 space-y-4 bg-slate-900/30 p-6 rounded-2xl border border-slate-800">
+                      <h3 className="text-xs font-bold text-pink-300 uppercase tracking-wider mb-2">Personnel Metadata</h3>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-slate-300 mb-1">Full Name / Alias *</label>
+                          <input 
+                            type="text" 
+                            name="name"
+                            value={newAdData.name}
+                            onChange={handleInputChange}
+                            placeholder="e.g. Jessica" 
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-pink-500 font-medium"
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-slate-300 mb-1">Category *</label>
+                          <select 
+                            name="category"
+                            value={newAdData.category}
+                            onChange={handleInputChange}
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-pink-500 font-medium cursor-pointer"
+                          >
+                            <option value="VIP">VIP</option>
+                            <option value="Elite">Elite</option>
+                            <option value="Standard">Standard</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-slate-300 mb-1">Location / City *</label>
+                          <input 
+                            type="text" 
+                            name="location"
+                            value={newAdData.location}
+                            onChange={handleInputChange}
+                            placeholder="e.g. Lusaka" 
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-pink-500 font-medium"
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-slate-300 mb-1">Specific Area / Neighborhood</label>
+                          <input 
+                            type="text" 
+                            name="specificLocation"
+                            value={newAdData.specificLocation || ''}
+                            onChange={handleInputChange}
+                            placeholder="e.g. Kabulonga" 
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-pink-500 font-medium"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-slate-300 mb-1">WhatsApp Phone Number *</label>
+                          <input 
+                            type="text" 
+                            name="phone"
+                            value={newAdData.phone}
+                            onChange={handleInputChange}
+                            placeholder="e.g. 260970000000" 
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-pink-500 font-medium"
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-slate-300 mb-1">Rate (ZMW) *</label>
+                          <input 
+                            type="text" 
+                            name="rate"
+                            value={newAdData.rate}
+                            onChange={handleInputChange}
+                            placeholder="e.g. 500" 
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-pink-500 font-medium"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] uppercase font-bold text-slate-300 mb-1">Services / Bio / Preferences</label>
+                        <textarea 
+                          name="bio"
+                          rows="3"
+                          value={newAdData.bio}
+                          onChange={handleInputChange}
+                          placeholder="Brief overview of availability, services, and preferences..."
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-pink-500 resize-none font-medium"
+                        />
+                      </div>
+                    </div>
+
+                  </div>
+
+                  {/* Step 2 Footer Actions */}
+                  <div className="flex justify-between items-center pt-4 border-t border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setProfileStep('photo_step')}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-xl text-xs font-bold transition-all border border-slate-800 cursor-pointer"
+                    >
+                      <ArrowLeft className="w-4 h-4" /> Back to Photo Masking
+                    </button>
+
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white rounded-xl font-bold text-xs transition-all shadow-lg cursor-pointer disabled:opacity-50"
+                    >
+                      {loading ? <Loader2 size={16} className="animate-spin" /> : <>Complete Registration <CheckCircle2 className="w-4 h-4" /></>}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* STEP 3: SUCCESS & COMPLETED RECORD */}
+              {profileStep === 'success_step' && (
+                <div className="space-y-6 text-center py-6 animate-fadeIn">
+                  <div className="w-16 h-16 bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 rounded-full flex items-center justify-center mx-auto shadow-lg">
+                    <CheckCircle2 className="w-8 h-8" />
+                  </div>
+
+                  <div className="space-y-2">
+                    <h3 className="text-xl font-bold tracking-tight text-white">Profile Verified & Published Successfully</h3>
+                    <p className="text-xs text-slate-400 max-w-md mx-auto">
+                      Your privacy mask has been securely baked into the companion record, and metadata has been submitted to the elite catalog ledger.
+                    </p>
+                  </div>
+
+                  {/* Preview Card Result */}
+                  <div className="max-w-xs mx-auto bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-2xl text-left">
+                    <div className="h-28 bg-gradient-to-r from-pink-900 via-purple-900 to-slate-900 relative">
+                      <div className="absolute -bottom-8 left-6 w-16 h-16 rounded-2xl border-2 border-slate-900 overflow-hidden bg-slate-950 shadow-md">
+                        {newAdData.photo && <img src={newAdData.photo} alt="Avatar" className="w-full h-full object-cover" />}
+                      </div>
+                    </div>
+                    
+                    <div className="pt-10 p-5 space-y-3">
+                      <div>
+                        <h4 className="text-sm font-extrabold text-white">{newAdData.name}</h4>
+                        <p className="text-[11px] text-pink-400 font-bold">{newAdData.category} Companion</p>
+                      </div>
+
+                      <div className="space-y-1.5 text-xs text-slate-300 border-t border-slate-800 pt-3">
+                        <div className="flex items-center gap-2">
+                          <MapPin className="w-3.5 h-3.5 text-slate-500" />
+                          <span>{newAdData.location}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Phone className="w-3.5 h-3.5 text-slate-500" />
+                          <span>{newAdData.phone}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 flex justify-center gap-4">
+                    <button
+                      type="button"
+                      onClick={resetDirectoryForm}
+                      className="px-6 py-2.5 bg-pink-600 hover:bg-pink-500 text-white rounded-xl font-bold text-xs transition-all shadow-lg cursor-pointer"
+                    >
+                      Update Profile or Photo Again
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 3: NEWS & ANNOUNCEMENTS */}
+          {activeTab === 'news' && (
+            <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6 animate-fadeIn">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+                <div>
+                  <h2 className="text-xl font-extrabold text-white">Platform News & Announcements</h2>
+                  <p className="text-xs text-slate-400">Important notices and updates from administration</p>
+                </div>
+              </div>
+
+              {isAdminUser && (
+                <div className="p-5 bg-slate-900/60 border border-slate-800 rounded-2xl space-y-4">
+                  <h3 className="text-xs font-bold text-pink-300 uppercase tracking-wider">Publish New Announcement</h3>
+                  <form onSubmit={handleCreateAnnouncement} className="space-y-3">
+                    <input 
+                      type="text" 
+                      placeholder="Announcement Title" 
+                      value={newTitle} 
+                      onChange={(e) => setNewTitle(e.target.value)} 
+                      className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 font-medium"
+                      required
+                    />
+                    <textarea 
+                      rows="3" 
+                      placeholder="Announcement content..." 
+                      value={newContent} 
+                      onChange={(e) => setNewContent(e.target.value)} 
+                      className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 resize-none font-medium"
+                      required
+                    />
+                    <div className="flex items-center justify-between gap-4">
+                      <select 
+                        value={newVisibility} 
+                        onChange={(e) => setNewVisibility(e.target.value)} 
+                        className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none font-medium cursor-pointer"
+                      >
+                        <option value="all">Visible to All Users</option>
+                        <option value="female">Female Companions Only</option>
+                        <option value="male">Male Clients Only</option>
+                      </select>
+                      <button type="submit" className="px-5 py-2.5 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded-xl text-xs transition shadow cursor-pointer">
+                        Publish Announcement
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                {visibleAnnouncements.length === 0 ? (
+                  <p className="text-xs text-slate-500 text-center py-8">No announcements available at this time.</p>
+                ) : (
+                  visibleAnnouncements.map(item => (
+                    <div key={item.id} className="p-5 bg-slate-900/50 border border-slate-800 rounded-2xl space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-bold text-white">{item.title}</h3>
+                        <span className="text-[10px] text-slate-500">{new Date(item.timestamp).toLocaleDateString()}</span>
+                      </div>
                       <p className="text-xs text-slate-300 leading-relaxed">{item.content}</p>
                     </div>
                   ))
                 )}
               </div>
             </div>
-          ) : isFemaleUser ? (
-            activeTab === 'settings' ? (
-              <div className="space-y-6 max-w-2xl">
-                <div>
-                  <h2 className="text-2xl font-black text-white tracking-tight">Account Details</h2>
-                  <p className="text-xs text-slate-400 mt-1">Update your account preferences and credentials.</p>
+          )}
+
+          {/* TAB 4: FAVORITES (FOR MALE USERS) */}
+          {activeTab === 'favorites' && !isFemaleUser && !isAdminUser && (
+            <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6 animate-fadeIn">
+              <h2 className="text-xl font-extrabold text-white">Your Favorite Companions</h2>
+              <p className="text-xs text-slate-400">Quick access to your saved elite profiles.</p>
+              <div className="py-12 text-center bg-slate-900/30 border border-slate-800 rounded-2xl space-y-2">
+                <Heart size={32} className="mx-auto text-slate-600" />
+                <p className="text-xs text-slate-400 font-bold">No favorite companions saved yet.</p>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: SUBSCRIPTION STATUS (FOR MALE USERS) */}
+          {activeTab === 'subscription' && !isFemaleUser && !isAdminUser && (
+            <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6 animate-fadeIn">
+              <h2 className="text-xl font-extrabold text-white">Subscription & Account Status</h2>
+              <div className="p-6 bg-slate-900/50 border border-slate-800 rounded-2xl space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-400 uppercase">Account Status</span>
+                  <span className="px-3 py-1 bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 rounded-full text-[10px] font-black">ACTIVE</span>
                 </div>
-                <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xl">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-300">Username</label>
-                    <input 
-                      type="text" 
-                      value={currentUser.username} 
-                      disabled 
-                      className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-400 cursor-not-allowed" 
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-300">Default City / Region</label>
-                    <input 
-                      type="text" 
-                      value={userLockedLocation} 
-                      disabled 
-                      className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-400 cursor-not-allowed" 
-                    />
-                  </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-400 uppercase">Location Locked</span>
+                  <span className="text-xs font-extrabold text-white">{userLockedLocation}</span>
                 </div>
               </div>
-            ) : activeTab === 'history' ? (
-              <div className="space-y-6 max-w-3xl">
-                <div>
-                  <h2 className="text-2xl font-black text-white tracking-tight">Companion Activity History</h2>
-                  <p className="text-xs text-slate-400 mt-1">Track your advertisement submissions and logs.</p>
-                </div>
+            </div>
+          )}
 
-                <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-4">
-                  {profileHistory.length === 0 ? (
-                    <div className="text-center py-12 text-slate-500 text-xs">No historical logs available yet.</div>
-                  ) : (
-                    <div className="space-y-3">
-                      {profileHistory.map((item) => (
-                        <div key={item.id} className="p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-between gap-4">
-                          <div className="space-y-1">
-                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
-                              {item.timestamp ? new Date(item.timestamp).toLocaleString('en-GB', {
-                                day: 'numeric',
-                                month: 'short',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              }) : 'Just now'}
-                            </span>
-                            <h4 className="text-xs font-bold text-white">{item.action}</h4>
-                          </div>
-                          <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold uppercase ${item.status === 'Approved' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/40' : 'bg-amber-950 text-amber-400 border border-amber-800/40'}`}>
-                            {item.status}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-6 max-w-3xl mx-auto">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                  <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2 text-white">
-                    <User className="text-pink-400" /> Post Advertisement (Multi-Step Wizard)
-                  </h1>
-                  
-                  {/* Step Indicator */}
-                  <div className="flex items-center gap-2">
-                    <span className={`text-xs font-bold px-3 py-1 rounded-full ${profileStep === 'photo_step' ? 'bg-pink-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
-                      Step 1: Photo & Mask
-                    </span>
-                    <span className={`text-xs font-bold px-3 py-1 rounded-full ${profileStep === 'details_step' ? 'bg-pink-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
-                      Step 2: Profile Details
-                    </span>
-                  </div>
-                </div>
-
-                {/* Status Banners */}
-                {successMessage && (
-                  <div className="p-4 bg-emerald-900/50 border border-emerald-500/50 rounded-2xl flex items-center gap-3 text-emerald-200 text-xs">
-                    <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0" />
-                    <span>{successMessage}</span>
-                  </div>
-                )}
-
-                {errorMessage && (
-                  <div className="p-4 bg-rose-900/50 border border-rose-500/50 rounded-2xl flex items-center gap-3 text-rose-200 text-xs">
-                    <AlertCircle className="w-5 h-5 text-rose-400 flex-shrink-0" />
-                    <span>{errorMessage}</span>
-                  </div>
-                )}
-
-                {/* STEP 1: PHOTO UPLOAD & MOVABLE MASK EDITOR */}
-                {profileStep === 'photo_step' && (
-                  <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
-                    <div className="flex items-center gap-2">
-                      <Sliders className="text-pink-500" size={20} />
-                      <h3 className="text-base font-extrabold text-white">Step 1: Upload & Position Privacy Mask over Face</h3>
-                    </div>
-
-                    {!newAdData.originalPhoto ? (
-                      <div className="border-2 border-dashed border-slate-800 hover:border-pink-500/50 rounded-3xl p-10 text-center space-y-4 bg-slate-950/40 transition">
-                        <div className="w-16 h-16 bg-slate-900 border border-slate-800 text-pink-400 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
-                          <User size={32} />
-                        </div>
-                        <div className="space-y-1">
-                          <h4 className="text-sm font-bold text-white">Upload Clean Photo</h4>
-                          <p className="text-xs text-slate-400">Upload a clear photo (max 5MB) before applying the sticker mask.</p>
-                        </div>
-                        <label className="inline-block cursor-pointer bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white px-6 py-3 rounded-xl font-bold text-xs shadow-lg transition">
-                          Browse Image File
-                          <input type="file" accept="image/*" onChange={handleCleanPhotoUpload} className="hidden" />
-                        </label>
-                      </div>
-                    ) : (
-                      <div className="space-y-6">
-                        {/* Editor Workspace */}
-                        <div 
-                          id="photo-container"
-                          onMouseMove={handleMouseMove}
-                          onMouseUp={handleMouseUp}
-                          onMouseLeave={handleMouseUp}
-                          className="flex items-center justify-center bg-slate-950 rounded-2xl p-4 overflow-hidden border border-slate-800 relative min-h-[340px] select-none"
-                        >
-                          <div className="relative inline-block max-h-full">
-                            <img 
-                              ref={previewImageRef}
-                              src={newAdData.originalPhoto} 
-                              alt="Workspace" 
-                              className="max-h-[45vh] w-auto rounded-xl object-contain shadow-2xl pointer-events-none" 
-                            />
-                            
-                            {/* Movable Mask */}
-                            {selectedSticker && (
-                              <div 
-                                id="privacy-sticker"
-                                onMouseDown={handleStickerMouseDown}
-                                style={{
-                                  transform: `translate(calc(-50% + ${stickerPos.x}px), calc(-50% + ${stickerPos.y}px))`
-                                }}
-                                className="absolute top-1/3 left-1/2 cursor-grab active:cursor-grabbing group z-20"
-                                title="Click and drag to position mask over face"
-                              >
-                                {selectedSticker === brandLogo || (typeof selectedSticker === 'string' && (selectedSticker.startsWith('data:image') || selectedSticker.includes('.'))) ? (
-                                  <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-white shadow-2xl animate-pulse bg-slate-950">
-                                    <img src={selectedSticker} alt="Mask Logo" className="w-full h-full object-cover pointer-events-none" />
-                                  </div>
-                                ) : (
-                                  <span className="text-6xl filter drop-shadow-lg">{selectedSticker}</span>
-                                )}
-
-                                <span className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 bg-slate-900/90 text-pink-400 font-bold text-[9px] px-2 py-0.5 rounded-full border border-pink-500/40 whitespace-nowrap flex items-center gap-1 shadow">
-                                  <Move size={10} /> Drag me
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Sticker Selection */}
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <label className="text-xs font-semibold text-slate-300">Choose Privacy Mask / Sticker:</label>
-                            <span className="text-[10px] text-pink-400 font-semibold">Tip: Drag the sticker over the face</span>
-                          </div>
-                          <div className="flex gap-3 flex-wrap items-center bg-slate-900 p-3 rounded-2xl border border-slate-800">
-                            <button
-                              type="button"
-                              onClick={() => { setSelectedSticker(brandLogo); setStickerPos({ x: 0, y: 0 }); }}
-                              className={`px-3 py-2 rounded-xl text-xs font-bold transition border cursor-pointer flex items-center gap-2 ${
-                                selectedSticker === brandLogo 
-                                  ? 'bg-pink-500/25 border-pink-500 text-white shadow-lg' 
-                                  : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'
-                              }`}
-                            >
-                              <img src={brandLogo} alt="Official Logo" className="w-5 h-5 rounded-full object-cover border border-white/40" />
-                              Official Logo
-                            </button>
-
-                            {['🕶️', '🐱', '⭐', '❤️', '🦊', '🙈'].map((sticker) => (
-                              <button
-                                type="button"
-                                key={sticker}
-                                onClick={() => { setSelectedSticker(sticker); setStickerPos({ x: 0, y: 0 }); }}
-                                className={`px-3 py-2 rounded-xl text-xl transition border cursor-pointer ${
-                                  selectedSticker === sticker 
-                                    ? 'bg-pink-500/25 border-pink-500 text-white shadow-lg' 
-                                    : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'
-                                }`}
-                              >
-                                {sticker}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Change Image Button */}
-                        <div className="flex items-center justify-between pt-2">
-                          <label className="cursor-pointer text-xs font-bold text-slate-400 hover:text-white underline">
-                            Upload a different photo
-                            <input type="file" accept="image/*" onChange={handleCleanPhotoUpload} className="hidden" />
-                          </label>
-
-                          <button 
-                            type="button"
-                            disabled={loading}
-                            onClick={handleProceedToDetails}
-                            className="px-8 py-3.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg transition cursor-pointer"
-                          >
-                            {loading ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
-                            Next: Profile Details
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* STEP 2: PROFILE DETAILS & SUBMISSION */}
-                {profileStep === 'details_step' && (
-                  <form onSubmit={handleSaveLadyProfileManual} className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                      <div className="flex items-center gap-2">
-                        <User className="text-pink-500" size={20} />
-                        <h3 className="text-base font-extrabold text-white">Step 2: Enter Profile Details & Rates</h3>
-                      </div>
-                      <button 
-                        type="button"
-                        onClick={() => setProfileStep('photo_step')}
-                        className="text-xs text-pink-400 font-bold hover:underline flex items-center gap-1 cursor-pointer"
-                      >
-                        <ArrowLeft size={14} /> Back to Photo Masking
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-300 mb-1">Companion Name</label>
-                        <input 
-                          type="text" 
-                          required
-                          value={newAdData.name}
-                          onChange={(e) => setNewAdData({ ...newAdData, name: e.target.value })}
-                          placeholder="Enter name"
-                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-300 mb-1">Category / Tier</label>
-                        <select 
-                          value={newAdData.category}
-                          onChange={(e) => setNewAdData({ ...newAdData, category: e.target.value })}
-                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
-                        >
-                          <option value="VIP">VIP</option>
-                          <option value="Elite">Elite</option>
-                          <option value="Standard">Standard</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-300 mb-1">Location</label>
-                        <div className="relative">
-                          <MapPin className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500" />
-                          <input 
-                            type="text" 
-                            required
-                            value={newAdData.location}
-                            onChange={(e) => setNewAdData({ ...newAdData, location: e.target.value })}
-                            placeholder="City / Region"
-                            className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-300 mb-1">Contact Phone</label>
-                        <div className="relative">
-                          <Phone className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500" />
-                          <input 
-                            type="text" 
-                            required
-                            value={newAdData.phone}
-                            onChange={(e) => setNewAdData({ ...newAdData, phone: e.target.value })}
-                            placeholder="+260..."
-                            className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-300 mb-1">Hourly/Service Rate (ZMW)</label>
-                        <div className="relative">
-                          <DollarSign className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500" />
-                          <input 
-                            type="number" 
-                            required
-                            value={newAdData.rate}
-                            onChange={(e) => setNewAdData({ ...newAdData, rate: e.target.value })}
-                            placeholder="0.00"
-                            className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
+          {/* TAB 6: ACCOUNT SETTINGS & HISTORY */}
+          {(activeTab === 'settings' || activeTab === 'history') && !isAdminUser && (
+            <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6 animate-fadeIn">
+              <h2 className="text-xl font-extrabold text-white">Account Details & Activity History</h2>
+              <div className="space-y-3">
+                {profileHistory.map(h => (
+                  <div key={h.id} className="p-4 bg-slate-900/50 border border-slate-800 rounded-2xl flex items-center justify-between">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">Profile Bio / Description</label>
-                      <textarea 
-                        rows="3"
-                        value={newAdData.bio}
-                        onChange={(e) => setNewAdData({ ...newAdData, bio: e.target.value })}
-                        placeholder="Tell clients about preferences and availability..."
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl p-4 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition resize-none"
-                      ></textarea>
+                      <p className="text-xs font-bold text-white">{h.action}</p>
+                      <span className="text-[10px] text-slate-500">{new Date(h.timestamp).toLocaleString()}</span>
                     </div>
-
-                    <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
-                      <button 
-                        type="button"
-                        onClick={() => setProfileStep('photo_step')}
-                        className="px-5 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition cursor-pointer"
-                      >
-                        Back
-                      </button>
-
-                      <button 
-                        type="submit" 
-                        disabled={loading}
-                        className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold px-8 py-3.5 rounded-xl text-xs flex items-center gap-2 shadow-lg transition-colors disabled:opacity-50 cursor-pointer"
-                      >
-                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                        {loading ? 'Publishing...' : 'Save and Publish Ad'}
-                      </button>
-                    </div>
-                  </form>
-                )}
+                    <span className="px-2.5 py-1 bg-slate-800 text-slate-300 rounded-lg text-[10px] font-bold">{h.status}</span>
+                  </div>
+                ))}
               </div>
-            )
-          ) : (
-            activeTab === 'favorites' ? (
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-2xl font-black text-white tracking-tight">Your Favorites</h2>
-                  <p className="text-xs text-slate-400 mt-1">Quickly access profiles you have saved.</p>
-                </div>
-                <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-12 text-center space-y-3">
-                  <div className="w-12 h-12 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-center mx-auto text-pink-500">
-                    <Heart size={24} />
-                  </div>
-                  <h3 className="text-sm font-bold text-white">No favorite profiles yet</h3>
-                  <p className="text-xs text-slate-500 max-w-xs mx-auto">Browse the elite directory and bookmark your preferred companion listings.</p>
-                </div>
-              </div>
-            ) : activeTab === 'subscription' ? (
-              <div className="space-y-6 max-w-2xl">
-                <div>
-                  <h2 className="text-2xl font-black text-white tracking-tight">Subscription Status</h2>
-                  <p className="text-xs text-slate-400 mt-1">Manage your active tier and platform access benefits.</p>
-                </div>
-                <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xl">
-                  <div className="flex items-center justify-between p-4 bg-slate-900 border border-slate-800 rounded-2xl">
-                    <div className="space-y-1">
-                      <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Current Tier</span>
-                      <h4 className="text-base font-black text-white flex items-center gap-2">
-                        <Crown size={16} className="text-amber-400" /> Verified Elite Member
-                      </h4>
-                    </div>
-                    <span className="px-3 py-1 bg-emerald-950 text-emerald-400 border border-emerald-800/40 rounded-full text-xs font-extrabold uppercase">Active</span>
-                  </div>
-                  <p className="text-xs text-slate-400 leading-relaxed">
-                    Your account has full privileges to browse listings and connect with verified companions in {userLockedLocation}.
-                  </p>
-                </div>
-              </div>
-            ) : activeTab === 'settings' ? (
-              <div className="space-y-6 max-w-2xl">
-                <div>
-                  <h2 className="text-2xl font-black text-white tracking-tight">Account Details</h2>
-                  <p className="text-xs text-slate-400 mt-1">Update your account preferences and credentials.</p>
-                </div>
-                <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xl">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-300">Username</label>
-                    <input 
-                      type="text" 
-                      value={currentUser.username} 
-                      disabled 
-                      className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-400 cursor-not-allowed" 
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-300">Default City / Region</label>
-                    <input 
-                      type="text" 
-                      value={userLockedLocation} 
-                      disabled 
-                      className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-400 cursor-not-allowed" 
-                    />
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-[#0b101d] border border-slate-800/80 p-5 rounded-3xl shadow-xl">
-                  <div className="relative flex-1">
-                    <Search size={18} className="absolute left-4 top-3.5 text-slate-500" />
-                    <input 
-                      type="text" 
-                      placeholder="Search by name or area (e.g. Chalala)..." 
-                      value={searchQuery} 
-                      onChange={(e) => setSearchQuery(e.target.value)} 
-                      className="w-full pl-11 pr-4 py-3 bg-slate-900 border border-slate-800 rounded-2xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition" 
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
-                    {['All', 'VIP', 'Elite', 'Standard'].map((cat) => (
-                      <button 
-                        key={cat} 
-                        onClick={() => setSelectedCategory(cat)} 
-                        className={`px-4 py-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${selectedCategory === cat ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-md' : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'}`}
-                      >
-                        {cat}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredLadies.length === 0 ? (
-                    <div className="col-span-full text-center py-20 space-y-3 bg-[#0b101d] border border-slate-800/80 rounded-3xl">
-                      <div className="w-16 h-16 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-center mx-auto text-slate-500">
-                        <Compass size={28} />
-                      </div>
-                      <h3 className="text-base font-bold text-white">No companion profiles found</h3>
-                      <p className="text-xs text-slate-500 max-w-sm mx-auto">Try adjusting your search query or category filter for {userLockedLocation}.</p>
-                    </div>
-                  ) : (
-                    filteredLadies.map((lady) => (
-                      <div 
-                        key={lady.id || lady._id} 
-                        className="bg-[#0b101d] border border-slate-800/80 rounded-3xl overflow-hidden shadow-xl hover:border-pink-500/40 transition duration-300 flex flex-col group"
-                      >
-                        <div className="relative h-72 overflow-hidden bg-slate-950">
-                          <img 
-                            src={lady.photo || lady.photoUrl} 
-                            alt={lady.name} 
-                            className="w-full h-full object-cover group-hover:scale-105 transition duration-500" 
-                          />
-
-                          <div className="absolute inset-0 bg-gradient-to-t from-[#0b101d] via-transparent to-transparent opacity-80" />
-
-                          <div className="absolute top-3 right-3">
-                            <span className="bg-emerald-500/90 text-slate-950 font-black text-[10px] px-2.5 py-1 rounded-full flex items-center gap-1 shadow-md">
-                              <ShieldCheck size={12} /> VERIFIED FEMALE
-                            </span>
-                          </div>
-
-                          <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end">
-                            <div>
-                              <h3 className="text-white font-black text-lg drop-shadow-md">{lady.name}, {lady.age || '23'}</h3>
-                              <p className="text-xs text-pink-400 font-bold uppercase tracking-wider">{lady.category || 'VIP'} Companion</p>
-                            </div>
-                            <span className="bg-emerald-500/90 text-slate-950 font-black text-xs px-3 py-1 rounded-xl shadow-lg">
-                              ZMW {lady.price || lady.rate}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
-                          <div className="space-y-2">
-                            <p className="text-xs text-slate-400 flex items-center gap-1.5">
-                              <MapPin size={14} className="text-pink-500" /> {lady.specificLocation || lady.location}
-                            </p>
-                            {(lady.extraServices || lady.bio) && (
-                              <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">{lady.extraServices || lady.bio}</p>
-                            )}
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800/80">
-                            <button 
-                              onClick={() => setSelectedProfile(lady)}
-                              className="py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
-                            >
-                              View Profile
-                            </button>
-                            <button 
-                              onClick={() => handleOpenWhatsApp(lady)}
-                              className="py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md transition cursor-pointer"
-                            >
-                              <MessageSquare size={14} /> WhatsApp
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            )
+            </div>
           )}
         </main>
       </div>
