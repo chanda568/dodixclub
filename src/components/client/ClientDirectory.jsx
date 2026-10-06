@@ -1,13 +1,13 @@
 // src/components/client/ClientDirectory.jsx
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-  LogOut, MessageSquare, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, Crown, RefreshCw, CheckCircle, Flag, Heart, CreditCard, Settings, Bell, Plus, Trash2, Shield, MessageCircle, Loader2, DollarSign, AlertCircle, Save, Phone, Edit3, Sliders, Move, Check, Award, Filter
+  LogOut, MessageSquare, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, Crown, RefreshCw, CheckCircle, Flag, Heart, CreditCard, Settings, Bell, Plus, Trash2, Shield, MessageCircle, Loader2, DollarSign, AlertCircle, Save, Phone, Edit3, Sliders, Move, Check, Award, Filter, ArrowRight, ArrowLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import LogoLoader from '../common/LogoLoader';
 import { encryptStorageData, decryptStorageData } from '../../utils/storageEncryption';
 
-// Reference brand logo directly from the public folder (Option 2)
+// Reference brand logo directly from the public folder
 const brandLogo = '/logo.jpg';
 
 // Sanitize BACKEND_URL by removing trailing slashes
@@ -45,23 +45,20 @@ export default function ClientDirectory({
   const [newContent, setNewContent] = useState('');
   const [newVisibility, setNewVisibility] = useState('all');
 
+  // Multi-step Companion Form Wizard State ('photo_step' vs 'details_step')
+  const [profileStep, setProfileStep] = useState('photo_step');
+
   // Advertisement Form State & Default Logo Sticker State
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const [isSaved, setIsSaved] = useState(false);
-  const [selectedSticker, setSelectedSticker] = useState(brandLogo); // Defaulting to official brand logo asset
+  const [selectedSticker, setSelectedSticker] = useState(brandLogo);
   
-  // Full-View Photo Editor Modal & Draggable Sticker State
-  const [photoEditorOpen, setPhotoEditorOpen] = useState(false);
-  const [tempPhoto, setTempPhoto] = useState(''); // Clean unmasked source image
-  const [stickerPos, setStickerPos] = useState({ x: 0, y: 0 }); // offset from center
+  // Draggable Sticker State inside Photo Editor
+  const [stickerPos, setStickerPos] = useState({ x: 0, y: 0 });
   const [isDraggingSticker, setIsDraggingSticker] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
-  // Client Directory Branding Modal State
-  const [activeClient, setActiveClient] = useState(null);
-  const [isEditingPhoto, setIsEditingPhoto] = useState(false);
   const canvasRef = useRef(null);
 
   const initialName = currentUser?.username && !['female', 'lady', 'client'].includes(currentUser.username.toLowerCase()) 
@@ -91,7 +88,7 @@ export default function ClientDirectory({
     }
   });
 
-  // 1. Sync Live Listings from Backend safely checking JSON content-type
+  // 1. Sync Live Listings from Backend
   const fetchBackendLadies = async (isManual = false) => {
     if (isManual) setIsRefreshingCatalog(true);
     try {
@@ -176,13 +173,6 @@ export default function ClientDirectory({
             content: 'Welcome to DodixClub! Please ensure your account details and locations are updated for seamless matching.',
             visibility: 'all',
             timestamp: new Date().toISOString()
-          },
-          {
-            id: 2,
-            title: 'Exclusive Notice for Female Companions',
-            content: 'Please ensure your advertisement photos and details are updated regularly.',
-            visibility: 'female',
-            timestamp: new Date().toISOString()
           }
         ];
         setAnnouncements(defaultAnnouncements);
@@ -224,7 +214,7 @@ export default function ClientDirectory({
     window.open(`https://wa.me/${adminPhone}?text=${supportMsg}`, '_blank');
   };
 
-  // 4. Handle Clean Photo Upload and Open Full-View Editor Panel
+  // 4. Handle Clean Photo Upload
   const handleCleanPhotoUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -242,12 +232,17 @@ export default function ClientDirectory({
     setErrorMessage('');
     const reader = new FileReader();
     reader.onloadend = () => {
-      setTempPhoto(reader.result); // Keep clean unmasked source image
+      const baseResult = reader.result;
+      setNewAdData(prev => ({
+        ...prev,
+        originalPhoto: baseResult,
+        unmaskedPhoto: baseResult,
+        photo: baseResult
+      }));
       setStickerPos({ x: 0, y: 0 });
       if (!selectedSticker) {
         setSelectedSticker(brandLogo);
       }
-      setPhotoEditorOpen(true);
     };
     reader.readAsDataURL(file);
   };
@@ -323,25 +318,30 @@ export default function ClientDirectory({
     });
   };
 
-  // Confirm and Apply Editing from Full-View Panel (Captures both masked public version and original unmasked version)
-  const handleConfirmPhotoEdit = async () => {
-    if (!tempPhoto) return;
-    let finalMaskedPhoto = tempPhoto;
-    if (selectedSticker) {
-      finalMaskedPhoto = await bakeStickerToImage(tempPhoto, selectedSticker, stickerPos);
+  // Click "Next" after masking to proceed to profile details
+  const handleProceedToDetails = async () => {
+    if (!newAdData.originalPhoto && !newAdData.photo) {
+      setErrorMessage('Please upload a photo first.');
+      return;
     }
-    
+
+    setLoading(true);
+    let finalMaskedPhoto = newAdData.originalPhoto || newAdData.photo;
+    if (selectedSticker) {
+      finalMaskedPhoto = await bakeStickerToImage(finalMaskedPhoto, selectedSticker, stickerPos);
+    }
+
     setNewAdData(prev => ({
       ...prev,
-      photo: finalMaskedPhoto,          // Publicly displayed masked photo
-      photoUrl: finalMaskedPhoto,       // Publicly displayed masked photo
-      originalPhoto: tempPhoto,         // Secure unmasked photo for admin review
-      unmaskedPhoto: tempPhoto          // Backup reference field
+      photo: finalMaskedPhoto,
+      photoUrl: finalMaskedPhoto
     }));
-    setPhotoEditorOpen(false);
+
+    setLoading(false);
+    setProfileStep('details_step');
   };
 
-  // 5. Save and Publish Ad using POST (Submitting both masked and unmasked fields)
+  // 5. Save and Publish Ad using POST
   const handleSaveLadyProfileManual = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -349,19 +349,8 @@ export default function ClientDirectory({
     setSuccessMessage('');
 
     try {
-      let finalMaskedPhoto = newAdData.photo;
-      const originalSourcePhoto = newAdData.originalPhoto || tempPhoto || newAdData.photo;
-
-      if (selectedSticker && finalMaskedPhoto && !finalMaskedPhoto.includes('data:image')) {
-        finalMaskedPhoto = await bakeStickerToImage(finalMaskedPhoto, selectedSticker, stickerPos);
-      }
-
       const payload = {
         ...newAdData,
-        photo: finalMaskedPhoto,         // Shown publicly to clients
-        photoUrl: finalMaskedPhoto,      // Shown publicly to clients
-        originalPhoto: originalSourcePhoto, // Sent securely for admin review only
-        unmaskedPhoto: originalSourcePhoto, // Backup reference field
         username: currentUser.username,
         price: newAdData.rate,
         extraServices: newAdData.bio
@@ -385,7 +374,6 @@ export default function ClientDirectory({
         throw new Error(data.message || data.error || 'Failed to save profile configuration.');
       }
 
-      setIsSaved(true);
       if (data.companion) {
         setLadies([data.companion, ...ladies.filter(l => l._id !== data.companion._id && l.id !== data.companion.id)]);
       } else {
@@ -411,7 +399,7 @@ export default function ClientDirectory({
     }
   };
 
-  // 6. Submit Report to Backend API safely
+  // 6. Submit Report to Backend API
   const handleReportSubmit = async (e) => {
     e.preventDefault();
     if (!reportedUsername.trim() || !reportReason.trim()) {
@@ -537,127 +525,6 @@ export default function ClientDirectory({
   return (
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col relative selection:bg-pink-500 selection:text-white font-sans">
       {isLoading && <LogoLoader text={loadingText} />}
-
-      {/* FULL-VIEW PHOTO & MOVABLE MASK EDITING PANEL MODAL */}
-      <AnimatePresence>
-        {photoEditorOpen && (
-          <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="max-w-2xl w-full bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6 relative overflow-hidden flex flex-col max-h-[90vh]"
-            >
-              <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-                <div className="flex items-center gap-2">
-                  <Sliders className="text-pink-500" size={20} />
-                  <h3 className="text-base font-bold text-white">Full-View Photo & Movable Mask Editor</h3>
-                </div>
-                <button 
-                  onClick={() => setPhotoEditorOpen(false)}
-                  className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-900 border border-slate-800 transition cursor-pointer"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-
-              {/* Full View Image Workspace with Mouse Move listeners for Dragging */}
-              <div 
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
-                className="flex-1 flex items-center justify-center bg-slate-950 rounded-2xl p-4 overflow-hidden border border-slate-800 relative min-h-[340px] select-none"
-              >
-                {tempPhoto && (
-                  <div className="relative inline-block max-h-full">
-                    <img src={tempPhoto} alt="Full View Editor Workspace" className="max-h-[50vh] w-auto rounded-xl object-contain shadow-2xl pointer-events-none" />
-                    
-                    {/* Movable Mask Preview Container */}
-                    {selectedSticker && (
-                      <div 
-                        onMouseDown={handleStickerMouseDown}
-                        style={{
-                          transform: `translate(calc(-50% + ${stickerPos.x}px), calc(-50% + ${stickerPos.y}px))`
-                        }}
-                        className="absolute top-1/3 left-1/2 cursor-grab active:cursor-grabbing group z-20"
-                        title="Click and drag to position mask over face"
-                      >
-                        {selectedSticker === brandLogo || (typeof selectedSticker === 'string' && (selectedSticker.startsWith('data:image') || selectedSticker.includes('.'))) ? (
-                          <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-white shadow-2xl animate-pulse bg-slate-950">
-                            <img src={selectedSticker} alt="Mask Logo" className="w-full h-full object-cover pointer-events-none" />
-                          </div>
-                        ) : (
-                          <span className="text-6xl filter drop-shadow-lg">{selectedSticker}</span>
-                        )}
-
-                        {/* Drag badge hint */}
-                        <span className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 bg-slate-900/90 text-pink-400 font-bold text-[9px] px-2 py-0.5 rounded-full border border-pink-500/40 whitespace-nowrap flex items-center gap-1 shadow">
-                          <Move size={10} /> Drag me
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Sticker Selection Toolbar */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-slate-300">Choose Privacy Mask / Sticker:</label>
-                  <span className="text-[10px] text-pink-400 font-semibold">Tip: Click and drag the mask on the photo to position it precisely over the face</span>
-                </div>
-                <div className="flex gap-3 flex-wrap items-center bg-slate-900 p-3 rounded-2xl border border-slate-800">
-                  <button
-                    type="button"
-                    onClick={() => { setSelectedSticker(brandLogo); setStickerPos({ x: 0, y: 0 }); }}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition border cursor-pointer flex items-center gap-2 ${
-                      selectedSticker === brandLogo 
-                        ? 'bg-pink-500/25 border-pink-500 text-white shadow-lg' 
-                        : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'
-                    }`}
-                  >
-                    <img src={brandLogo} alt="Official Logo" className="w-5 h-5 rounded-full object-cover border border-white/40" />
-                    Official Logo
-                  </button>
-
-                  {['🕶️', '🐱', '⭐', '❤️', '🦊', '🙈'].map((sticker) => (
-                    <button
-                      type="button"
-                      key={sticker}
-                      onClick={() => { setSelectedSticker(sticker); setStickerPos({ x: 0, y: 0 }); }}
-                      className={`px-3 py-2 rounded-xl text-xl transition border cursor-pointer ${
-                        selectedSticker === sticker 
-                          ? 'bg-pink-500/25 border-pink-500 text-white shadow-lg' 
-                          : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'
-                      }`}
-                    >
-                      {sticker}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
-                <button 
-                  type="button"
-                  onClick={() => setPhotoEditorOpen(false)}
-                  className="px-5 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="button"
-                  onClick={handleConfirmPhotoEdit}
-                  className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg transition cursor-pointer"
-                >
-                  <CheckCircle size={16} /> Apply Mask & Save Photo
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
 
       {/* PROFILE DETAIL MODAL */}
       <AnimatePresence>
@@ -1045,19 +912,17 @@ export default function ClientDirectory({
                   />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-300">Target Audience Visibility</label>
-                    <select 
-                      value={newVisibility} 
-                      onChange={(e) => setNewVisibility(e.target.value)} 
-                      className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
-                    >
-                      <option value="all">Visible to All Users</option>
-                      <option value="female">Visible Only to Females</option>
-                      <option value="male">Visible Only to Males</option>
-                    </select>
-                  </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">Target Audience Visibility</label>
+                  <select 
+                    value={newVisibility} 
+                    onChange={(e) => setNewVisibility(e.target.value)} 
+                    className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
+                  >
+                    <option value="all">Visible to All Users</option>
+                    <option value="female">Visible Only to Females</option>
+                    <option value="male">Visible Only to Males</option>
+                  </select>
                 </div>
 
                 <div className="space-y-1.5">
@@ -1184,184 +1049,277 @@ export default function ClientDirectory({
                 </div>
               </div>
             ) : (
-              <div className="space-y-6 max-w-4xl mx-auto">
+              <div className="space-y-6 max-w-3xl mx-auto">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-4">
                   <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2 text-white">
-                    <User className="text-pink-400" /> Companion Directory & Profile Management
+                    <User className="text-pink-400" /> Post Advertisement (Multi-Step Wizard)
                   </h1>
+                  
+                  {/* Step Indicator */}
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-bold px-3 py-1 rounded-full ${profileStep === 'photo_step' ? 'bg-pink-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                      Step 1: Photo & Mask
+                    </span>
+                    <span className={`text-xs font-bold px-3 py-1 rounded-full ${profileStep === 'details_step' ? 'bg-pink-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                      Step 2: Profile Details
+                    </span>
+                  </div>
                 </div>
 
                 {/* Status Banners */}
                 {successMessage && (
-                  <div className="mb-6 p-4 bg-emerald-900/50 border border-emerald-500/50 rounded-2xl flex items-center gap-3 text-emerald-200 text-xs">
+                  <div className="p-4 bg-emerald-900/50 border border-emerald-500/50 rounded-2xl flex items-center gap-3 text-emerald-200 text-xs">
                     <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0" />
                     <span>{successMessage}</span>
                   </div>
                 )}
 
                 {errorMessage && (
-                  <div className="mb-6 p-4 bg-rose-900/50 border border-rose-500/50 rounded-2xl flex items-center gap-3 text-rose-200 text-xs">
+                  <div className="p-4 bg-rose-900/50 border border-rose-500/50 rounded-2xl flex items-center gap-3 text-rose-200 text-xs">
                     <AlertCircle className="w-5 h-5 text-rose-400 flex-shrink-0" />
                     <span>{errorMessage}</span>
                   </div>
                 )}
 
-                {/* Profile Submission Form */}
-                <form onSubmit={handleSaveLadyProfileManual} className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Name */}
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">Companion Name</label>
-                      <input 
-                        type="text" 
-                        required
-                        value={newAdData.name}
-                        onChange={(e) => setNewAdData({ ...newAdData, name: e.target.value })}
-                        placeholder="Enter name"
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
-                      />
+                {/* STEP 1: PHOTO UPLOAD & MOVABLE MASK EDITOR */}
+                {profileStep === 'photo_step' && (
+                  <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
+                    <div className="flex items-center gap-2">
+                      <Sliders className="text-pink-500" size={20} />
+                      <h3 className="text-base font-extrabold text-white">Step 1: Upload & Position Privacy Mask over Face</h3>
                     </div>
 
-                    {/* Category */}
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">Category / Tier</label>
-                      <select 
-                        value={newAdData.category}
-                        onChange={(e) => setNewAdData({ ...newAdData, category: e.target.value })}
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
-                      >
-                        <option value="VIP">VIP</option>
-                        <option value="Elite">Elite</option>
-                        <option value="Standard">Standard</option>
-                      </select>
-                    </div>
-
-                    {/* Location */}
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">Location</label>
-                      <div className="relative">
-                        <MapPin className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500" />
-                        <input 
-                          type="text" 
-                          required
-                          value={newAdData.location}
-                          onChange={(e) => setNewAdData({ ...newAdData, location: e.target.value })}
-                          placeholder="City / Region"
-                          className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Phone */}
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">Contact Phone</label>
-                      <div className="relative">
-                        <Phone className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500" />
-                        <input 
-                          type="text" 
-                          required
-                          value={newAdData.phone}
-                          onChange={(e) => setNewAdData({ ...newAdData, phone: e.target.value })}
-                          placeholder="+260..."
-                          className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Rate */}
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">Hourly/Service Rate (ZMW)</label>
-                      <div className="relative">
-                        <DollarSign className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500" />
-                        <input 
-                          type="number" 
-                          required
-                          value={newAdData.rate}
-                          onChange={(e) => setNewAdData({ ...newAdData, rate: e.target.value })}
-                          placeholder="0.00"
-                          className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Bio */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">Profile Bio / Description</label>
-                    <textarea 
-                      rows="3"
-                      value={newAdData.bio}
-                      onChange={(e) => setNewAdData({ ...newAdData, bio: e.target.value })}
-                      placeholder="Tell clients about preferences and availability..."
-                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-4 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition resize-none"
-                    ></textarea>
-                  </div>
-
-                  {/* Photo Upload & Full-View Editor trigger */}
-                  <div className="space-y-3">
-                    <label className="block text-xs font-semibold text-slate-300">Advertisement Photo (Max 5MB)</label>
-                    <div className="flex items-center gap-4">
-                      <label className="cursor-pointer bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white px-4 py-3 rounded-xl font-bold text-xs flex items-center gap-2 transition-colors shadow">
-                        Upload Photo
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          onChange={handleCleanPhotoUpload} 
-                          className="hidden" 
-                        />
-                      </label>
-                      {newAdData.photo && (
-                        <div className="flex items-center gap-2 text-emerald-400 text-xs font-semibold">
-                          <CheckCircle className="w-4 h-4" /> Photo attached & masked successfully
+                    {!newAdData.originalPhoto ? (
+                      <div className="border-2 border-dashed border-slate-800 hover:border-pink-500/50 rounded-3xl p-10 text-center space-y-4 bg-slate-950/40 transition">
+                        <div className="w-16 h-16 bg-slate-900 border border-slate-800 text-pink-400 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+                          <User size={32} />
                         </div>
-                      )}
-                    </div>
-
-                    {newAdData.photo && (
-                      <div className="mt-2 relative inline-block group">
+                        <div className="space-y-1">
+                          <h4 className="text-sm font-bold text-white">Upload Clean Photo</h4>
+                          <p className="text-xs text-slate-400">Upload a clear photo (max 5MB) before applying the sticker mask.</p>
+                        </div>
+                        <label className="inline-block cursor-pointer bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white px-6 py-3 rounded-xl font-bold text-xs shadow-lg transition">
+                          Browse Image File
+                          <input type="file" accept="image/*" onChange={handleCleanPhotoUpload} className="hidden" />
+                        </label>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        {/* Editor Workspace */}
                         <div 
-                          onClick={() => {
-                            setTempPhoto(newAdData.originalPhoto || newAdData.photo);
-                            setStickerPos({ x: 0, y: 0 });
-                            setPhotoEditorOpen(true);
-                          }}
-                          className="relative w-36 h-36 rounded-2xl overflow-hidden border-2 border-slate-800 hover:border-pink-500 bg-slate-950 cursor-pointer transition shadow-lg group-hover:scale-[1.02]"
-                          title="Click to open full-view photo editor"
+                          onMouseMove={handleMouseMove}
+                          onMouseUp={handleMouseUp}
+                          onMouseLeave={handleMouseUp}
+                          className="flex items-center justify-center bg-slate-950 rounded-2xl p-4 overflow-hidden border border-slate-800 relative min-h-[340px] select-none"
                         >
-                          <img src={newAdData.photo} alt="Preview" className="w-full h-full object-cover" />
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition backdrop-blur-[2px]">
-                            <span className="text-white text-xs font-bold flex items-center gap-1.5 bg-pink-600/90 px-3 py-1.5 rounded-xl shadow">
-                              <Edit3 size={14} /> Edit & Position
-                            </span>
+                          <div className="relative inline-block max-h-full">
+                            <img src={newAdData.originalPhoto} alt="Workspace" className="max-h-[45vh] w-auto rounded-xl object-contain shadow-2xl pointer-events-none" />
+                            
+                            {/* Movable Mask */}
+                            {selectedSticker && (
+                              <div 
+                                onMouseDown={handleStickerMouseDown}
+                                style={{
+                                  transform: `translate(calc(-50% + ${stickerPos.x}px), calc(-50% + ${stickerPos.y}px))`
+                                }}
+                                className="absolute top-1/3 left-1/2 cursor-grab active:cursor-grabbing group z-20"
+                                title="Click and drag to position mask over face"
+                              >
+                                {selectedSticker === brandLogo || (typeof selectedSticker === 'string' && (selectedSticker.startsWith('data:image') || selectedSticker.includes('.'))) ? (
+                                  <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-white shadow-2xl animate-pulse bg-slate-950">
+                                    <img src={selectedSticker} alt="Mask Logo" className="w-full h-full object-cover pointer-events-none" />
+                                  </div>
+                                ) : (
+                                  <span className="text-6xl filter drop-shadow-lg">{selectedSticker}</span>
+                                )}
+
+                                <span className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 bg-slate-900/90 text-pink-400 font-bold text-[9px] px-2 py-0.5 rounded-full border border-pink-500/40 whitespace-nowrap flex items-center gap-1 shadow">
+                                  <Move size={10} /> Drag me
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </div>
-                        <button 
-                          type="button"
-                          onClick={() => {
-                            setNewAdData({ ...newAdData, photo: '', photoUrl: '', originalPhoto: '', unmaskedPhoto: '' });
-                            setSelectedSticker(brandLogo);
-                          }}
-                          className="absolute -top-2 -right-2 bg-rose-600 p-1.5 rounded-full text-white hover:bg-rose-500 shadow cursor-pointer z-10"
-                          title="Remove Photo"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+
+                        {/* Sticker Selection */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-semibold text-slate-300">Choose Privacy Mask / Sticker:</label>
+                            <span className="text-[10px] text-pink-400 font-semibold">Tip: Drag the sticker over the face</span>
+                          </div>
+                          <div className="flex gap-3 flex-wrap items-center bg-slate-900 p-3 rounded-2xl border border-slate-800">
+                            <button
+                              type="button"
+                              onClick={() => { setSelectedSticker(brandLogo); setStickerPos({ x: 0, y: 0 }); }}
+                              className={`px-3 py-2 rounded-xl text-xs font-bold transition border cursor-pointer flex items-center gap-2 ${
+                                selectedSticker === brandLogo 
+                                  ? 'bg-pink-500/25 border-pink-500 text-white shadow-lg' 
+                                  : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'
+                              }`}
+                            >
+                              <img src={brandLogo} alt="Official Logo" className="w-5 h-5 rounded-full object-cover border border-white/40" />
+                              Official Logo
+                            </button>
+
+                            {['🕶️', '🐱', '⭐', '❤️', '🦊', '🙈'].map((sticker) => (
+                              <button
+                                type="button"
+                                key={sticker}
+                                onClick={() => { setSelectedSticker(sticker); setStickerPos({ x: 0, y: 0 }); }}
+                                className={`px-3 py-2 rounded-xl text-xl transition border cursor-pointer ${
+                                  selectedSticker === sticker 
+                                    ? 'bg-pink-500/25 border-pink-500 text-white shadow-lg' 
+                                    : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'
+                                }`}
+                              >
+                                {sticker}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Change Image Button */}
+                        <div className="flex items-center justify-between pt-2">
+                          <label className="cursor-pointer text-xs font-bold text-slate-400 hover:text-white underline">
+                            Upload a different photo
+                            <input type="file" accept="image/*" onChange={handleCleanPhotoUpload} className="hidden" />
+                          </label>
+
+                          <button 
+                            type="button"
+                            disabled={loading}
+                            onClick={handleProceedToDetails}
+                            className="px-8 py-3.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg transition cursor-pointer"
+                          >
+                            {loading ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
+                            Next: Profile Details
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
+                )}
 
-                  {/* Action Button */}
-                  <div className="pt-4 border-t border-slate-800 flex justify-end">
-                    <button 
-                      type="submit" 
-                      disabled={loading}
-                      className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold px-8 py-3.5 rounded-xl text-xs flex items-center gap-2 shadow-lg transition-colors disabled:opacity-50 cursor-pointer"
-                    >
-                      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                      {loading ? 'Saving Profile...' : 'Save and Publish Ad'}
-                    </button>
-                  </div>
-                </form>
+                {/* STEP 2: PROFILE DETAILS & SUBMISSION */}
+                {profileStep === 'details_step' && (
+                  <form onSubmit={handleSaveLadyProfileManual} className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <User className="text-pink-500" size={20} />
+                        <h3 className="text-base font-extrabold text-white">Step 2: Enter Profile Details & Rates</h3>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => setProfileStep('photo_step')}
+                        className="text-xs text-pink-400 font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <ArrowLeft size={14} /> Back to Photo Masking
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-300 mb-1">Companion Name</label>
+                        <input 
+                          type="text" 
+                          required
+                          value={newAdData.name}
+                          onChange={(e) => setNewAdData({ ...newAdData, name: e.target.value })}
+                          placeholder="Enter name"
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-300 mb-1">Category / Tier</label>
+                        <select 
+                          value={newAdData.category}
+                          onChange={(e) => setNewAdData({ ...newAdData, category: e.target.value })}
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
+                        >
+                          <option value="VIP">VIP</option>
+                          <option value="Elite">Elite</option>
+                          <option value="Standard">Standard</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-300 mb-1">Location</label>
+                        <div className="relative">
+                          <MapPin className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500" />
+                          <input 
+                            type="text" 
+                            required
+                            value={newAdData.location}
+                            onChange={(e) => setNewAdData({ ...newAdData, location: e.target.value })}
+                            placeholder="City / Region"
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-300 mb-1">Contact Phone</label>
+                        <div className="relative">
+                          <Phone className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500" />
+                          <input 
+                            type="text" 
+                            required
+                            value={newAdData.phone}
+                            onChange={(e) => setNewAdData({ ...newAdData, phone: e.target.value })}
+                            placeholder="+260..."
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-300 mb-1">Hourly/Service Rate (ZMW)</label>
+                        <div className="relative">
+                          <DollarSign className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500" />
+                          <input 
+                            type="number" 
+                            required
+                            value={newAdData.rate}
+                            onChange={(e) => setNewAdData({ ...newAdData, rate: e.target.value })}
+                            placeholder="0.00"
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">Profile Bio / Description</label>
+                      <textarea 
+                        rows="3"
+                        value={newAdData.bio}
+                        onChange={(e) => setNewAdData({ ...newAdData, bio: e.target.value })}
+                        placeholder="Tell clients about preferences and availability..."
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl p-4 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition resize-none"
+                      ></textarea>
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
+                      <button 
+                        type="button"
+                        onClick={() => setProfileStep('photo_step')}
+                        className="px-5 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition cursor-pointer"
+                      >
+                        Back
+                      </button>
+
+                      <button 
+                        type="submit" 
+                        disabled={loading}
+                        className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold px-8 py-3.5 rounded-xl text-xs flex items-center gap-2 shadow-lg transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        {loading ? 'Publishing...' : 'Save and Publish Ad'}
+                      </button>
+                    </div>
+                  </form>
+                )}
               </div>
             )
           ) : (
