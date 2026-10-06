@@ -60,6 +60,7 @@ export default function ClientDirectory({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
   const canvasRef = useRef(null);
+  const previewImageRef = useRef(null);
 
   const initialName = currentUser?.username && !['female', 'lady', 'client'].includes(currentUser.username.toLowerCase()) 
     ? currentUser.username 
@@ -277,8 +278,8 @@ export default function ClientDirectory({
     };
   }, [isDraggingSticker, dragStart]);
 
-  // Canvas Baker Function: Bakes the sticker directly onto the exported public image
-  const bakeStickerToImage = (imageSrc, stickerSrc, pos) => {
+  // Updated Canvas Baker supporting Emojis, Images, and Screen-to-Canvas Scaling
+  const bakeStickerToImage = (imageSrc, stickerSrc, pos, previewRect, naturalDimensions) => {
     const canvas = canvasRef.current;
     if (!canvas) return Promise.resolve(imageSrc);
     
@@ -297,20 +298,28 @@ export default function ClientDirectory({
         canvas.height = img.height;
         ctx.drawImage(img, 0, 0);
 
-        const sticker = new Image();
-        sticker.crossOrigin = 'anonymous';
-        
-        if (typeof stickerSrc === 'string' && (stickerSrc.startsWith('data:image') || stickerSrc === brandLogo)) {
+        // Calculate scale factor between preview display size and actual high-res image size
+        const scaleX = previewRect?.width ? img.width / previewRect.width : 1;
+        const scaleY = previewRect?.height ? img.height / previewRect.height : 1;
+
+        const stickerSize = canvas.width * 0.25;
+        const centerX = (canvas.width - stickerSize) / 2 + ((pos.x || 0) * scaleX);
+        const centerY = (canvas.height - stickerSize) / 2 + ((pos.y || 0) * scaleY);
+
+        if (typeof stickerSrc === 'string' && (stickerSrc.startsWith('data:image') || stickerSrc === brandLogo || stickerSrc.includes('.'))) {
+          const sticker = new Image();
+          sticker.crossOrigin = 'anonymous';
           sticker.src = stickerSrc;
           sticker.onload = () => {
-            const stickerSize = canvas.width * 0.25;
-            const x = (canvas.width - stickerSize) / 2 + (pos.x || 0);
-            const y = (canvas.height - stickerSize) / 2 + (pos.y || 0);
-            ctx.drawImage(sticker, x, y, stickerSize, stickerSize);
+            ctx.drawImage(sticker, centerX, centerY, stickerSize, stickerSize);
             resolve(canvas.toDataURL('image/jpeg', 0.9));
           };
           sticker.onerror = () => resolve(canvas.toDataURL('image/jpeg', 0.9));
         } else {
+          // Render emoji properly on canvas
+          ctx.font = `${stickerSize}px serif`;
+          ctx.textBaseline = 'top';
+          ctx.fillText(stickerSrc, centerX, centerY);
           resolve(canvas.toDataURL('image/jpeg', 0.9));
         }
       };
@@ -327,8 +336,10 @@ export default function ClientDirectory({
 
     setLoading(true);
     let finalMaskedPhoto = newAdData.originalPhoto || newAdData.photo;
+    
     if (selectedSticker) {
-      finalMaskedPhoto = await bakeStickerToImage(finalMaskedPhoto, selectedSticker, stickerPos);
+      const rect = previewImageRef.current ? previewImageRef.current.getBoundingClientRect() : null;
+      finalMaskedPhoto = await bakeStickerToImage(finalMaskedPhoto, selectedSticker, stickerPos, rect);
     }
 
     setNewAdData(prev => ({
@@ -1114,7 +1125,12 @@ export default function ClientDirectory({
                           className="flex items-center justify-center bg-slate-950 rounded-2xl p-4 overflow-hidden border border-slate-800 relative min-h-[340px] select-none"
                         >
                           <div className="relative inline-block max-h-full">
-                            <img src={newAdData.originalPhoto} alt="Workspace" className="max-h-[45vh] w-auto rounded-xl object-contain shadow-2xl pointer-events-none" />
+                            <img 
+                              ref={previewImageRef}
+                              src={newAdData.originalPhoto} 
+                              alt="Workspace" 
+                              className="max-h-[45vh] w-auto rounded-xl object-contain shadow-2xl pointer-events-none" 
+                            />
                             
                             {/* Movable Mask */}
                             {selectedSticker && (
