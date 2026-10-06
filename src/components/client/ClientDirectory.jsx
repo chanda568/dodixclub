@@ -7,6 +7,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import LogoLoader from '../common/LogoLoader';
 import { encryptStorageData, decryptStorageData } from '../../utils/storageEncryption';
 
+// Import brand logo image
+import brandLogo from '../../assets/logo_2.jpg'; 
+
 // Sanitize BACKEND_URL by removing trailing slashes
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000').replace(/\/+$/, '');
 
@@ -47,7 +50,7 @@ export default function ClientDirectory({
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isSaved, setIsSaved] = useState(false);
-  const [selectedSticker, setSelectedSticker] = useState('logo'); // 'logo' or emoji
+  const [selectedSticker, setSelectedSticker] = useState(brandLogo); // Defaulting to official brand logo asset
   
   // Full-View Photo Editor Modal & Draggable Sticker State
   const [photoEditorOpen, setPhotoEditorOpen] = useState(false);
@@ -235,7 +238,7 @@ export default function ClientDirectory({
       setTempPhoto(reader.result);
       setStickerPos({ x: 0, y: 0 });
       if (!selectedSticker) {
-        setSelectedSticker('logo');
+        setSelectedSticker(brandLogo);
       }
       setPhotoEditorOpen(true);
     };
@@ -261,7 +264,18 @@ export default function ClientDirectory({
     setIsDraggingSticker(false);
   };
 
-  // Canvas helper to bake sticker according to its final dragged position
+  useEffect(() => {
+    if (isDraggingSticker) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDraggingSticker, dragStart]);
+
+  // Canvas Baker Function: Bakes the sticker (logo or emoji) directly onto the exported image
   const bakeStickerToImage = (imageSrc, sticker, pos) => {
     return new Promise((resolve) => {
       if (!imageSrc) {
@@ -278,47 +292,37 @@ export default function ClientDirectory({
         ctx.drawImage(img, 0, 0);
 
         const size = canvas.width * 0.28;
-        // Base center position + dragged offset scaled to natural canvas size
         const baseCenterX = (canvas.width - size) / 2;
         const baseCenterY = canvas.height * 0.25;
-        const scaleFactor = canvas.width / 400; // scaling ratio based on preview box
+        const scaleFactor = canvas.width / 400; 
         const x = baseCenterX + (pos.x * scaleFactor);
         const y = baseCenterY + (pos.y * scaleFactor);
 
-        if (sticker === 'logo') {
-          // Draw circular glowing gradient badge / logo substitute
-          ctx.save();
-          ctx.beginPath();
-          ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2, true);
-          ctx.closePath();
-          ctx.clip();
+        if (typeof sticker === 'string' && (sticker.startsWith('data:image') || sticker === brandLogo)) {
+          const stickerImg = new Image();
+          stickerImg.crossOrigin = 'anonymous';
+          stickerImg.onload = () => {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2, true);
+            ctx.closePath();
+            ctx.clip();
+            ctx.drawImage(stickerImg, x, y, size, size);
+            ctx.restore();
 
-          // Gradient fill
-          const grad = ctx.createLinearGradient(x, y, x + size, y + size);
-          grad.addColorStop(0, '#ec4899'); // pink-500
-          grad.addColorStop(1, '#9333ea'); // purple-600
-          ctx.fillStyle = grad;
-          ctx.fillRect(x, y, size, size);
+            // Outer white border ring
+            ctx.beginPath();
+            ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2, true);
+            ctx.lineWidth = Math.max(2, canvas.width * 0.006);
+            ctx.strokeStyle = '#ffffff';
+            ctx.stroke();
 
-          // Shield text icon
-          ctx.fillStyle = '#ffffff';
-          ctx.font = `bold ${Math.floor(size * 0.45)}px sans-serif`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText('D', x + size / 2, y + size / 2);
-
-          ctx.restore();
-
-          // Border ring
-          ctx.beginPath();
-          ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2, true);
-          ctx.lineWidth = Math.max(2, canvas.width * 0.006);
-          ctx.strokeStyle = '#ffffff';
-          ctx.stroke();
-
-          resolve(canvas.toDataURL('image/jpeg', 0.9));
+            resolve(canvas.toDataURL('image/jpeg', 0.9));
+          };
+          stickerImg.onerror = () => resolve(canvas.toDataURL('image/jpeg', 0.9));
+          stickerImg.src = sticker;
         } else {
-          // Emoji sticker fallback
+          // Emoji fallback
           ctx.font = `${Math.floor(canvas.width * 0.22)}px serif`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
@@ -581,9 +585,9 @@ export default function ClientDirectory({
                         className="absolute top-1/3 left-1/2 cursor-grab active:cursor-grabbing group z-20"
                         title="Click and drag to position mask over face"
                       >
-                        {selectedSticker === 'logo' ? (
-                          <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-pink-500 to-purple-600 border-4 border-white shadow-2xl flex items-center justify-center text-white font-black text-2xl animate-pulse">
-                            D
+                        {selectedSticker === brandLogo || (typeof selectedSticker === 'string' && (selectedSticker.startsWith('data:image') || selectedSticker.includes('.'))) ? (
+                          <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-white shadow-2xl animate-pulse bg-slate-950">
+                            <img src={selectedSticker} alt="Mask Logo" className="w-full h-full object-cover pointer-events-none" />
                           </div>
                         ) : (
                           <span className="text-6xl filter drop-shadow-lg">{selectedSticker}</span>
@@ -599,7 +603,7 @@ export default function ClientDirectory({
                 )}
               </div>
 
-              {/* Sticker Selector Toolbar */}
+              {/* Sticker Selection Toolbar */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-semibold text-slate-300">Choose Privacy Mask / Sticker:</label>
@@ -608,15 +612,15 @@ export default function ClientDirectory({
                 <div className="flex gap-3 flex-wrap items-center bg-slate-900 p-3 rounded-2xl border border-slate-800">
                   <button
                     type="button"
-                    onClick={() => { setSelectedSticker('logo'); setStickerPos({ x: 0, y: 0 }); }}
+                    onClick={() => { setSelectedSticker(brandLogo); setStickerPos({ x: 0, y: 0 }); }}
                     className={`px-3.5 py-2 rounded-xl text-xs font-bold transition border cursor-pointer flex items-center gap-2 ${
-                      selectedSticker === 'logo' 
-                        ? 'bg-pink-500/25 border-pink-500 text-white' 
+                      selectedSticker === brandLogo 
+                        ? 'bg-pink-500/25 border-pink-500 text-white shadow-lg' 
                         : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'
                     }`}
                   >
-                    <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-pink-500 to-purple-600 flex items-center justify-center text-white text-[10px] font-black">D</div>
-                    Default Logo
+                    <img src={brandLogo} alt="Official Logo" className="w-5 h-5 rounded-full object-cover border border-white/40" />
+                    Official Logo
                   </button>
 
                   {['🕶️', '🐱', '⭐', '❤️', '🦊', '🙈'].map((sticker) => (
@@ -626,7 +630,7 @@ export default function ClientDirectory({
                       onClick={() => { setSelectedSticker(sticker); setStickerPos({ x: 0, y: 0 }); }}
                       className={`px-3 py-2 rounded-xl text-xl transition border cursor-pointer ${
                         selectedSticker === sticker 
-                          ? 'bg-pink-500/25 border-pink-500 text-white' 
+                          ? 'bg-pink-500/25 border-pink-500 text-white shadow-lg' 
                           : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'
                       }`}
                     >
@@ -1338,7 +1342,7 @@ export default function ClientDirectory({
                           type="button"
                           onClick={() => {
                             setNewAdData({ ...newAdData, photo: '', photoUrl: '' });
-                            setSelectedSticker('logo');
+                            setSelectedSticker(brandLogo);
                           }}
                           className="absolute -top-2 -right-2 bg-rose-600 p-1.5 rounded-full text-white hover:bg-rose-500 shadow cursor-pointer z-10"
                           title="Remove Photo"
