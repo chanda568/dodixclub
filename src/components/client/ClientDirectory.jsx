@@ -1,122 +1,274 @@
+// src/components/client/ClientDirectory.jsx
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-  Camera, 
-  User, 
-  MapPin, 
-  Phone, 
-  Mail, 
-  Briefcase, 
-  ShieldCheck, 
-  CheckCircle2, 
-  ArrowRight, 
-  ArrowLeft, 
-  Upload, 
-  Trash2, 
-  Eye, 
-  Move, 
-  Lock, 
-  Sparkles,
-  HelpCircle,
-  FileText
+  LogOut, MessageSquare, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, Crown, RefreshCw, CheckCircle, Flag, Heart, CreditCard, Settings, Bell, Plus, Trash2, Shield, MessageCircle, Loader2, DollarSign, AlertCircle, Save, Phone, Edit3, Sliders, Move, Check, Award, Filter, ArrowRight, ArrowLeft
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import LogoLoader from '../common/LogoLoader';
+import { encryptStorageData, decryptStorageData } from '../../utils/storageEncryption';
 
-export default function ClientDirectory_4() {
-  // Wizard Steps: 'photo_step' | 'details_step' | 'success_step'
-  const [currentStep, setCurrentStep] = useState('photo_step');
+// Reference brand logo directly from the public folder
+const brandLogo = '/logo.jpg';
 
-  // Photo & Privacy Mask States
-  const [originalPhoto, setOriginalPhoto] = useState(null);
-  const [unmaskedPhoto, setUnmaskedPhoto] = useState(null);
-  const [maskedPhoto, setMaskedPhoto] = useState(null);
-  const [stickerType, setStickerType] = useState('emoji'); // 'emoji' | 'logo'
-  const [selectedEmoji, setSelectedEmoji] = useState('🕶️');
-  const [customLogo, setCustomLogo] = useState(null);
+// Sanitize BACKEND_URL by removing trailing slashes
+const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000').replace(/\/+$/, '');
+
+export default function ClientDirectory({ 
+  currentUser, 
+  setCurrentUser = () => {}, 
+  ladies = [], 
+  setLadies = () => {}, 
+  isLoading = false, 
+  loadingText = '' 
+}) {
+  const isFemaleUser = currentUser?.gender?.toLowerCase() === 'female' || currentUser?.gender?.toLowerCase() === 'lady';
+  const isAdminUser = currentUser?.role === 'admin' || currentUser?.username?.toLowerCase() === 'admin';
   
-  // Draggable Sticker Interaction States
-  const [stickerPos, setStickerPos] = useState({ x: 120, y: 120 });
-  const [stickerSize, setStickerSize] = useState(80);
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [activeTab, setActiveTab] = useState(isAdminUser ? 'news' : (isFemaleUser ? 'myprofile' : 'directory'));
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportedUsername, setReportedUsername] = useState('');
+  const [reportReason, setReportReason] = useState('');
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  const [isRefreshingCatalog, setIsRefreshingCatalog] = useState(false);
+  
+  const userLockedLocation = currentUser?.location || 'Lusaka';
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedProfile, setSelectedProfile] = useState(null);
 
-  // Client Details Form State
-  const [formData, setFormData] = useState({
-    fullName: '',
-    title: '',
-    department: '',
-    location: '',
-    email: '',
-    phone: '',
-    bio: '',
-    clearanceLevel: 'Standard'
+  const [allUsers, setAllUsers] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
+
+  const [newTitle, setNewTitle] = useState('');
+  const [newContent, setNewContent] = useState('');
+  const [newVisibility, setNewVisibility] = useState('all');
+
+  // Multi-step Companion Form Wizard State ('photo_step' vs 'details_step')
+  const [profileStep, setProfileStep] = useState('photo_step');
+
+  // Advertisement Form State & Default Logo Sticker State
+  const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [selectedSticker, setSelectedSticker] = useState(brandLogo);
+  
+  // Draggable Sticker State inside Photo Editor
+  const [stickerPos, setStickerPos] = useState({ x: 0, y: 0 });
+  const [isDraggingSticker, setIsDraggingSticker] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  const canvasRef = useRef(null);
+  const previewImageRef = useRef(null);
+
+  const initialName = currentUser?.username && !['female', 'lady', 'client'].includes(currentUser.username.toLowerCase()) 
+    ? currentUser.username 
+    : '';
+
+  const [newAdData, setNewAdData] = useState({
+    name: currentUser.name || initialName,
+    category: currentUser.category || 'VIP',
+    location: currentUser.location || userLockedLocation,
+    phone: currentUser.phone || '',
+    rate: currentUser.rate || '',
+    photo: currentUser.photo || currentUser.photoUrl || '',
+    originalPhoto: currentUser.originalPhoto || currentUser.photo || currentUser.photoUrl || '',
+    unmaskedPhoto: currentUser.unmaskedPhoto || currentUser.photo || currentUser.photoUrl || '',
+    bio: currentUser.bio || ''
   });
 
-  const [errors, setErrors] = useState({});
-  const containerRef = useRef(null);
-
-  // Handle image upload
-  const handlePhotoUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const result = event.target.result;
-        setOriginalPhoto(result);
-        setUnmaskedPhoto(result);
-        setMaskedPhoto(null);
-        // Reset sticker to center of preview box
-        setStickerPos({ x: 100, y: 100 });
-      };
-      reader.readAsDataURL(file);
+  const [profileHistory, setProfileHistory] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`dodix_history_${currentUser?.username}`);
+      return saved ? (decryptStorageData(saved) || []) : [
+        { id: 1, action: 'Profile Initialized', timestamp: new Date().toISOString(), status: 'Ready' }
+      ];
+    } catch {
+      return [];
     }
-  };
+  });
 
-  // Handle Logo upload for sticker
-  const handleLogoUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setCustomLogo(event.target.result);
-        setStickerType('logo');
-      };
-      reader.readAsDataURL(file);
+  // 1. Sync Live Listings from Backend
+  const fetchBackendLadies = async (isManual = false) => {
+    if (isManual) setIsRefreshingCatalog(true);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/ladies`);
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        console.error("Server returned non-JSON response from /api/ladies");
+        return;
+      }
+      const data = await response.json();
+      if (data.success && data.ladies) {
+        setLadies(data.ladies);
+      }
+    } catch (err) {
+      console.error("Failed to fetch backend ladies catalog:", err);
+    } finally {
+      if (isManual) {
+        setTimeout(() => setIsRefreshingCatalog(false), 500);
+      }
     }
-  };
-
-  // Mouse Drag Handlers for Sticker
-  const handleStickerMouseDown = (e) => {
-    e.preventDefault();
-    setIsDragging(true);
-    const rect = containerRef.current.getBoundingClientRect();
-    setDragOffset({
-      x: (e.clientX - rect.left) - stickerPos.x,
-      y: (e.clientY - rect.top) - stickerPos.y
-    });
-  };
-
-  const handleMouseMove = (e) => {
-    if (!isDragging || !containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    
-    let newX = (e.clientX - rect.left) - dragOffset.x;
-    let newY = (e.clientY - rect.top) - dragOffset.y;
-
-    // Optional boundary clamping inside container
-    const maxX = rect.width - stickerSize;
-    const maxY = rect.height - stickerSize;
-
-    newX = Math.max(0, Math.min(newX, maxX));
-    newY = Math.max(0, Math.min(newY, maxY));
-
-    setStickerPos({ x: newX, y: newY });
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
   };
 
   useEffect(() => {
-    if (isDragging) {
+    fetchBackendLadies();
+  }, [setLadies]);
+
+  // 2. Heartbeat & Last Seen Tracker
+  useEffect(() => {
+    if (!currentUser?.username) return;
+
+    const updateLastSeen = () => {
+      try {
+        const usersDbKey = 'dodix_users_db';
+        const savedUsers = localStorage.getItem(usersDbKey);
+        let usersList = savedUsers ? (decryptStorageData(usersDbKey) || []) : [];
+
+        const nowIso = new Date().toISOString();
+        const userIndex = usersList.findIndex(u => u.username?.toLowerCase() === currentUser.username.toLowerCase());
+
+        if (userIndex !== -1) {
+          const lastTime = new Date(usersList[userIndex].lastSeen || 0).getTime();
+          if (Date.now() - lastTime > 5000) {
+            usersList[userIndex].lastSeen = nowIso;
+            localStorage.setItem(usersDbKey, encryptStorageData(usersList));
+            setAllUsers(usersList);
+          }
+        } else {
+          usersList.push({
+            username: currentUser.username,
+            gender: currentUser.gender || 'Client',
+            role: currentUser.role || 'client',
+            location: currentUser.location || 'Lusaka',
+            createdAt: currentUser.createdAt || nowIso,
+            activated: currentUser.activated ?? true,
+            lastSeen: nowIso
+          });
+          localStorage.setItem(usersDbKey, encryptStorageData(usersList));
+          setAllUsers(usersList);
+        }
+      } catch (err) {
+        console.error("Error updating last seen heartbeat:", err);
+      }
+    };
+
+    updateLastSeen();
+    const interval = setInterval(updateLastSeen, 15000);
+    return () => clearInterval(interval);
+  }, [currentUser?.username]);
+
+  // 3. Load Announcements
+  useEffect(() => {
+    try {
+      const savedAnnouncements = localStorage.getItem('dodix_announcements_db');
+      if (savedAnnouncements) {
+        const parsed = decryptStorageData(savedAnnouncements) || [];
+        setAnnouncements(parsed);
+      } else {
+        const defaultAnnouncements = [
+          {
+            id: 1,
+            title: 'General Platform Update',
+            content: 'Welcome to DodixClub! Please ensure your account details and locations are updated for seamless matching.',
+            visibility: 'all',
+            timestamp: new Date().toISOString()
+          }
+        ];
+        setAnnouncements(defaultAnnouncements);
+        localStorage.setItem('dodix_announcements_db', encryptStorageData(defaultAnnouncements));
+      }
+    } catch (err) {
+      console.error("Error loading announcements:", err);
+    }
+  }, []);
+
+  const handleCreateAnnouncement = (e) => {
+    e.preventDefault();
+    if (!newTitle.trim() || !newContent.trim()) {
+      alert("Please provide both a title and content for the announcement.");
+      return;
+    }
+
+    const newAnnouncement = {
+      id: Date.now(),
+      title: newTitle.trim(),
+      content: newContent.trim(),
+      visibility: newVisibility,
+      timestamp: new Date().toISOString()
+    };
+
+    const updated = [newAnnouncement, ...announcements];
+    setAnnouncements(updated);
+    localStorage.setItem('dodix_announcements_db', encryptStorageData(updated));
+
+    setNewTitle('');
+    setNewContent('');
+    setNewVisibility('all');
+    alert("Announcement successfully published!");
+  };
+
+  const handleContactSupportWhatsApp = () => {
+    const adminPhone = "260965039645";
+    const supportMsg = encodeURIComponent("Hello Dodix Support, I need assistance with my account/subscription.");
+    window.open(`https://wa.me/${adminPhone}?text=${supportMsg}`, '_blank');
+  };
+
+  // 4. Handle Clean Photo Upload
+  const handleCleanPhotoUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setErrorMessage('Please upload a valid image file.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMessage('File size must be under 5MB.');
+      return;
+    }
+
+    setErrorMessage('');
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const baseResult = reader.result;
+      setNewAdData(prev => ({
+        ...prev,
+        originalPhoto: baseResult,
+        unmaskedPhoto: baseResult,
+        photo: baseResult
+      }));
+      setStickerPos({ x: 0, y: 0 });
+      if (!selectedSticker) {
+        setSelectedSticker(brandLogo);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Drag handlers for movable sticker
+  const handleStickerMouseDown = (e) => {
+    e.stopPropagation();
+    setIsDraggingSticker(true);
+    setDragStart({ x: e.clientX - stickerPos.x, y: e.clientY - stickerPos.y });
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDraggingSticker) return;
+    setStickerPos({
+      x: e.clientX - dragStart.x,
+      y: e.clientY - dragStart.y
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsDraggingSticker(false);
+  };
+
+  useEffect(() => {
+    if (isDraggingSticker) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
     }
@@ -124,510 +276,1278 @@ export default function ClientDirectory_4() {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, dragOffset, stickerSize]);
+  }, [isDraggingSticker, dragStart]);
 
-  // Flatten Sticker to Canvas (Bake Privacy Mask)
-  const flattenStickerToImage = () => {
-    return new Promise((resolve) => {
-      if (!originalPhoto || !containerRef.current) {
-        resolve(originalPhoto);
-        return;
-      }
+  // Flatten Sticker Helper supporting Images, Logos, and Emojis
+  const flattenStickerToImage = (originalImgSrc, stickerImgSrc, stickerBox, containerBox) => {
+    return new Promise((resolve, reject) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
 
-      const containerBox = containerRef.current.getBoundingClientRect();
       const baseImage = new Image();
       baseImage.crossOrigin = 'anonymous';
-      baseImage.src = originalPhoto;
+      baseImage.src = originalImgSrc;
 
       baseImage.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-
-        // Match actual natural dimensions of the uploaded photo
         canvas.width = baseImage.naturalWidth;
         canvas.height = baseImage.naturalHeight;
 
-        // Draw base photo
+        // 1. Draw the clean original photo at full resolution
         ctx.drawImage(baseImage, 0, 0);
 
-        // Compute scaling factors between UI container and high-res image
-        const scaleX = baseImage.naturalWidth / containerBox.width;
-        const scaleY = baseImage.naturalHeight / containerBox.height;
+        const isImageSticker = typeof stickerImgSrc === 'string' && (
+          stickerImgSrc.startsWith('data:image') || 
+          stickerImgSrc.startsWith('/') || 
+          stickerImgSrc.startsWith('http') || 
+          stickerImgSrc.includes('.')
+        );
 
-        const renderX = stickerPos.x * scaleX;
-        const renderY = stickerPos.y * scaleY;
-        const renderSize = stickerSize * Math.max(scaleX, scaleY);
+        if (isImageSticker) {
+          const stickerImage = new Image();
+          stickerImage.crossOrigin = 'anonymous';
+          stickerImage.src = stickerImgSrc;
 
-        if (stickerType === 'emoji') {
-          ctx.font = `${renderSize}px sans-serif`;
-          ctx.textBaseline = 'top';
-          ctx.fillText(selectedEmoji, renderX, renderY);
-          resolve(canvas.toDataURL('image/jpeg', 0.92));
-        } else if (stickerType === 'logo' && customLogo) {
-          const logoImg = new Image();
-          logoImg.crossOrigin = 'anonymous';
-          logoImg.src = customLogo;
-          logoImg.onload = () => {
-            ctx.drawImage(logoImg, renderX, renderY, renderSize, renderSize);
-            resolve(canvas.toDataURL('image/jpeg', 0.92));
+          stickerImage.onload = () => {
+            // 2. Map UI sticker coordinates proportionally to actual image dimensions
+            const scaleX = baseImage.naturalWidth / containerBox.width;
+            const scaleY = baseImage.naturalHeight / containerBox.height;
+
+            const renderX = stickerBox.left * scaleX;
+            const renderY = stickerBox.top * scaleY;
+            const renderWidth = stickerBox.width * scaleX;
+            const renderHeight = stickerBox.height * scaleY;
+
+            // 3. Draw the sticker permanently onto the canvas pixels
+            ctx.drawImage(stickerImage, renderX, renderY, renderWidth, renderHeight);
+
+            // 4. Export the final composite image as base64
+            const flattenedBase64 = canvas.toDataURL('image/jpeg', 0.92);
+            resolve(flattenedBase64);
           };
-          logoImg.onerror = () => resolve(originalPhoto);
+
+          stickerImage.onerror = () => resolve(originalImgSrc);
         } else {
-          resolve(originalPhoto);
+          // Emoji sticker support
+          const scaleX = baseImage.naturalWidth / containerBox.width;
+          const scaleY = baseImage.naturalHeight / containerBox.height;
+
+          const renderX = stickerBox.left * scaleX;
+          const renderY = stickerBox.top * scaleY;
+          const renderHeight = stickerBox.height * scaleY;
+
+          ctx.font = `${renderHeight}px serif`;
+          ctx.textBaseline = 'top';
+          ctx.fillText(stickerImgSrc, renderX, renderY);
+
+          const flattenedBase64 = canvas.toDataURL('image/jpeg', 0.92);
+          resolve(flattenedBase64);
         }
       };
 
-      baseImage.onerror = () => resolve(originalPhoto);
+      baseImage.onerror = () => resolve(originalImgSrc);
     });
   };
 
-  // Proceed to Step 2
+  // Click "Next" after masking to proceed to profile details
   const handleProceedToDetails = async () => {
-    const finalMasked = await flattenStickerToImage();
-    setMaskedPhoto(finalMasked);
-    setCurrentStep('details_step');
-  };
-
-  // Form Field Updates
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: null }));
+    if (!newAdData.originalPhoto && !newAdData.photo) {
+      setErrorMessage('Please upload a photo first.');
+      return;
     }
+
+    setLoading(true);
+    let finalMaskedPhoto = newAdData.originalPhoto || newAdData.photo;
+    
+    if (selectedSticker) {
+      const stickerElement = document.getElementById('privacy-sticker');
+      const containerElement = document.getElementById('photo-container');
+
+      if (stickerElement && containerElement) {
+        const stickerBox = stickerElement.getBoundingClientRect();
+        const containerBox = containerElement.getBoundingClientRect();
+
+        finalMaskedPhoto = await flattenStickerToImage(
+          newAdData.originalPhoto || newAdData.photo, 
+          selectedSticker, 
+          {
+            left: stickerBox.left - containerBox.left,
+            top: stickerBox.top - containerBox.top,
+            width: stickerBox.width,
+            height: stickerBox.height
+          },
+          containerBox
+        );
+      }
+    }
+
+    setNewAdData(prev => ({
+      ...prev,
+      photo: finalMaskedPhoto,
+      photoUrl: finalMaskedPhoto,
+      unmaskedPhoto: prev.originalPhoto || prev.photo
+    }));
+
+    setLoading(false);
+    setProfileStep('details_step');
   };
 
-  // Validate Step 2 Form
-  const validateForm = () => {
-    const newErrors = {};
-    if (!formData.fullName.trim()) newErrors.fullName = 'Full name is required';
-    if (!formData.title.trim()) newErrors.title = 'Job title is required';
-    if (!formData.email.trim()) newErrors.email = 'Email address is required';
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleFormSubmit = (e) => {
+  // 5. Save and Publish Ad using POST
+  const handleSaveLadyProfileManual = async (e) => {
     e.preventDefault();
-    if (validateForm()) {
-      setCurrentStep('success_step');
+    setLoading(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    try {
+      const payload = {
+        ...newAdData,
+        username: currentUser.username,
+        price: newAdData.rate,
+        extraServices: newAdData.bio,
+        originalPhoto: newAdData.originalPhoto,
+        unmaskedPhoto: newAdData.unmaskedPhoto || newAdData.originalPhoto,
+        photo: newAdData.photo
+      };
+
+      const response = await fetch(`${BACKEND_URL}/api/ladies`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await response.text();
+        throw new Error(`Server error (${response.status}): ${text.substring(0, 120)}`);
+      }
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || data.error || 'Failed to save profile configuration.');
+      }
+
+      if (data.companion) {
+        setLadies([data.companion, ...ladies.filter(l => l._id !== data.companion._id && l.id !== data.companion.id)]);
+      } else {
+        fetchBackendLadies();
+      }
+
+      setSuccessMessage('Profile saved and published successfully!');
+
+      const newHistoryItem = {
+        id: Date.now(),
+        action: `Submitted Advertisement (Masked & Unmasked Captured)`,
+        timestamp: new Date().toISOString(),
+        status: 'Pending Admin Approval'
+      };
+      const updatedHistory = [newHistoryItem, ...profileHistory];
+      setProfileHistory(updatedHistory);
+      localStorage.setItem(`dodix_history_${currentUser?.username}`, encryptStorageData(updatedHistory));
+
+    } catch (err) {
+      setErrorMessage(err.message || 'An error occurred while connecting to the server.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const resetDirectoryForm = () => {
-    setCurrentStep('photo_step');
-    setOriginalPhoto(null);
-    setUnmaskedPhoto(null);
-    setMaskedPhoto(null);
-    setCustomLogo(null);
-    setFormData({
-      fullName: '',
-      title: '',
-      department: '',
-      location: '',
-      email: '',
-      phone: '',
-      bio: '',
-      clearanceLevel: 'Standard'
-    });
+  // 6. Submit Report to Backend API
+  const handleReportSubmit = async (e) => {
+    e.preventDefault();
+    if (!reportedUsername.trim() || !reportReason.trim()) {
+      alert("Please fill in the details of the time waster.");
+      return;
+    }
+
+    setIsSubmittingReport(true);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/reports`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reporter: currentUser.username,
+          targetUser: reportedUsername.trim(),
+          reason: reportReason.trim()
+        })
+      });
+
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        alert("Server returned a non-JSON response while submitting report.");
+        return;
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        setReportedUsername('');
+        setReportReason('');
+        setReportModalOpen(false);
+        alert("Your report has been successfully submitted to the platform administration.");
+      } else {
+        alert(data.error || "Failed to submit report.");
+      }
+    } catch (err) {
+      console.error("Error submitting report to backend:", err);
+      alert("Network error. Please try again.");
+    } finally {
+      setIsSubmittingReport(false);
+    }
   };
 
-  return (
-    <div className="max-w-4xl mx-auto p-6 bg-slate-900 text-slate-100 rounded-2xl shadow-2xl border border-slate-800">
-      
-      {/* Header Wizard Progress */}
-      <div className="mb-8 border-b border-slate-800 pb-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-indigo-600/20 text-indigo-400 rounded-xl border border-indigo-500/30">
-              <ShieldCheck className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">Secure Client Directory Portal</h1>
-              <p className="text-sm text-slate-400">Add verified personnel records with built-in privacy masking.</p>
-            </div>
-          </div>
-          <div className="text-xs font-semibold px-3 py-1.5 bg-slate-800 rounded-full text-indigo-300 border border-slate-700">
-            {currentStep === 'photo_step' && 'Step 1: Photo & Privacy Mask'}
-            {currentStep === 'details_step' && 'Step 2: Profile Metadata'}
-            {currentStep === 'success_step' && 'Step 3: Verification Complete'}
-          </div>
-        </div>
+  const handleOpenWhatsApp = (lady) => {
+    const phoneNum = lady.phone ? lady.phone.replace(/[^0-9]/g, '') : '260970000000';
+    const message = `Hello ${lady.name}, I found your listing on DodixClub and would like to connect regarding booking availability in ${lady.location}.`;
+    
+    navigator.clipboard.writeText(message).catch(() => {});
 
-        {/* Progress Bar */}
-        <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-          <div 
-            className="bg-indigo-500 h-full transition-all duration-500 ease-out"
-            style={{ 
-              width: currentStep === 'photo_step' ? '33%' : currentStep === 'details_step' ? '66%' : '100%' 
-            }}
-          />
-        </div>
-      </div>
+    const encodedMessage = encodeURIComponent(message);
+    window.open(`https://wa.me/${phoneNum}?text=${encodedMessage}`, '_blank');
+  };
 
-      {/* STEP 1: PHOTO & PRIVACY MASK */}
-      {currentStep === 'photo_step' && (
-        <div className="space-y-6 animate-fadeIn">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-            
-            {/* Left: Upload & Controls */}
-            <div className="space-y-6">
-              <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700/60 shadow-inner">
-                <label className="block text-sm font-medium text-slate-300 mb-2">Upload Source Photograph</label>
-                <div className="flex items-center justify-center w-full">
-                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-600 border-dashed rounded-xl cursor-pointer bg-slate-800/80 hover:bg-slate-800 hover:border-indigo-500 transition-all">
-                    <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4 text-center">
-                      <Upload className="w-8 h-8 mb-2 text-indigo-400" />
-                      <p className="text-sm text-slate-300 font-medium">Click to upload photo</p>
-                      <p className="text-xs text-slate-500 mt-1">PNG, JPG or WEBP (Max 10MB)</p>
-                    </div>
-                    <input type="file" className="hidden" accept="image/*" onChange={handlePhotoUpload} />
-                  </label>
-                </div>
-              </div>
+  if (!currentUser) return null;
 
-              {originalPhoto && (
-                <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700/60 space-y-4">
-                  <h3 className="text-sm font-semibold text-indigo-300 flex items-center gap-2">
-                    <Sparkles className="w-4 h-4" /> Privacy Mask Configuration
-                  </h3>
-                  
-                  {/* Sticker Type Toggle */}
-                  <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-700">
-                    <button
-                      type="button"
-                      onClick={() => setStickerType('emoji')}
-                      className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${stickerType === 'emoji' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
-                    >
-                      Emoji Mask
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setStickerType('logo')}
-                      className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${stickerType === 'logo' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
-                    >
-                      Custom Logo
-                    </button>
-                  </div>
+  const isMaleUser = !isFemaleUser && !isAdminUser;
+  const isPendingActivation = isMaleUser && currentUser?.activated === false;
+  const wasEverActivated = currentUser?.wasActivatedBefore === true;
 
-                  {stickerType === 'emoji' ? (
-                    <div>
-                      <label className="block text-xs text-slate-400 mb-2">Select Mask Emoji</label>
-                      <div className="flex gap-2">
-                        {['🕶️', '🐱', '🦊', '⭐', '🔒', '👻'].map(emoji => (
-                          <button
-                            key={emoji}
-                            type="button"
-                            onClick={() => setSelectedEmoji(emoji)}
-                            className={`p-2 text-xl rounded-lg border transition-all ${selectedEmoji === emoji ? 'bg-indigo-600/30 border-indigo-500 scale-105' : 'bg-slate-900 border-slate-700 hover:border-slate-500'}`}
-                          >
-                            {emoji}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <label className="block text-xs text-slate-400 mb-2">Upload Mask Logo / Watermark</label>
-                      <input type="file" accept="image/*" onChange={handleLogoUpload} className="text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer" />
-                    </div>
-                  )}
-
-                  {/* Size slider */}
-                  <div>
-                    <div className="flex justify-between text-xs text-slate-400 mb-1">
-                      <span>Mask Scale</span>
-                      <span>{stickerSize}px</span>
-                    </div>
-                    <input 
-                      type="range" 
-                      min="40" 
-                      max="180" 
-                      value={stickerSize} 
-                      onChange={(e) => setStickerSize(Number(e.target.value))}
-                      className="w-full accent-indigo-500 bg-slate-900 rounded-lg cursor-pointer"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Right: Interactive Preview Area */}
-            <div className="bg-slate-800/40 p-6 rounded-xl border border-slate-700/60 flex flex-col items-center justify-center min-h-[360px]">
-              {originalPhoto ? (
-                <div className="space-y-3 w-full flex flex-col items-center">
-                  <p className="text-xs text-slate-400 flex items-center gap-1.5">
-                    <Move className="w-3.5 h-3.5 text-indigo-400" /> Drag mask over sensitive regions (e.g. eyes)
-                  </p>
-                  
-                  {/* Container for photo + movable sticker */}
-                  <div 
-                    id="photo-container"
-                    ref={containerRef}
-                    className="relative inline-block overflow-hidden rounded-xl border border-slate-700 shadow-lg select-none max-w-full"
-                    style={{ maxHeight: '350px' }}
-                  >
-                    <img 
-                      src={originalPhoto} 
-                      alt="Source Preview" 
-                      className="block max-h-[350px] w-auto object-contain pointer-events-none" 
-                    />
-                    
-                    {/* Draggable Sticker Element */}
-                    <div
-                      id="privacy-sticker"
-                      onMouseDown={handleStickerMouseDown}
-                      className="absolute cursor-move flex items-center justify-center transition-shadow hover:ring-2 hover:ring-indigo-400 rounded-lg"
-                      style={{
-                        left: `${stickerPos.x}px`,
-                        top: `${stickerPos.y}px`,
-                        width: `${stickerSize}px`,
-                        height: `${stickerSize}px`,
-                        fontSize: `${stickerSize * 0.75}px`
-                      }}
-                    >
-                      {stickerType === 'emoji' ? (
-                        <span className="drop-shadow-md">{selectedEmoji}</span>
-                      ) : customLogo ? (
-                        <img src={customLogo} alt="Logo Mask" className="w-full h-full object-contain drop-shadow-md" />
-                      ) : (
-                        <span className="drop-shadow-md">🕶️</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center space-y-3 text-slate-500">
-                  <Camera className="w-12 h-12 mx-auto opacity-40" />
-                  <p className="text-sm">Upload a photograph to activate privacy masking studio.</p>
-                </div>
-              )}
-            </div>
-
-          </div>
-
-          {/* Step 1 Footer Action */}
-          <div className="flex justify-end pt-4 border-t border-slate-800">
-            <button
-              type="button"
-              disabled={!originalPhoto}
-              onClick={handleProceedToDetails}
-              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-medium text-sm transition-all shadow-lg ${originalPhoto ? 'bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer' : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'}`}
-            >
-              Next: Profile Details <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* STEP 2: PROFILE DETAILS */}
-      {currentStep === 'details_step' && (
-        <form onSubmit={handleFormSubmit} className="space-y-6 animate-fadeIn">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            
-            {/* Thumbnail Preview Card */}
-            <div className="md:col-span-1 bg-slate-800/50 p-5 rounded-xl border border-slate-700/60 flex flex-col items-center text-center space-y-4">
-              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Masked Photo Preview</h3>
-              <div className="w-32 h-32 rounded-full overflow-hidden border-2 border-indigo-500/50 shadow-md bg-slate-900">
-                {maskedPhoto && <img src={maskedPhoto} alt="Masked profile" className="w-full h-full object-cover" />}
-              </div>
-              <p className="text-xs text-slate-400">This masked version will be published publicly on the client directory card.</p>
-              
-              <button
-                type="button"
-                onClick={() => setCurrentStep('photo_step')}
-                className="text-xs text-indigo-400 hover:text-indigo-300 underline font-medium"
-              >
-                Adjust Mask Positioning
-              </button>
-            </div>
-
-            {/* Form Fields */}
-            <div className="md:col-span-2 space-y-4 bg-slate-800/30 p-6 rounded-xl border border-slate-700/60">
-              <h3 className="text-sm font-semibold text-indigo-300 mb-2">Personnel Metadata</h3>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Full Name *</label>
-                  <input 
-                    type="text" 
-                    name="fullName"
-                    value={formData.fullName}
-                    onChange={handleInputChange}
-                    placeholder="e.g. Alex Morgan" 
-                    className={`w-full bg-slate-900 border rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 ${errors.fullName ? 'border-rose-500' : 'border-slate-700'}`}
-                  />
-                  {errors.fullName && <p className="text-xs text-rose-400 mt-1">{errors.fullName}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Job Title *</label>
-                  <input 
-                    type="text" 
-                    name="title"
-                    value={formData.title}
-                    onChange={handleInputChange}
-                    placeholder="e.g. Senior Security Analyst" 
-                    className={`w-full bg-slate-900 border rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 ${errors.title ? 'border-rose-500' : 'border-slate-700'}`}
-                  />
-                  {errors.title && <p className="text-xs text-rose-400 mt-1">{errors.title}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Department</label>
-                  <input 
-                    type="text" 
-                    name="department"
-                    value={formData.department}
-                    onChange={handleInputChange}
-                    placeholder="e.g. Cyber Threat Intelligence" 
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Location / Office</label>
-                  <input 
-                    type="text" 
-                    name="location"
-                    value={formData.location}
-                    onChange={handleInputChange}
-                    placeholder="e.g. Geneva, Switzerland" 
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Secure Email *</label>
-                  <input 
-                    type="email" 
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    placeholder="e.g. a.morgan@secure-net.org" 
-                    className={`w-full bg-slate-900 border rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 ${errors.email ? 'border-rose-500' : 'border-slate-700'}`}
-                  />
-                  {errors.email && <p className="text-xs text-rose-400 mt-1">{errors.email}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Phone Contact</label>
-                  <input 
-                    type="text" 
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleInputChange}
-                    placeholder="e.g. +41 22 555 0192" 
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">Professional Bio / Summary</label>
-                <textarea 
-                  name="bio"
-                  rows="3"
-                  value={formData.bio}
-                  onChange={handleInputChange}
-                  placeholder="Brief overview of background and responsibilities..."
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 resize-none"
-                />
-              </div>
-            </div>
-
-          </div>
-
-          {/* Step 2 Footer Actions */}
-          <div className="flex justify-between items-center pt-4 border-t border-slate-800">
-            <button
-              type="button"
-              onClick={() => setCurrentStep('photo_step')}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-medium transition-all border border-slate-700"
-            >
-              <ArrowLeft className="w-4 h-4" /> Back to Photo
-            </button>
-
-            <button
-              type="submit"
-              className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium text-sm transition-all shadow-lg cursor-pointer"
-            >
-              Complete Registration <CheckCircle2 className="w-4 h-4" />
-            </button>
-          </div>
-        </form>
-      )}
-
-      {/* STEP 3: SUCCESS & COMPLETED RECORD */}
-      {currentStep === 'success_step' && (
-        <div className="space-y-6 text-center py-6 animate-fadeIn">
-          <div className="w-16 h-16 bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 rounded-full flex items-center justify-center mx-auto shadow-lg">
-            <CheckCircle2 className="w-8 h-8" />
+  if (isPendingActivation) {
+    return (
+      <div className="min-h-screen bg-[#090d16] text-slate-100 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-[#0b101d] border border-slate-800 rounded-3xl p-6 sm:p-8 text-center shadow-2xl space-y-6">
+          <div className="w-16 h-16 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+            <Clock size={32} className="animate-pulse" />
           </div>
 
           <div className="space-y-2">
-            <h2 className="text-2xl font-bold tracking-tight text-slate-100">Client Record Verified Successfully</h2>
-            <p className="text-sm text-slate-400 max-w-md mx-auto">
-              The privacy mask has been securely baked into the client file, and metadata has been stored in the directory ledger.
+            <h2 className="text-xl font-extrabold text-white">
+              {wasEverActivated ? 'Account Suspended' : 'Account Pending Activation'}
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
+              Your account (<span className="text-pink-400 font-semibold">{currentUser.username}</span>) has been successfully created. {wasEverActivated ? 'Your account has been suspended by administration.' : 'Male user accounts require package activation and administrative approval before gaining full access.'}
             </p>
           </div>
 
-          {/* Preview Card Result */}
-          <div className="max-w-sm mx-auto bg-slate-800/60 rounded-2xl border border-slate-700 overflow-hidden shadow-xl text-left">
-            <div className="h-28 bg-gradient-to-r from-indigo-900 via-purple-900 to-slate-900 relative">
-              <div className="absolute -bottom-10 left-6 w-20 h-20 rounded-full border-4 border-slate-800 overflow-hidden bg-slate-900 shadow-md">
-                {maskedPhoto && <img src={maskedPhoto} alt="Avatar" className="w-full h-full object-cover" />}
-              </div>
-            </div>
-            
-            <div className="pt-12 p-6 space-y-4">
-              <div>
-                <h3 className="text-lg font-bold text-slate-100">{formData.fullName}</h3>
-                <p className="text-xs text-indigo-400 font-medium">{formData.title}</p>
-                {formData.department && <p className="text-xs text-slate-400">{formData.department}</p>}
-              </div>
-
-              <div className="space-y-2 text-xs text-slate-300 border-t border-slate-700 pt-3">
-                {formData.location && (
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-3.5 h-3.5 text-slate-500" />
-                    <span>{formData.location}</span>
-                  </div>
-                )}
-                {formData.email && (
-                  <div className="flex items-center gap-2">
-                    <Mail className="w-3.5 h-3.5 text-slate-500" />
-                    <span>{formData.email}</span>
-                  </div>
-                )}
-                {formData.phone && (
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-3.5 h-3.5 text-slate-500" />
-                    <span>{formData.phone}</span>
-                  </div>
-                )}
-              </div>
-
-              {formData.bio && (
-                <p className="text-xs text-slate-400 italic bg-slate-900/50 p-2.5 rounded-lg border border-slate-800">
-                  "{formData.bio}"
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div className="pt-4 flex justify-center gap-4">
+          <div className="space-y-3">
             <button
-              type="button"
-              onClick={resetDirectoryForm}
-              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium text-sm transition-all shadow-lg cursor-pointer"
+              onClick={handleContactSupportWhatsApp}
+              className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
             >
-              Add Another Client Record
+              <MessageCircle size={16} /> Support Center (WhatsApp Activation Query)
+            </button>
+
+            <button
+              onClick={() => window.location.reload()}
+              className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition cursor-pointer"
+            >
+              <RefreshCw size={16} /> Sync & Check Activation Status
+            </button>
+
+            <button
+              onClick={() => setCurrentUser(null)}
+              className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs flex items-center justify-center gap-2 border border-slate-700 transition cursor-pointer"
+            >
+              <LogOut size={16} /> Log Out
             </button>
           </div>
         </div>
-      )}
+      </div>
+    );
+  }
 
+  const approvedLadies = ladies.filter(l => l.approved === true);
+  const filteredLadies = approvedLadies.filter(l => {
+    const matchesLoc = l.location === userLockedLocation;
+    const matchesCat = selectedCategory === 'All' || l.category === selectedCategory;
+    const matchesSearch = l.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          (l.specificLocation && l.specificLocation.toLowerCase().includes(searchQuery.toLowerCase()));
+    return matchesLoc && matchesCat && matchesSearch;
+  });
+
+  const visibleAnnouncements = announcements.filter(item => {
+    if (isAdminUser) return true;
+    if (item.targetUsername) {
+      return item.targetUsername === currentUser.username?.toLowerCase();
+    }
+    if (item.visibility === 'all') return true;
+    if (item.visibility === 'female' && isFemaleUser) return true;
+    if (item.visibility === 'male' && isMaleUser) return true;
+    return false;
+  });
+
+  return (
+    <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col relative selection:bg-pink-500 selection:text-white font-sans">
+      <canvas ref={canvasRef} className="hidden" />
+      {isLoading && <LogoLoader text={loadingText} />}
+
+      {/* PROFILE DETAIL MODAL */}
+      <AnimatePresence>
+        {selectedProfile && !isFemaleUser && !isAdminUser && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="max-w-lg w-full bg-[#0b101d] border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 relative overflow-hidden"
+            >
+              <button 
+                onClick={() => setSelectedProfile(null)}
+                className="absolute top-6 right-6 p-2 text-slate-400 hover:text-white rounded-xl bg-slate-900 border border-slate-800 transition cursor-pointer z-10"
+              >
+                <X size={20} />
+              </button>
+
+              <div className="flex items-center gap-4">
+                <div className="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-pink-500/40 shadow-lg shrink-0 bg-slate-950">
+                  <img src={selectedProfile.photo || selectedProfile.photoUrl} alt={selectedProfile.name} className="w-full h-full object-cover" />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xl font-extrabold text-white">{selectedProfile.name}, {selectedProfile.age || '23'}</h3>
+                    <span className="bg-emerald-500/90 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
+                      <ShieldCheck size={11} /> VERIFIED FEMALE
+                    </span>
+                  </div>
+                  <p className="text-xs text-pink-400 font-semibold uppercase tracking-wider">{selectedProfile.category || 'VIP'} Companion</p>
+                  <p className="text-xs text-slate-400 flex items-center gap-1">
+                    <MapPin size={14} className="text-pink-500" /> {selectedProfile.specificLocation || selectedProfile.location}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800/80">
+                <div className="p-3 bg-slate-900 border border-slate-800/80 rounded-2xl">
+                  <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block">Rate / Price</span>
+                  <span className="text-sm font-extrabold text-emerald-400">ZMW {selectedProfile.price || selectedProfile.rate}</span>
+                </div>
+                <div className="p-3 bg-slate-900 border border-slate-800/80 rounded-2xl">
+                  <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block">Hosting Available</span>
+                  <span className="text-sm font-extrabold text-slate-200">{selectedProfile.hosting || 'Yes'}</span>
+                </div>
+              </div>
+
+              {(selectedProfile.extraServices || selectedProfile.bio) && (
+                <div className="space-y-1.5 p-4 bg-slate-900/60 border border-slate-800 rounded-2xl">
+                  <span className="text-xs font-bold text-slate-300">Services & Preferences</span>
+                  <p className="text-xs text-slate-400 leading-relaxed">{selectedProfile.extraServices || selectedProfile.bio}</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 gap-3 pt-2">
+                <button 
+                  onClick={() => {
+                    setSelectedProfile(null);
+                    handleOpenWhatsApp(selectedProfile);
+                  }}
+                  className="py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
+                >
+                  <MessageSquare size={16} /> Contact via WhatsApp
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* REPORT MODAL */}
+      <AnimatePresence>
+        {reportModalOpen && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="max-w-md w-full bg-[#0b101d] border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6"
+            >
+              <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-red-950/60 border border-red-800/40 text-red-400 rounded-xl">
+                    <Flag size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">Report Male Time Waster</h3>
+                    <p className="text-xs text-slate-400">Submit details directly to administration</p>
+                  </div>
+                </div>
+                <button onClick={() => setReportModalOpen(false)} disabled={isSubmittingReport} className="p-2 text-slate-400 hover:text-white rounded-lg transition cursor-pointer">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <form onSubmit={handleReportSubmit} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">Client / Username</label>
+                  <input 
+                    type="text" 
+                    placeholder="Enter client username or phone" 
+                    value={reportedUsername} 
+                    onChange={(e) => setReportedUsername(e.target.value)} 
+                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-red-500 transition" 
+                    required 
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">Reason / Details</label>
+                  <textarea 
+                    rows="3" 
+                    placeholder="Describe what happened..." 
+                    value={reportReason} 
+                    onChange={(e) => setReportReason(e.target.value)} 
+                    className="w-full p-4 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-red-500 transition resize-none" 
+                    required 
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button type="button" disabled={isSubmittingReport} onClick={() => setReportModalOpen(false)} className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition cursor-pointer disabled:opacity-50">
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={isSubmittingReport} className="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50">
+                    {isSubmittingReport ? <Loader2 size={16} className="animate-spin" /> : <Flag size={14} />} 
+                    {isSubmittingReport ? 'Submitting...' : 'Submit Report'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* TOP NAVIGATION BAR */}
+      <nav className="sticky top-0 z-40 bg-[#090d16]/90 backdrop-blur-md border-b border-slate-800 px-4 sm:px-8 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setSidebarOpen(true)} className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-900 border border-slate-800 transition cursor-pointer">
+            <Menu size={20} />
+          </button>
+          <div>
+            <h1 className="text-base font-black tracking-wider bg-gradient-to-r from-pink-500 to-purple-400 bg-clip-text text-transparent">DODIXCLUB</h1>
+            <p className="text-[10px] uppercase font-bold tracking-widest text-slate-500">
+              {isAdminUser ? 'Platform Administration Portal' : (isFemaleUser ? 'Companion Management Portal' : 'Verified Elite Portal')}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => fetchBackendLadies(true)}
+            disabled={isRefreshingCatalog}
+            title="Refresh Catalog Listings"
+            className="p-2.5 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw size={16} className={isRefreshingCatalog ? 'animate-spin text-pink-500' : ''} />
+            <span className="hidden sm:inline">{isRefreshingCatalog ? 'Syncing...' : 'Refresh'}</span>
+          </button>
+
+          <button 
+            onClick={() => setCurrentUser(null)}
+            className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-red-400 border border-slate-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+          >
+            <LogOut size={16} /> <span className="hidden sm:inline">Logout</span>
+          </button>
+        </div>
+      </nav>
+
+      {/* SIDEBAR DRAWER */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex">
+            <motion.div 
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              className="w-72 bg-[#0b101d] border-r border-slate-800 p-6 flex flex-col justify-between h-full shadow-2xl overflow-y-auto"
+            >
+              <div className="space-y-6">
+                <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+                  <span className="font-black text-sm text-white">DODIXCLUB</span>
+                  <button onClick={() => setSidebarOpen(false)} className="p-2 text-slate-400 hover:text-white rounded-lg cursor-pointer">
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {!isFemaleUser && !isAdminUser && (
+                    <button 
+                      onClick={() => { setActiveTab('directory'); setSidebarOpen(false); }}
+                      className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'directory' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+                    >
+                      <Compass size={16} /> Elite Directory
+                    </button>
+                  )}
+
+                  {isFemaleUser && (
+                    <>
+                      <button 
+                        onClick={() => { setActiveTab('myprofile'); setSidebarOpen(false); }}
+                        className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'myprofile' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+                      >
+                        <User size={16} /> Post Advertisement
+                      </button>
+                      <button 
+                        onClick={() => { setActiveTab('history'); setSidebarOpen(false); }}
+                        className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'history' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+                      >
+                        <Bell size={16} /> History
+                      </button>
+                    </>
+                  )}
+
+                  <button 
+                    onClick={() => { setActiveTab('news'); setSidebarOpen(false); }}
+                    className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'news' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+                  >
+                    <Bell size={16} /> {isAdminUser ? 'Manage Announcements' : 'News & Announcements'}
+                  </button>
+
+                  {!isFemaleUser && !isAdminUser && (
+                    <button 
+                      onClick={() => { setActiveTab('favorites'); setSidebarOpen(false); }}
+                      className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'favorites' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+                    >
+                      <Heart size={16} /> Favorites
+                    </button>
+                  )}
+
+                  {!isFemaleUser && !isAdminUser && (
+                    <button 
+                      onClick={() => { setActiveTab('subscription'); setSidebarOpen(false); }}
+                      className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'subscription' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+                    >
+                      <CreditCard size={16} /> Subscription Status
+                    </button>
+                  )}
+
+                  {!isAdminUser && (
+                    <button 
+                      onClick={() => { setActiveTab('settings'); setSidebarOpen(false); }}
+                      className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'settings' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+                    >
+                      <Settings size={16} /> Account Details
+                    </button>
+                  )}
+
+                  <button 
+                    onClick={() => { handleContactSupportWhatsApp(); setSidebarOpen(false); }}
+                    className="w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 text-slate-400 hover:bg-slate-900 hover:text-white transition cursor-pointer"
+                  >
+                    <MessageCircle size={16} className="text-pink-500" /> Contact Support
+                  </button>
+
+                  {isFemaleUser && (
+                    <button 
+                      onClick={() => { setReportModalOpen(true); setSidebarOpen(false); }}
+                      className="w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 text-red-400 hover:bg-red-950/40 border border-red-900/30 transition mt-2 cursor-pointer"
+                    >
+                      <Flag size={16} /> Report Time Waster
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-800">
+                <div className="p-3 bg-slate-900 rounded-2xl border border-slate-800 space-y-1">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold block">Signed in as</span>
+                  <p className="text-xs font-bold text-white truncate">{currentUser.username}</p>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* MAIN LAYOUT CONTAINER */}
+      <div className="flex-1 flex max-w-7xl mx-auto w-full px-4 sm:px-8 py-8 gap-8">
+        <aside className="hidden md:flex flex-col w-64 shrink-0 space-y-4">
+          <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-5 space-y-2 shadow-xl">
+            <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500 px-3">Navigation</span>
+            
+            {!isFemaleUser && !isAdminUser && (
+              <button 
+                onClick={() => setActiveTab('directory')}
+                className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'directory' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+              >
+                <Compass size={16} /> Elite Directory
+              </button>
+            )}
+
+            {isFemaleUser && (
+              <>
+                <button 
+                  onClick={() => setActiveTab('myprofile')}
+                  className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'myprofile' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+                >
+                  <User size={16} /> Post Advertisement
+                </button>
+                <button 
+                  onClick={() => setActiveTab('history')}
+                  className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'history' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+                >
+                  <Bell size={16} /> History
+                </button>
+              </>
+            )}
+
+            <button 
+              onClick={() => setActiveTab('news')}
+              className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'news' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+            >
+              <Bell size={16} /> {isAdminUser ? 'Manage Announcements' : 'News & Announcements'}
+            </button>
+
+            {!isFemaleUser && !isAdminUser && (
+              <button 
+                onClick={() => setActiveTab('favorites')}
+                className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'favorites' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+              >
+                <Heart size={16} /> Favorites
+              </button>
+            )}
+
+            {!isFemaleUser && !isAdminUser && (
+              <button 
+                onClick={() => setActiveTab('subscription')}
+                className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'subscription' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+              >
+                <CreditCard size={16} /> Subscription Status
+              </button>
+            )}
+
+            {!isAdminUser && (
+              <button 
+                onClick={() => setActiveTab('settings')}
+                className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'settings' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+              >
+                <Settings size={16} /> Account Details
+              </button>
+            )}
+
+            <button 
+              onClick={handleContactSupportWhatsApp}
+              className="w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 text-slate-400 hover:bg-slate-900 hover:text-white transition cursor-pointer"
+            >
+              <MessageCircle size={16} className="text-pink-500" /> Contact Support
+            </button>
+
+            {isFemaleUser && (
+              <button 
+                onClick={() => setReportModalOpen(true)}
+                className="w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 text-red-400 hover:bg-red-950/40 border border-red-900/30 transition mt-4 cursor-pointer"
+              >
+                <Flag size={16} /> Report Time Waster
+              </button>
+            )}
+          </div>
+        </aside>
+
+        <main className="flex-1 overflow-hidden">
+          {isAdminUser && activeTab === 'news' ? (
+            <div className="space-y-6 max-w-5xl">
+              <div>
+                <h2 className="text-2xl font-black text-white tracking-tight">Admin Command Center & User Activity</h2>
+                <p className="text-xs text-slate-400 mt-1">Monitor platform announcements and broadcast updates.</p>
+              </div>
+
+              <form onSubmit={handleCreateAnnouncement} className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b border-slate-800">
+                  <Shield size={18} className="text-pink-500" />
+                  <h3 className="text-sm font-extrabold text-white">Broadcast New Announcement</h3>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">Announcement Title</label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. System Maintenance Notice" 
+                    value={newTitle} 
+                    onChange={(e) => setNewTitle(e.target.value)} 
+                    className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition" 
+                    required 
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">Target Audience Visibility</label>
+                  <select 
+                    value={newVisibility} 
+                    onChange={(e) => setNewVisibility(e.target.value)} 
+                    className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
+                  >
+                    <option value="all">Visible to All Users</option>
+                    <option value="female">Visible Only to Females</option>
+                    <option value="male">Visible Only to Males</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">Announcement Content</label>
+                  <textarea 
+                    rows="3" 
+                    placeholder="Write message details here..." 
+                    value={newContent} 
+                    onChange={(e) => setNewContent(e.target.value)} 
+                    className="w-full p-4 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition resize-none" 
+                    required 
+                  />
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button 
+                    type="submit" 
+                    className="px-6 py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center gap-2 cursor-pointer"
+                  >
+                    <Plus size={16} /> Publish Announcement
+                  </button>
+                </div>
+              </form>
+            </div>
+          ) : activeTab === 'news' ? (
+            <div className="space-y-6 max-w-3xl">
+              <div>
+                <h2 className="text-2xl font-black text-white tracking-tight">News & Announcements</h2>
+                <p className="text-xs text-slate-400 mt-1">Important updates and status broadcasts from platform administration.</p>
+              </div>
+
+              <div className="space-y-4 pt-2">
+                {visibleAnnouncements.length === 0 ? (
+                  <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-12 text-center space-y-3">
+                    <Bell size={24} className="mx-auto text-slate-500" />
+                    <h3 className="text-sm font-bold text-white">No announcements available</h3>
+                    <p className="text-xs text-slate-500">Check back later for news updates.</p>
+                  </div>
+                ) : (
+                  visibleAnnouncements.map((item) => (
+                    <div key={item.id} className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 shadow-xl space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] uppercase font-bold tracking-wider text-pink-400">
+                          {item.timestamp ? new Date(item.timestamp).toLocaleString('en-GB', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          }) : 'Just now'}
+                        </span>
+                        <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-purple-950 text-purple-400 border border-purple-800/40">
+                          Announcement
+                        </span>
+                      </div>
+                      <h3 className="text-base font-extrabold text-white">{item.title}</h3>
+                      <p className="text-xs text-slate-300 leading-relaxed">{item.content}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          ) : isFemaleUser ? (
+            activeTab === 'settings' ? (
+              <div className="space-y-6 max-w-2xl">
+                <div>
+                  <h2 className="text-2xl font-black text-white tracking-tight">Account Details</h2>
+                  <p className="text-xs text-slate-400 mt-1">Update your account preferences and credentials.</p>
+                </div>
+                <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xl">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300">Username</label>
+                    <input 
+                      type="text" 
+                      value={currentUser.username} 
+                      disabled 
+                      className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-400 cursor-not-allowed" 
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300">Default City / Region</label>
+                    <input 
+                      type="text" 
+                      value={userLockedLocation} 
+                      disabled 
+                      className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-400 cursor-not-allowed" 
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : activeTab === 'history' ? (
+              <div className="space-y-6 max-w-3xl">
+                <div>
+                  <h2 className="text-2xl font-black text-white tracking-tight">Companion Activity History</h2>
+                  <p className="text-xs text-slate-400 mt-1">Track your advertisement submissions and logs.</p>
+                </div>
+
+                <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-4">
+                  {profileHistory.length === 0 ? (
+                    <div className="text-center py-12 text-slate-500 text-xs">No historical logs available yet.</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {profileHistory.map((item) => (
+                        <div key={item.id} className="p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-between gap-4">
+                          <div className="space-y-1">
+                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                              {item.timestamp ? new Date(item.timestamp).toLocaleString('en-GB', {
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              }) : 'Just now'}
+                            </span>
+                            <h4 className="text-xs font-bold text-white">{item.action}</h4>
+                          </div>
+                          <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold uppercase ${item.status === 'Approved' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/40' : 'bg-amber-950 text-amber-400 border border-amber-800/40'}`}>
+                            {item.status}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6 max-w-3xl mx-auto">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                  <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2 text-white">
+                    <User className="text-pink-400" /> Post Advertisement (Multi-Step Wizard)
+                  </h1>
+                  
+                  {/* Step Indicator */}
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-bold px-3 py-1 rounded-full ${profileStep === 'photo_step' ? 'bg-pink-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                      Step 1: Photo & Mask
+                    </span>
+                    <span className={`text-xs font-bold px-3 py-1 rounded-full ${profileStep === 'details_step' ? 'bg-pink-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                      Step 2: Profile Details
+                    </span>
+                  </div>
+                </div>
+
+                {/* Status Banners */}
+                {successMessage && (
+                  <div className="p-4 bg-emerald-900/50 border border-emerald-500/50 rounded-2xl flex items-center gap-3 text-emerald-200 text-xs">
+                    <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+                    <span>{successMessage}</span>
+                  </div>
+                )}
+
+                {errorMessage && (
+                  <div className="p-4 bg-rose-900/50 border border-rose-500/50 rounded-2xl flex items-center gap-3 text-rose-200 text-xs">
+                    <AlertCircle className="w-5 h-5 text-rose-400 flex-shrink-0" />
+                    <span>{errorMessage}</span>
+                  </div>
+                )}
+
+                {/* STEP 1: PHOTO UPLOAD & MOVABLE MASK EDITOR */}
+                {profileStep === 'photo_step' && (
+                  <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
+                    <div className="flex items-center gap-2">
+                      <Sliders className="text-pink-500" size={20} />
+                      <h3 className="text-base font-extrabold text-white">Step 1: Upload & Position Privacy Mask over Face</h3>
+                    </div>
+
+                    {!newAdData.originalPhoto ? (
+                      <div className="border-2 border-dashed border-slate-800 hover:border-pink-500/50 rounded-3xl p-10 text-center space-y-4 bg-slate-950/40 transition">
+                        <div className="w-16 h-16 bg-slate-900 border border-slate-800 text-pink-400 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+                          <User size={32} />
+                        </div>
+                        <div className="space-y-1">
+                          <h4 className="text-sm font-bold text-white">Upload Clean Photo</h4>
+                          <p className="text-xs text-slate-400">Upload a clear photo (max 5MB) before applying the sticker mask.</p>
+                        </div>
+                        <label className="inline-block cursor-pointer bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white px-6 py-3 rounded-xl font-bold text-xs shadow-lg transition">
+                          Browse Image File
+                          <input type="file" accept="image/*" onChange={handleCleanPhotoUpload} className="hidden" />
+                        </label>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        {/* Editor Workspace */}
+                        <div 
+                          id="photo-container"
+                          onMouseMove={handleMouseMove}
+                          onMouseUp={handleMouseUp}
+                          onMouseLeave={handleMouseUp}
+                          className="flex items-center justify-center bg-slate-950 rounded-2xl p-4 overflow-hidden border border-slate-800 relative min-h-[340px] select-none"
+                        >
+                          <div className="relative inline-block max-h-full">
+                            <img 
+                              ref={previewImageRef}
+                              src={newAdData.originalPhoto} 
+                              alt="Workspace" 
+                              className="max-h-[45vh] w-auto rounded-xl object-contain shadow-2xl pointer-events-none" 
+                            />
+                            
+                            {/* Movable Mask */}
+                            {selectedSticker && (
+                              <div 
+                                id="privacy-sticker"
+                                onMouseDown={handleStickerMouseDown}
+                                style={{
+                                  transform: `translate(calc(-50% + ${stickerPos.x}px), calc(-50% + ${stickerPos.y}px))`
+                                }}
+                                className="absolute top-1/3 left-1/2 cursor-grab active:cursor-grabbing group z-20"
+                                title="Click and drag to position mask over face"
+                              >
+                                {selectedSticker === brandLogo || (typeof selectedSticker === 'string' && (selectedSticker.startsWith('data:image') || selectedSticker.includes('.'))) ? (
+                                  <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-white shadow-2xl animate-pulse bg-slate-950">
+                                    <img src={selectedSticker} alt="Mask Logo" className="w-full h-full object-cover pointer-events-none" />
+                                  </div>
+                                ) : (
+                                  <span className="text-6xl filter drop-shadow-lg">{selectedSticker}</span>
+                                )}
+
+                                <span className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 bg-slate-900/90 text-pink-400 font-bold text-[9px] px-2 py-0.5 rounded-full border border-pink-500/40 whitespace-nowrap flex items-center gap-1 shadow">
+                                  <Move size={10} /> Drag me
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Sticker Selection */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-semibold text-slate-300">Choose Privacy Mask / Sticker:</label>
+                            <span className="text-[10px] text-pink-400 font-semibold">Tip: Drag the sticker over the face</span>
+                          </div>
+                          <div className="flex gap-3 flex-wrap items-center bg-slate-900 p-3 rounded-2xl border border-slate-800">
+                            <button
+                              type="button"
+                              onClick={() => { setSelectedSticker(brandLogo); setStickerPos({ x: 0, y: 0 }); }}
+                              className={`px-3 py-2 rounded-xl text-xs font-bold transition border cursor-pointer flex items-center gap-2 ${
+                                selectedSticker === brandLogo 
+                                  ? 'bg-pink-500/25 border-pink-500 text-white shadow-lg' 
+                                  : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'
+                              }`}
+                            >
+                              <img src={brandLogo} alt="Official Logo" className="w-5 h-5 rounded-full object-cover border border-white/40" />
+                              Official Logo
+                            </button>
+
+                            {['🕶️', '🐱', '⭐', '❤️', '🦊', '🙈'].map((sticker) => (
+                              <button
+                                type="button"
+                                key={sticker}
+                                onClick={() => { setSelectedSticker(sticker); setStickerPos({ x: 0, y: 0 }); }}
+                                className={`px-3 py-2 rounded-xl text-xl transition border cursor-pointer ${
+                                  selectedSticker === sticker 
+                                    ? 'bg-pink-500/25 border-pink-500 text-white shadow-lg' 
+                                    : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'
+                                }`}
+                              >
+                                {sticker}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Change Image Button */}
+                        <div className="flex items-center justify-between pt-2">
+                          <label className="cursor-pointer text-xs font-bold text-slate-400 hover:text-white underline">
+                            Upload a different photo
+                            <input type="file" accept="image/*" onChange={handleCleanPhotoUpload} className="hidden" />
+                          </label>
+
+                          <button 
+                            type="button"
+                            disabled={loading}
+                            onClick={handleProceedToDetails}
+                            className="px-8 py-3.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg transition cursor-pointer"
+                          >
+                            {loading ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
+                            Next: Profile Details
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* STEP 2: PROFILE DETAILS & SUBMISSION */}
+                {profileStep === 'details_step' && (
+                  <form onSubmit={handleSaveLadyProfileManual} className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <User className="text-pink-500" size={20} />
+                        <h3 className="text-base font-extrabold text-white">Step 2: Enter Profile Details & Rates</h3>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => setProfileStep('photo_step')}
+                        className="text-xs text-pink-400 font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <ArrowLeft size={14} /> Back to Photo Masking
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-300 mb-1">Companion Name</label>
+                        <input 
+                          type="text" 
+                          required
+                          value={newAdData.name}
+                          onChange={(e) => setNewAdData({ ...newAdData, name: e.target.value })}
+                          placeholder="Enter name"
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-300 mb-1">Category / Tier</label>
+                        <select 
+                          value={newAdData.category}
+                          onChange={(e) => setNewAdData({ ...newAdData, category: e.target.value })}
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
+                        >
+                          <option value="VIP">VIP</option>
+                          <option value="Elite">Elite</option>
+                          <option value="Standard">Standard</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-300 mb-1">Location</label>
+                        <div className="relative">
+                          <MapPin className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500" />
+                          <input 
+                            type="text" 
+                            required
+                            value={newAdData.location}
+                            onChange={(e) => setNewAdData({ ...newAdData, location: e.target.value })}
+                            placeholder="City / Region"
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-300 mb-1">Contact Phone</label>
+                        <div className="relative">
+                          <Phone className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500" />
+                          <input 
+                            type="text" 
+                            required
+                            value={newAdData.phone}
+                            onChange={(e) => setNewAdData({ ...newAdData, phone: e.target.value })}
+                            placeholder="+260..."
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-300 mb-1">Hourly/Service Rate (ZMW)</label>
+                        <div className="relative">
+                          <DollarSign className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500" />
+                          <input 
+                            type="number" 
+                            required
+                            value={newAdData.rate}
+                            onChange={(e) => setNewAdData({ ...newAdData, rate: e.target.value })}
+                            placeholder="0.00"
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">Profile Bio / Description</label>
+                      <textarea 
+                        rows="3"
+                        value={newAdData.bio}
+                        onChange={(e) => setNewAdData({ ...newAdData, bio: e.target.value })}
+                        placeholder="Tell clients about preferences and availability..."
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl p-4 text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition resize-none"
+                      ></textarea>
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
+                      <button 
+                        type="button"
+                        onClick={() => setProfileStep('photo_step')}
+                        className="px-5 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition cursor-pointer"
+                      >
+                        Back
+                      </button>
+
+                      <button 
+                        type="submit" 
+                        disabled={loading}
+                        className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold px-8 py-3.5 rounded-xl text-xs flex items-center gap-2 shadow-lg transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        {loading ? 'Publishing...' : 'Save and Publish Ad'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            )
+          ) : (
+            activeTab === 'favorites' ? (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-2xl font-black text-white tracking-tight">Your Favorites</h2>
+                  <p className="text-xs text-slate-400 mt-1">Quickly access profiles you have saved.</p>
+                </div>
+                <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-12 text-center space-y-3">
+                  <div className="w-12 h-12 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-center mx-auto text-pink-500">
+                    <Heart size={24} />
+                  </div>
+                  <h3 className="text-sm font-bold text-white">No favorite profiles yet</h3>
+                  <p className="text-xs text-slate-500 max-w-xs mx-auto">Browse the elite directory and bookmark your preferred companion listings.</p>
+                </div>
+              </div>
+            ) : activeTab === 'subscription' ? (
+              <div className="space-y-6 max-w-2xl">
+                <div>
+                  <h2 className="text-2xl font-black text-white tracking-tight">Subscription Status</h2>
+                  <p className="text-xs text-slate-400 mt-1">Manage your active tier and platform access benefits.</p>
+                </div>
+                <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xl">
+                  <div className="flex items-center justify-between p-4 bg-slate-900 border border-slate-800 rounded-2xl">
+                    <div className="space-y-1">
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Current Tier</span>
+                      <h4 className="text-base font-black text-white flex items-center gap-2">
+                        <Crown size={16} className="text-amber-400" /> Verified Elite Member
+                      </h4>
+                    </div>
+                    <span className="px-3 py-1 bg-emerald-950 text-emerald-400 border border-emerald-800/40 rounded-full text-xs font-extrabold uppercase">Active</span>
+                  </div>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Your account has full privileges to browse listings and connect with verified companions in {userLockedLocation}.
+                  </p>
+                </div>
+              </div>
+            ) : activeTab === 'settings' ? (
+              <div className="space-y-6 max-w-2xl">
+                <div>
+                  <h2 className="text-2xl font-black text-white tracking-tight">Account Details</h2>
+                  <p className="text-xs text-slate-400 mt-1">Update your account preferences and credentials.</p>
+                </div>
+                <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xl">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300">Username</label>
+                    <input 
+                      type="text" 
+                      value={currentUser.username} 
+                      disabled 
+                      className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-400 cursor-not-allowed" 
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300">Default City / Region</label>
+                    <input 
+                      type="text" 
+                      value={userLockedLocation} 
+                      disabled 
+                      className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-400 cursor-not-allowed" 
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-[#0b101d] border border-slate-800/80 p-5 rounded-3xl shadow-xl">
+                  <div className="relative flex-1">
+                    <Search size={18} className="absolute left-4 top-3.5 text-slate-500" />
+                    <input 
+                      type="text" 
+                      placeholder="Search by name or area (e.g. Chalala)..." 
+                      value={searchQuery} 
+                      onChange={(e) => setSearchQuery(e.target.value)} 
+                      className="w-full pl-11 pr-4 py-3 bg-slate-900 border border-slate-800 rounded-2xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition" 
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
+                    {['All', 'VIP', 'Elite', 'Standard'].map((cat) => (
+                      <button 
+                        key={cat} 
+                        onClick={() => setSelectedCategory(cat)} 
+                        className={`px-4 py-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${selectedCategory === cat ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-md' : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'}`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredLadies.length === 0 ? (
+                    <div className="col-span-full text-center py-20 space-y-3 bg-[#0b101d] border border-slate-800/80 rounded-3xl">
+                      <div className="w-16 h-16 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-center mx-auto text-slate-500">
+                        <Compass size={28} />
+                      </div>
+                      <h3 className="text-base font-bold text-white">No companion profiles found</h3>
+                      <p className="text-xs text-slate-500 max-w-sm mx-auto">Try adjusting your search query or category filter for {userLockedLocation}.</p>
+                    </div>
+                  ) : (
+                    filteredLadies.map((lady) => (
+                      <div 
+                        key={lady.id || lady._id} 
+                        className="bg-[#0b101d] border border-slate-800/80 rounded-3xl overflow-hidden shadow-xl hover:border-pink-500/40 transition duration-300 flex flex-col group"
+                      >
+                        <div className="relative h-72 overflow-hidden bg-slate-950">
+                          <img 
+                            src={lady.photo || lady.photoUrl} 
+                            alt={lady.name} 
+                            className="w-full h-full object-cover group-hover:scale-105 transition duration-500" 
+                          />
+
+                          <div className="absolute inset-0 bg-gradient-to-t from-[#0b101d] via-transparent to-transparent opacity-80" />
+
+                          <div className="absolute top-3 right-3">
+                            <span className="bg-emerald-500/90 text-slate-950 font-black text-[10px] px-2.5 py-1 rounded-full flex items-center gap-1 shadow-md">
+                              <ShieldCheck size={12} /> VERIFIED FEMALE
+                            </span>
+                          </div>
+
+                          <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end">
+                            <div>
+                              <h3 className="text-white font-black text-lg drop-shadow-md">{lady.name}, {lady.age || '23'}</h3>
+                              <p className="text-xs text-pink-400 font-bold uppercase tracking-wider">{lady.category || 'VIP'} Companion</p>
+                            </div>
+                            <span className="bg-emerald-500/90 text-slate-950 font-black text-xs px-3 py-1 rounded-xl shadow-lg">
+                              ZMW {lady.price || lady.rate}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                          <div className="space-y-2">
+                            <p className="text-xs text-slate-400 flex items-center gap-1.5">
+                              <MapPin size={14} className="text-pink-500" /> {lady.specificLocation || lady.location}
+                            </p>
+                            {(lady.extraServices || lady.bio) && (
+                              <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">{lady.extraServices || lady.bio}</p>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800/80">
+                            <button 
+                              onClick={() => setSelectedProfile(lady)}
+                              className="py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+                            >
+                              View Profile
+                            </button>
+                            <button 
+                              onClick={() => handleOpenWhatsApp(lady)}
+                              className="py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md transition cursor-pointer"
+                            >
+                              <MessageSquare size={14} /> WhatsApp
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )
+          )}
+        </main>
+      </div>
     </div>
   );
 }
