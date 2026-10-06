@@ -7,8 +7,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import LogoLoader from '../common/LogoLoader';
 import { encryptStorageData, decryptStorageData } from '../../utils/storageEncryption';
 
-// Import brand logo image
-import brandLogo from '../../assets/logo_2.jpg'; 
+// Reference brand logo directly from the public folder (Option 2)
+const brandLogo = '/logo.jpg';
 
 // Sanitize BACKEND_URL by removing trailing slashes
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000').replace(/\/+$/, '');
