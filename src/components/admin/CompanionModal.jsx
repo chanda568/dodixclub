@@ -17,10 +17,10 @@ export default function CompanionModal({ companion, onClose, onSavePrice }) {
     onSavePrice(companionId, price);
   };
 
-  // Strictly targeting the baked-in masked photo vs original/unmasked photo
+  // When face is revealed, show original/unmasked photo. When masked, show the face-sticker photo.
   const rawPhoto = isFaceRevealed 
     ? (companion.originalPhoto || companion.unmaskedPhoto || companion.photo)
-    : (companion.photo || companion.originalPhoto);
+    : (companion.maskedPhoto || companion.photo || companion.originalPhoto);
 
   const displayName = (!companion.name || companion.name.toLowerCase() === 'female') 
     ? (companion.username ? `@${companion.username}` : 'Companion Profile') 
