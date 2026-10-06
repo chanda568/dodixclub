@@ -1,7 +1,7 @@
 // src/components/client/ClientDirectory.jsx
 import React, { useState, useEffect } from 'react';
 import { 
-  LogOut, MessageSquare, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, Crown, RefreshCw, CheckCircle, Flag, Heart, CreditCard, Settings, Bell, Plus, Trash2, Shield, MessageCircle, Loader2, DollarSign, AlertCircle, Save, Phone, Edit3, Sliders
+  LogOut, MessageSquare, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, Crown, RefreshCw, CheckCircle, Flag, Heart, CreditCard, Settings, Bell, Plus, Trash2, Shield, MessageCircle, Loader2, DollarSign, AlertCircle, Save, Phone, Edit3, Sliders, Move
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import LogoLoader from '../common/LogoLoader';
@@ -47,11 +47,14 @@ export default function ClientDirectory({
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isSaved, setIsSaved] = useState(false);
-  const [selectedSticker, setSelectedSticker] = useState('/logo.jpg');
+  const [selectedSticker, setSelectedSticker] = useState('logo'); // 'logo' or emoji
   
-  // Full-View Photo Editor Modal State
+  // Full-View Photo Editor Modal & Draggable Sticker State
   const [photoEditorOpen, setPhotoEditorOpen] = useState(false);
   const [tempPhoto, setTempPhoto] = useState('');
+  const [stickerPos, setStickerPos] = useState({ x: 0, y: 0 }); // offset from center
+  const [isDraggingSticker, setIsDraggingSticker] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
   const initialName = currentUser?.username && !['female', 'lady', 'client'].includes(currentUser.username.toLowerCase()) 
     ? currentUser.username 
@@ -230,18 +233,38 @@ export default function ClientDirectory({
     const reader = new FileReader();
     reader.onloadend = () => {
       setTempPhoto(reader.result);
+      setStickerPos({ x: 0, y: 0 });
       if (!selectedSticker) {
-        setSelectedSticker('/logo.jpg');
+        setSelectedSticker('logo');
       }
       setPhotoEditorOpen(true);
     };
     reader.readAsDataURL(file);
   };
 
-  // Canvas helper to bake sticker (clipped in a perfect circle for logo.jpg) directly into image
-  const bakeStickerToImage = (imageSrc, sticker) => {
+  // Drag handlers for movable sticker
+  const handleStickerMouseDown = (e) => {
+    e.stopPropagation();
+    setIsDraggingSticker(true);
+    setDragStart({ x: e.clientX - stickerPos.x, y: e.clientY - stickerPos.y });
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDraggingSticker) return;
+    setStickerPos({
+      x: e.clientX - dragStart.x,
+      y: e.clientY - dragStart.y
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsDraggingSticker(false);
+  };
+
+  // Canvas helper to bake sticker according to its final dragged position
+  const bakeStickerToImage = (imageSrc, sticker, pos) => {
     return new Promise((resolve) => {
-      if (!sticker || !imageSrc) {
+      if (!imageSrc) {
         resolve(imageSrc);
         return;
       }
@@ -254,42 +277,52 @@ export default function ClientDirectory({
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0);
 
-        if (sticker.startsWith('/') || sticker.includes('.')) {
-          // It's an image file sticker like logo.jpg
-          const stickerImg = new Image();
-          stickerImg.crossOrigin = 'anonymous';
-          stickerImg.onload = () => {
-            const size = canvas.width * 0.28; // 28% width for privacy mask
-            const x = (canvas.width - size) / 2;
-            const y = canvas.height * 0.25;
+        const size = canvas.width * 0.28;
+        // Base center position + dragged offset scaled to natural canvas size
+        const baseCenterX = (canvas.width - size) / 2;
+        const baseCenterY = canvas.height * 0.25;
+        const scaleFactor = canvas.width / 400; // scaling ratio based on preview box
+        const x = baseCenterX + (pos.x * scaleFactor);
+        const y = baseCenterY + (pos.y * scaleFactor);
 
-            // Clip drawing context to a circle to avoid square bounding boxes
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2, true);
-            ctx.closePath();
-            ctx.clip();
+        if (sticker === 'logo') {
+          // Draw circular glowing gradient badge / logo substitute
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2, true);
+          ctx.closePath();
+          ctx.clip();
 
-            ctx.drawImage(stickerImg, x, y, size, size);
-            ctx.restore();
+          // Gradient fill
+          const grad = ctx.createLinearGradient(x, y, x + size, y + size);
+          grad.addColorStop(0, '#ec4899'); // pink-500
+          grad.addColorStop(1, '#9333ea'); // purple-600
+          ctx.fillStyle = grad;
+          ctx.fillRect(x, y, size, size);
 
-            // Optional border ring around the sticker mask
-            ctx.beginPath();
-            ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2, true);
-            ctx.lineWidth = Math.max(2, canvas.width * 0.005);
-            ctx.strokeStyle = '#ec4899'; // pink-500 match
-            ctx.stroke();
+          // Shield text icon
+          ctx.fillStyle = '#ffffff';
+          ctx.font = `bold ${Math.floor(size * 0.45)}px sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('D', x + size / 2, y + size / 2);
 
-            resolve(canvas.toDataURL('image/jpeg', 0.9));
-          };
-          stickerImg.onerror = () => resolve(canvas.toDataURL('image/jpeg', 0.9));
-          stickerImg.src = sticker;
+          ctx.restore();
+
+          // Border ring
+          ctx.beginPath();
+          ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2, true);
+          ctx.lineWidth = Math.max(2, canvas.width * 0.006);
+          ctx.strokeStyle = '#ffffff';
+          ctx.stroke();
+
+          resolve(canvas.toDataURL('image/jpeg', 0.9));
         } else {
           // Emoji sticker fallback
           ctx.font = `${Math.floor(canvas.width * 0.22)}px serif`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(sticker, canvas.width / 2, canvas.height * 0.35);
+          ctx.fillText(sticker, x + size / 2, y + size / 2);
           resolve(canvas.toDataURL('image/jpeg', 0.9));
         }
       };
@@ -303,7 +336,7 @@ export default function ClientDirectory({
     if (!tempPhoto) return;
     let finalPhoto = tempPhoto;
     if (selectedSticker) {
-      finalPhoto = await bakeStickerToImage(tempPhoto, selectedSticker);
+      finalPhoto = await bakeStickerToImage(tempPhoto, selectedSticker, stickerPos);
     }
     setNewAdData(prev => ({
       ...prev,
@@ -323,7 +356,7 @@ export default function ClientDirectory({
     try {
       let finalPhoto = newAdData.photo;
       if (selectedSticker && finalPhoto && !finalPhoto.includes('data:image')) {
-        finalPhoto = await bakeStickerToImage(finalPhoto, selectedSticker);
+        finalPhoto = await bakeStickerToImage(finalPhoto, selectedSticker, stickerPos);
       }
 
       const response = await fetch(`${BACKEND_URL}/api/ladies`, {
@@ -504,7 +537,7 @@ export default function ClientDirectory({
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col relative selection:bg-pink-500 selection:text-white font-sans">
       {isLoading && <LogoLoader text={loadingText} />}
 
-      {/* FULL-VIEW PHOTO & MASK EDITING PANEL MODAL */}
+      {/* FULL-VIEW PHOTO & MOVABLE MASK EDITING PANEL MODAL */}
       <AnimatePresence>
         {photoEditorOpen && (
           <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
@@ -517,7 +550,7 @@ export default function ClientDirectory({
               <div className="flex items-center justify-between pb-4 border-b border-slate-800">
                 <div className="flex items-center gap-2">
                   <Sliders className="text-pink-500" size={20} />
-                  <h3 className="text-base font-bold text-white">Full-View Photo & Face Mask Editor</h3>
+                  <h3 className="text-base font-bold text-white">Full-View Photo & Movable Mask Editor</h3>
                 </div>
                 <button 
                   onClick={() => setPhotoEditorOpen(false)}
@@ -527,20 +560,39 @@ export default function ClientDirectory({
                 </button>
               </div>
 
-              {/* Full View Image Workspace */}
-              <div className="flex-1 flex items-center justify-center bg-slate-950 rounded-2xl p-4 overflow-hidden border border-slate-800 relative min-h-[320px]">
+              {/* Full View Image Workspace with Mouse Move listeners for Dragging */}
+              <div 
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+                className="flex-1 flex items-center justify-center bg-slate-950 rounded-2xl p-4 overflow-hidden border border-slate-800 relative min-h-[340px] select-none"
+              >
                 {tempPhoto && (
                   <div className="relative inline-block max-h-full">
-                    <img src={tempPhoto} alt="Full View Editor Workspace" className="max-h-[50vh] w-auto rounded-xl object-contain shadow-2xl" />
+                    <img src={tempPhoto} alt="Full View Editor Workspace" className="max-h-[50vh] w-auto rounded-xl object-contain shadow-2xl pointer-events-none" />
                     
-                    {/* Centered Circular Mask Preview */}
+                    {/* Movable Mask Preview Container */}
                     {selectedSticker && (
-                      <div className="absolute top-1/3 left-1/2 transform -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none">
-                        {selectedSticker.startsWith('/') ? (
-                          <img src={selectedSticker} alt="Logo Mask" className="w-20 h-20 rounded-full object-cover border-4 border-pink-500 shadow-2xl animate-pulse" />
+                      <div 
+                        onMouseDown={handleStickerMouseDown}
+                        style={{
+                          transform: `translate(calc(-50% + ${stickerPos.x}px), calc(-50% + ${stickerPos.y}px))`
+                        }}
+                        className="absolute top-1/3 left-1/2 cursor-grab active:cursor-grabbing group z-20"
+                        title="Click and drag to position mask over face"
+                      >
+                        {selectedSticker === 'logo' ? (
+                          <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-pink-500 to-purple-600 border-4 border-white shadow-2xl flex items-center justify-center text-white font-black text-2xl animate-pulse">
+                            D
+                          </div>
                         ) : (
-                          <span className="text-6xl">{selectedSticker}</span>
+                          <span className="text-6xl filter drop-shadow-lg">{selectedSticker}</span>
                         )}
+
+                        {/* Drag badge hint */}
+                        <span className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 bg-slate-900/90 text-pink-400 font-bold text-[9px] px-2 py-0.5 rounded-full border border-pink-500/40 whitespace-nowrap flex items-center gap-1 shadow">
+                          <Move size={10} /> Drag me
+                        </span>
                       </div>
                     )}
                   </div>
@@ -549,18 +601,21 @@ export default function ClientDirectory({
 
               {/* Sticker Selector Toolbar */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-300">Choose Privacy Mask / Sticker:</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-slate-300">Choose Privacy Mask / Sticker:</label>
+                  <span className="text-[10px] text-pink-400 font-semibold">Tip: Click and drag the mask on the photo to position it precisely over the face</span>
+                </div>
                 <div className="flex gap-3 flex-wrap items-center bg-slate-900 p-3 rounded-2xl border border-slate-800">
                   <button
                     type="button"
-                    onClick={() => setSelectedSticker('/logo.jpg')}
+                    onClick={() => { setSelectedSticker('logo'); setStickerPos({ x: 0, y: 0 }); }}
                     className={`px-3.5 py-2 rounded-xl text-xs font-bold transition border cursor-pointer flex items-center gap-2 ${
-                      selectedSticker === '/logo.jpg' 
+                      selectedSticker === 'logo' 
                         ? 'bg-pink-500/25 border-pink-500 text-white' 
                         : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'
                     }`}
                   >
-                    <img src="/logo.jpg" alt="Logo" className="w-5 h-5 rounded-full object-cover" />
+                    <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-pink-500 to-purple-600 flex items-center justify-center text-white text-[10px] font-black">D</div>
                     Default Logo
                   </button>
 
@@ -568,7 +623,7 @@ export default function ClientDirectory({
                     <button
                       type="button"
                       key={sticker}
-                      onClick={() => setSelectedSticker(sticker)}
+                      onClick={() => { setSelectedSticker(sticker); setStickerPos({ x: 0, y: 0 }); }}
                       className={`px-3 py-2 rounded-xl text-xl transition border cursor-pointer ${
                         selectedSticker === sticker 
                           ? 'bg-pink-500/25 border-pink-500 text-white' 
@@ -1266,6 +1321,7 @@ export default function ClientDirectory({
                         <div 
                           onClick={() => {
                             setTempPhoto(newAdData.photo);
+                            setStickerPos({ x: 0, y: 0 });
                             setPhotoEditorOpen(true);
                           }}
                           className="relative w-36 h-36 rounded-2xl overflow-hidden border-2 border-slate-800 hover:border-pink-500 bg-slate-950 cursor-pointer transition shadow-lg group-hover:scale-[1.02]"
@@ -1274,7 +1330,7 @@ export default function ClientDirectory({
                           <img src={newAdData.photo} alt="Preview" className="w-full h-full object-cover" />
                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition backdrop-blur-[2px]">
                             <span className="text-white text-xs font-bold flex items-center gap-1.5 bg-pink-600/90 px-3 py-1.5 rounded-xl shadow">
-                              <Edit3 size={14} /> Edit Mask
+                              <Edit3 size={14} /> Edit & Position
                             </span>
                           </div>
                         </div>
@@ -1282,7 +1338,7 @@ export default function ClientDirectory({
                           type="button"
                           onClick={() => {
                             setNewAdData({ ...newAdData, photo: '', photoUrl: '' });
-                            setSelectedSticker('/logo.jpg');
+                            setSelectedSticker('logo');
                           }}
                           className="absolute -top-2 -right-2 bg-rose-600 p-1.5 rounded-full text-white hover:bg-rose-500 shadow cursor-pointer z-10"
                           title="Remove Photo"
