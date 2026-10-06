@@ -1,7 +1,7 @@
 // src/components/client/ClientDirectory.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
-  LogOut, MessageSquare, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, Crown, RefreshCw, CheckCircle, Flag, Heart, CreditCard, Settings, Bell, Plus, Trash2, Shield, MessageCircle, Loader2, DollarSign, AlertCircle, Save, Phone, Edit3, Sliders, Move
+  LogOut, MessageSquare, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, Crown, RefreshCw, CheckCircle, Flag, Heart, CreditCard, Settings, Bell, Plus, Trash2, Shield, MessageCircle, Loader2, DollarSign, AlertCircle, Save, Phone, Edit3, Sliders, Move, Check, Award, Filter
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import LogoLoader from '../common/LogoLoader';
@@ -58,6 +58,18 @@ export default function ClientDirectory({
   const [stickerPos, setStickerPos] = useState({ x: 0, y: 0 }); // offset from center
   const [isDraggingSticker, setIsDraggingSticker] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  // Client Directory Branding Modal State (integrated from snippet)
+  const [activeClient, setActiveClient] = useState(null);
+  const [isEditingPhoto, setIsEditingPhoto] = useState(false);
+  const canvasRef = useRef(null);
+
+  // Sample client data array for client directory branding preview
+  const sampleClients = [
+    { id: 1, name: 'Acme Corporation', category: 'Enterprise', status: 'Active', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150' },
+    { id: 2, name: 'Starlight Media', category: 'Agency', status: 'Pending', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150' },
+    { id: 3, name: 'Vertex Logistics', category: 'Enterprise', status: 'Active', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150' },
+  ];
 
   const initialName = currentUser?.username && !['female', 'lady', 'client'].includes(currentUser.username.toLowerCase()) 
     ? currentUser.username 
@@ -276,62 +288,43 @@ export default function ClientDirectory({
   }, [isDraggingSticker, dragStart]);
 
   // Canvas Baker Function: Bakes the sticker (logo or emoji) directly onto the exported image
-  const bakeStickerToImage = (imageSrc, sticker, pos) => {
+  const bakeStickerToImage = (imageSrc, stickerSrc, pos) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return Promise.resolve(imageSrc);
+    
     return new Promise((resolve) => {
       if (!imageSrc) {
         resolve(imageSrc);
         return;
       }
+      const ctx = canvas.getContext('2d');
       const img = new Image();
       img.crossOrigin = 'anonymous';
+      img.src = imageSrc;
+
       img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth || img.width;
-        canvas.height = img.naturalHeight || img.height;
-        const ctx = canvas.getContext('2d');
+        canvas.width = img.width;
+        canvas.height = img.height;
         ctx.drawImage(img, 0, 0);
 
-        const size = canvas.width * 0.28;
-        const baseCenterX = (canvas.width - size) / 2;
-        const baseCenterY = canvas.height * 0.25;
-        const scaleFactor = canvas.width / 400; 
-        const x = baseCenterX + (pos.x * scaleFactor);
-        const y = baseCenterY + (pos.y * scaleFactor);
-
-        if (typeof sticker === 'string' && (sticker.startsWith('data:image') || sticker === brandLogo)) {
-          const stickerImg = new Image();
-          stickerImg.crossOrigin = 'anonymous';
-          stickerImg.onload = () => {
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2, true);
-            ctx.closePath();
-            ctx.clip();
-            ctx.drawImage(stickerImg, x, y, size, size);
-            ctx.restore();
-
-            // Outer white border ring
-            ctx.beginPath();
-            ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2, true);
-            ctx.lineWidth = Math.max(2, canvas.width * 0.006);
-            ctx.strokeStyle = '#ffffff';
-            ctx.stroke();
-
+        const sticker = new Image();
+        sticker.crossOrigin = 'anonymous';
+        
+        if (typeof stickerSrc === 'string' && (stickerSrc.startsWith('data:image') || stickerSrc === brandLogo)) {
+          sticker.src = stickerSrc;
+          sticker.onload = () => {
+            const stickerSize = canvas.width * 0.25;
+            const x = (canvas.width - stickerSize) / 2 + (pos.x || 0);
+            const y = (canvas.height - stickerSize) / 2 + (pos.y || 0);
+            ctx.drawImage(sticker, x, y, stickerSize, stickerSize);
             resolve(canvas.toDataURL('image/jpeg', 0.9));
           };
-          stickerImg.onerror = () => resolve(canvas.toDataURL('image/jpeg', 0.9));
-          stickerImg.src = sticker;
+          sticker.onerror = () => resolve(canvas.toDataURL('image/jpeg', 0.9));
         } else {
-          // Emoji fallback
-          ctx.font = `${Math.floor(canvas.width * 0.22)}px serif`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(sticker, x + size / 2, y + size / 2);
           resolve(canvas.toDataURL('image/jpeg', 0.9));
         }
       };
       img.onerror = () => resolve(imageSrc);
-      img.src = imageSrc;
     });
   };
 
@@ -658,6 +651,70 @@ export default function ClientDirectory({
                 </button>
               </div>
             </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* CLIENT BRANDING & STAMP MODAL (Integrated from Snippet) */}
+      <AnimatePresence>
+        {isEditingPhoto && activeClient && (
+          <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full p-6 shadow-2xl relative">
+              <button
+                onClick={() => setIsEditingPhoto(false)}
+                className="absolute top-5 right-5 text-slate-400 hover:text-white bg-slate-800 p-2 rounded-full transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <h2 className="text-xl font-bold text-white mb-2">Apply Brand Stamp</h2>
+              <p className="text-slate-400 text-xs mb-6">Customize the active badge for {activeClient.name}.</p>
+
+              {/* Modal Preview Area */}
+              <div className="relative w-64 h-64 mx-auto rounded-2xl overflow-hidden border-2 border-indigo-500/40 bg-slate-950 flex items-center justify-center shadow-inner">
+                <img src={activeClient.avatar} alt="Base" className="w-full h-full object-cover" />
+                
+                {/* Movable/Sticker Preview Container */}
+                <div className="absolute w-20 h-20 rounded-full overflow-hidden border-4 border-white shadow-2xl animate-pulse bg-slate-950 flex items-center justify-center pointer-events-none">
+                  <img src={selectedSticker} alt="Mask Logo" className="w-full h-full object-cover" />
+                </div>
+              </div>
+
+              {/* Sticker Selection Toolbar */}
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setSelectedSticker(brandLogo); setStickerPos({ x: 0, y: 0 }); }}
+                  className={`px-4 py-2.5 rounded-xl text-xs font-bold transition border cursor-pointer flex items-center gap-2 ${
+                    selectedSticker === brandLogo 
+                      ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg shadow-indigo-600/30' 
+                      : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  <img src={brandLogo} alt="Official Logo" className="w-5 h-5 rounded-full object-cover border border-white/40" />
+                  Official Logo
+                </button>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="mt-8 flex justify-end gap-3 pt-4 border-t border-slate-800">
+                <button
+                  onClick={() => setIsEditingPhoto(false)}
+                  className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    bakeStickerToImage(activeClient.avatar, selectedSticker, stickerPos);
+                    setIsEditingPhoto(false);
+                  }}
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-lg shadow-emerald-600/20"
+                >
+                  <Check className="w-4 h-4" /> Save & Export
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </AnimatePresence>
@@ -1530,6 +1587,9 @@ export default function ClientDirectory({
           )}
         </main>
       </div>
+
+      {/* Hidden Canvas for Processing Image Exports */}
+      <canvas ref={canvasRef} className="hidden" />
     </div>
   );
 }
