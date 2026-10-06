@@ -278,52 +278,73 @@ export default function ClientDirectory({
     };
   }, [isDraggingSticker, dragStart]);
 
-  // Updated Canvas Baker supporting Emojis, Images, and Screen-to-Canvas Scaling
-  const bakeStickerToImage = (imageSrc, stickerSrc, pos, previewRect, naturalDimensions) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return Promise.resolve(imageSrc);
-    
-    return new Promise((resolve) => {
-      if (!imageSrc) {
-        resolve(imageSrc);
-        return;
-      }
+  // Flatten Sticker Helper supporting Images, Logos, and Emojis
+  const flattenStickerToImage = (originalImgSrc, stickerImgSrc, stickerBox, containerBox) => {
+    return new Promise((resolve, reject) => {
+      const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.src = imageSrc;
 
-      img.onload = () => {
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
+      const baseImage = new Image();
+      baseImage.crossOrigin = 'anonymous';
+      baseImage.src = originalImgSrc;
 
-        // Calculate scale factor between preview display size and actual high-res image size
-        const scaleX = previewRect?.width ? img.width / previewRect.width : 1;
-        const scaleY = previewRect?.height ? img.height / previewRect.height : 1;
+      baseImage.onload = () => {
+        canvas.width = baseImage.naturalWidth;
+        canvas.height = baseImage.naturalHeight;
 
-        const stickerSize = canvas.width * 0.25;
-        const centerX = (canvas.width - stickerSize) / 2 + ((pos.x || 0) * scaleX);
-        const centerY = (canvas.height - stickerSize) / 2 + ((pos.y || 0) * scaleY);
+        // 1. Draw the clean original photo at full resolution
+        ctx.drawImage(baseImage, 0, 0);
 
-        if (typeof stickerSrc === 'string' && (stickerSrc.startsWith('data:image') || stickerSrc === brandLogo || stickerSrc.includes('.'))) {
-          const sticker = new Image();
-          sticker.crossOrigin = 'anonymous';
-          sticker.src = stickerSrc;
-          sticker.onload = () => {
-            ctx.drawImage(sticker, centerX, centerY, stickerSize, stickerSize);
-            resolve(canvas.toDataURL('image/jpeg', 0.9));
+        const isImageSticker = typeof stickerImgSrc === 'string' && (
+          stickerImgSrc.startsWith('data:image') || 
+          stickerImgSrc.startsWith('/') || 
+          stickerImgSrc.startsWith('http') || 
+          stickerImgSrc.includes('.')
+        );
+
+        if (isImageSticker) {
+          const stickerImage = new Image();
+          stickerImage.crossOrigin = 'anonymous';
+          stickerImage.src = stickerImgSrc;
+
+          stickerImage.onload = () => {
+            // 2. Map UI sticker coordinates proportionally to actual image dimensions
+            const scaleX = baseImage.naturalWidth / containerBox.width;
+            const scaleY = baseImage.naturalHeight / containerBox.height;
+
+            const renderX = stickerBox.left * scaleX;
+            const renderY = stickerBox.top * scaleY;
+            const renderWidth = stickerBox.width * scaleX;
+            const renderHeight = stickerBox.height * scaleY;
+
+            // 3. Draw the sticker permanently onto the canvas pixels
+            ctx.drawImage(stickerImage, renderX, renderY, renderWidth, renderHeight);
+
+            // 4. Export the final composite image as base64
+            const flattenedBase64 = canvas.toDataURL('image/jpeg', 0.92);
+            resolve(flattenedBase64);
           };
-          sticker.onerror = () => resolve(canvas.toDataURL('image/jpeg', 0.9));
+
+          stickerImage.onerror = () => resolve(originalImgSrc);
         } else {
-          // Render emoji properly on canvas
-          ctx.font = `${stickerSize}px serif`;
+          // Emoji sticker support
+          const scaleX = baseImage.naturalWidth / containerBox.width;
+          const scaleY = baseImage.naturalHeight / containerBox.height;
+
+          const renderX = stickerBox.left * scaleX;
+          const renderY = stickerBox.top * scaleY;
+          const renderHeight = stickerBox.height * scaleY;
+
+          ctx.font = `${renderHeight}px serif`;
           ctx.textBaseline = 'top';
-          ctx.fillText(stickerSrc, centerX, centerY);
-          resolve(canvas.toDataURL('image/jpeg', 0.9));
+          ctx.fillText(stickerImgSrc, renderX, renderY);
+
+          const flattenedBase64 = canvas.toDataURL('image/jpeg', 0.92);
+          resolve(flattenedBase64);
         }
       };
-      img.onerror = () => resolve(imageSrc);
+
+      baseImage.onerror = () => resolve(originalImgSrc);
     });
   };
 
@@ -338,14 +359,32 @@ export default function ClientDirectory({
     let finalMaskedPhoto = newAdData.originalPhoto || newAdData.photo;
     
     if (selectedSticker) {
-      const rect = previewImageRef.current ? previewImageRef.current.getBoundingClientRect() : null;
-      finalMaskedPhoto = await bakeStickerToImage(finalMaskedPhoto, selectedSticker, stickerPos, rect);
+      const stickerElement = document.getElementById('privacy-sticker');
+      const containerElement = document.getElementById('photo-container');
+
+      if (stickerElement && containerElement) {
+        const stickerBox = stickerElement.getBoundingClientRect();
+        const containerBox = containerElement.getBoundingClientRect();
+
+        finalMaskedPhoto = await flattenStickerToImage(
+          newAdData.originalPhoto || newAdData.photo, 
+          selectedSticker, 
+          {
+            left: stickerBox.left - containerBox.left,
+            top: stickerBox.top - containerBox.top,
+            width: stickerBox.width,
+            height: stickerBox.height
+          },
+          containerBox
+        );
+      }
     }
 
     setNewAdData(prev => ({
       ...prev,
       photo: finalMaskedPhoto,
-      photoUrl: finalMaskedPhoto
+      photoUrl: finalMaskedPhoto,
+      unmaskedPhoto: prev.originalPhoto || prev.photo
     }));
 
     setLoading(false);
@@ -364,7 +403,10 @@ export default function ClientDirectory({
         ...newAdData,
         username: currentUser.username,
         price: newAdData.rate,
-        extraServices: newAdData.bio
+        extraServices: newAdData.bio,
+        originalPhoto: newAdData.originalPhoto,
+        unmaskedPhoto: newAdData.unmaskedPhoto || newAdData.originalPhoto,
+        photo: newAdData.photo
       };
 
       const response = await fetch(`${BACKEND_URL}/api/ladies`, {
@@ -1119,6 +1161,7 @@ export default function ClientDirectory({
                       <div className="space-y-6">
                         {/* Editor Workspace */}
                         <div 
+                          id="photo-container"
                           onMouseMove={handleMouseMove}
                           onMouseUp={handleMouseUp}
                           onMouseLeave={handleMouseUp}
@@ -1135,6 +1178,7 @@ export default function ClientDirectory({
                             {/* Movable Mask */}
                             {selectedSticker && (
                               <div 
+                                id="privacy-sticker"
                                 onMouseDown={handleStickerMouseDown}
                                 style={{
                                   transform: `translate(calc(-50% + ${stickerPos.x}px), calc(-50% + ${stickerPos.y}px))`
