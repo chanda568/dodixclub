@@ -54,22 +54,15 @@ export default function ClientDirectory({
   
   // Full-View Photo Editor Modal & Draggable Sticker State
   const [photoEditorOpen, setPhotoEditorOpen] = useState(false);
-  const [tempPhoto, setTempPhoto] = useState('');
+  const [tempPhoto, setTempPhoto] = useState(''); // Clean unmasked source image
   const [stickerPos, setStickerPos] = useState({ x: 0, y: 0 }); // offset from center
   const [isDraggingSticker, setIsDraggingSticker] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
-  // Client Directory Branding Modal State (integrated from snippet)
+  // Client Directory Branding Modal State
   const [activeClient, setActiveClient] = useState(null);
   const [isEditingPhoto, setIsEditingPhoto] = useState(false);
   const canvasRef = useRef(null);
-
-  // Sample client data array for client directory branding preview
-  const sampleClients = [
-    { id: 1, name: 'Acme Corporation', category: 'Enterprise', status: 'Active', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150' },
-    { id: 2, name: 'Starlight Media', category: 'Agency', status: 'Pending', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150' },
-    { id: 3, name: 'Vertex Logistics', category: 'Enterprise', status: 'Active', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150' },
-  ];
 
   const initialName = currentUser?.username && !['female', 'lady', 'client'].includes(currentUser.username.toLowerCase()) 
     ? currentUser.username 
@@ -82,6 +75,8 @@ export default function ClientDirectory({
     phone: currentUser.phone || '',
     rate: currentUser.rate || '',
     photo: currentUser.photo || currentUser.photoUrl || '',
+    originalPhoto: currentUser.originalPhoto || currentUser.photo || currentUser.photoUrl || '',
+    unmaskedPhoto: currentUser.unmaskedPhoto || currentUser.photo || currentUser.photoUrl || '',
     bio: currentUser.bio || ''
   });
 
@@ -247,7 +242,7 @@ export default function ClientDirectory({
     setErrorMessage('');
     const reader = new FileReader();
     reader.onloadend = () => {
-      setTempPhoto(reader.result);
+      setTempPhoto(reader.result); // Keep clean unmasked source image
       setStickerPos({ x: 0, y: 0 });
       if (!selectedSticker) {
         setSelectedSticker(brandLogo);
@@ -287,7 +282,7 @@ export default function ClientDirectory({
     };
   }, [isDraggingSticker, dragStart]);
 
-  // Canvas Baker Function: Bakes the sticker (logo or emoji) directly onto the exported image
+  // Canvas Baker Function: Bakes the sticker directly onto the exported public image
   const bakeStickerToImage = (imageSrc, stickerSrc, pos) => {
     const canvas = canvasRef.current;
     if (!canvas) return Promise.resolve(imageSrc);
@@ -328,22 +323,25 @@ export default function ClientDirectory({
     });
   };
 
-  // Confirm and Apply Editing from Full-View Panel
+  // Confirm and Apply Editing from Full-View Panel (Captures both masked public version and original unmasked version)
   const handleConfirmPhotoEdit = async () => {
     if (!tempPhoto) return;
-    let finalPhoto = tempPhoto;
+    let finalMaskedPhoto = tempPhoto;
     if (selectedSticker) {
-      finalPhoto = await bakeStickerToImage(tempPhoto, selectedSticker, stickerPos);
+      finalMaskedPhoto = await bakeStickerToImage(tempPhoto, selectedSticker, stickerPos);
     }
+    
     setNewAdData(prev => ({
       ...prev,
-      photo: finalPhoto,
-      photoUrl: finalPhoto
+      photo: finalMaskedPhoto,          // Publicly displayed masked photo
+      photoUrl: finalMaskedPhoto,       // Publicly displayed masked photo
+      originalPhoto: tempPhoto,         // Secure unmasked photo for admin review
+      unmaskedPhoto: tempPhoto          // Backup reference field
     }));
     setPhotoEditorOpen(false);
   };
 
-  // 5. Save and Publish Ad using POST
+  // 5. Save and Publish Ad using POST (Submitting both masked and unmasked fields)
   const handleSaveLadyProfileManual = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -351,22 +349,28 @@ export default function ClientDirectory({
     setSuccessMessage('');
 
     try {
-      let finalPhoto = newAdData.photo;
-      if (selectedSticker && finalPhoto && !finalPhoto.includes('data:image')) {
-        finalPhoto = await bakeStickerToImage(finalPhoto, selectedSticker, stickerPos);
+      let finalMaskedPhoto = newAdData.photo;
+      const originalSourcePhoto = newAdData.originalPhoto || tempPhoto || newAdData.photo;
+
+      if (selectedSticker && finalMaskedPhoto && !finalMaskedPhoto.includes('data:image')) {
+        finalMaskedPhoto = await bakeStickerToImage(finalMaskedPhoto, selectedSticker, stickerPos);
       }
+
+      const payload = {
+        ...newAdData,
+        photo: finalMaskedPhoto,         // Shown publicly to clients
+        photoUrl: finalMaskedPhoto,      // Shown publicly to clients
+        originalPhoto: originalSourcePhoto, // Sent securely for admin review only
+        unmaskedPhoto: originalSourcePhoto, // Backup reference field
+        username: currentUser.username,
+        price: newAdData.rate,
+        extraServices: newAdData.bio
+      };
 
       const response = await fetch(`${BACKEND_URL}/api/ladies`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...newAdData,
-          photo: finalPhoto,
-          photoUrl: finalPhoto,
-          username: currentUser.username,
-          price: newAdData.rate,
-          extraServices: newAdData.bio
-        })
+        body: JSON.stringify(payload)
       });
 
       const contentType = response.headers.get("content-type");
@@ -392,7 +396,7 @@ export default function ClientDirectory({
 
       const newHistoryItem = {
         id: Date.now(),
-        action: `Submitted Advertisement`,
+        action: `Submitted Advertisement (Masked & Unmasked Captured)`,
         timestamp: new Date().toISOString(),
         status: 'Pending Admin Approval'
       };
@@ -651,70 +655,6 @@ export default function ClientDirectory({
                 </button>
               </div>
             </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* CLIENT BRANDING & STAMP MODAL (Integrated from Snippet) */}
-      <AnimatePresence>
-        {isEditingPhoto && activeClient && (
-          <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full p-6 shadow-2xl relative">
-              <button
-                onClick={() => setIsEditingPhoto(false)}
-                className="absolute top-5 right-5 text-slate-400 hover:text-white bg-slate-800 p-2 rounded-full transition cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-
-              <h2 className="text-xl font-bold text-white mb-2">Apply Brand Stamp</h2>
-              <p className="text-slate-400 text-xs mb-6">Customize the active badge for {activeClient.name}.</p>
-
-              {/* Modal Preview Area */}
-              <div className="relative w-64 h-64 mx-auto rounded-2xl overflow-hidden border-2 border-indigo-500/40 bg-slate-950 flex items-center justify-center shadow-inner">
-                <img src={activeClient.avatar} alt="Base" className="w-full h-full object-cover" />
-                
-                {/* Movable/Sticker Preview Container */}
-                <div className="absolute w-20 h-20 rounded-full overflow-hidden border-4 border-white shadow-2xl animate-pulse bg-slate-950 flex items-center justify-center pointer-events-none">
-                  <img src={selectedSticker} alt="Mask Logo" className="w-full h-full object-cover" />
-                </div>
-              </div>
-
-              {/* Sticker Selection Toolbar */}
-              <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => { setSelectedSticker(brandLogo); setStickerPos({ x: 0, y: 0 }); }}
-                  className={`px-4 py-2.5 rounded-xl text-xs font-bold transition border cursor-pointer flex items-center gap-2 ${
-                    selectedSticker === brandLogo 
-                      ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg shadow-indigo-600/30' 
-                      : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
-                  }`}
-                >
-                  <img src={brandLogo} alt="Official Logo" className="w-5 h-5 rounded-full object-cover border border-white/40" />
-                  Official Logo
-                </button>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="mt-8 flex justify-end gap-3 pt-4 border-t border-slate-800">
-                <button
-                  onClick={() => setIsEditingPhoto(false)}
-                  className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    bakeStickerToImage(activeClient.avatar, selectedSticker, stickerPos);
-                    setIsEditingPhoto(false);
-                  }}
-                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-lg shadow-emerald-600/20"
-                >
-                  <Check className="w-4 h-4" /> Save & Export
-                </button>
-              </div>
-            </div>
           </div>
         )}
       </AnimatePresence>
@@ -1372,7 +1312,7 @@ export default function ClientDirectory({
                       </label>
                       {newAdData.photo && (
                         <div className="flex items-center gap-2 text-emerald-400 text-xs font-semibold">
-                          <CheckCircle className="w-4 h-4" /> Photo attached successfully
+                          <CheckCircle className="w-4 h-4" /> Photo attached & masked successfully
                         </div>
                       )}
                     </div>
@@ -1381,7 +1321,7 @@ export default function ClientDirectory({
                       <div className="mt-2 relative inline-block group">
                         <div 
                           onClick={() => {
-                            setTempPhoto(newAdData.photo);
+                            setTempPhoto(newAdData.originalPhoto || newAdData.photo);
                             setStickerPos({ x: 0, y: 0 });
                             setPhotoEditorOpen(true);
                           }}
@@ -1398,7 +1338,7 @@ export default function ClientDirectory({
                         <button 
                           type="button"
                           onClick={() => {
-                            setNewAdData({ ...newAdData, photo: '', photoUrl: '' });
+                            setNewAdData({ ...newAdData, photo: '', photoUrl: '', originalPhoto: '', unmaskedPhoto: '' });
                             setSelectedSticker(brandLogo);
                           }}
                           className="absolute -top-2 -right-2 bg-rose-600 p-1.5 rounded-full text-white hover:bg-rose-500 shadow cursor-pointer z-10"
