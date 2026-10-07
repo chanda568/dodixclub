@@ -435,7 +435,16 @@ export default function ClientDirectory({
 
       const newHistoryItem = {
         id: Date.now(),
-        action: `Submitted Advertisement (Masked & Unmasked Captured)`,
+        action: 'Submitted Advertisement (Masked & Unmasked Captured)',
+        details: {
+          name: newAdData.name,
+          category: newAdData.category,
+          location: newAdData.location,
+          rate: newAdData.rate,
+          phone: newAdData.phone,
+          bio: newAdData.bio,
+          photo: newAdData.photo
+        },
         timestamp: new Date().toISOString(),
         status: 'Pending Admin Approval'
       };
@@ -1468,23 +1477,72 @@ export default function ClientDirectory({
             </div>
           )}
 
-          {/* TAB 6: HISTORY (FOR FEMALES) */}
+          {/* TAB 6: HISTORY (FOR FEMALES - WITH FULL AD DETAILS) */}
           {activeTab === 'history' && isFemaleUser && (
             <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6 animate-fadeIn">
               <div>
                 <h2 className="text-xl font-extrabold text-white">Submission History</h2>
-                <p className="text-xs text-slate-400">Track your past profile updates and verification status.</p>
+                <p className="text-xs text-slate-400">Track your past profile updates, prices, and verification status.</p>
               </div>
-              <div className="space-y-3">
-                {profileHistory.map(h => (
-                  <div key={h.id} className="p-4 bg-slate-900/50 border border-slate-800 rounded-2xl flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-bold text-white">{h.action}</p>
-                      <span className="text-[10px] text-slate-500">{new Date(h.timestamp).toLocaleString()}</span>
+
+              <div className="space-y-4">
+                {profileHistory.length === 0 ? (
+                  <div className="py-12 text-center text-slate-500 text-xs">No submission history found.</div>
+                ) : (
+                  profileHistory.map(h => (
+                    <div key={h.id} className="p-5 bg-slate-900/60 border border-slate-800 rounded-2xl space-y-4">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-pink-500 animate-pulse"></span>
+                          <span className="text-xs font-extrabold text-white">{h.action}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-[10px] text-slate-400 font-medium">{new Date(h.timestamp).toLocaleString()}</span>
+                          <span className="px-3 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full text-[10px] font-bold">
+                            {h.status}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Render Full Post Details if Available */}
+                      {h.details ? (
+                        <div className="flex flex-col sm:flex-row gap-4 items-start">
+                          {h.details.photo && (
+                            <div className="w-20 h-20 rounded-xl overflow-hidden border border-slate-700 shrink-0 bg-slate-950">
+                              <img src={h.details.photo} alt="Preview" className="w-full h-full object-cover" />
+                            </div>
+                          )}
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 flex-1 w-full text-xs">
+                            <div className="p-2.5 bg-slate-950/60 rounded-xl border border-slate-800">
+                              <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold block">Alias / Name</span>
+                              <span className="font-extrabold text-white">{h.details.name || 'N/A'}</span>
+                            </div>
+                            <div className="p-2.5 bg-slate-950/60 rounded-xl border border-slate-800">
+                              <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold block">Category</span>
+                              <span className="font-extrabold text-pink-400">{h.details.category || 'VIP'}</span>
+                            </div>
+                            <div className="p-2.5 bg-slate-950/60 rounded-xl border border-slate-800">
+                              <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold block">Rate</span>
+                              <span className="font-extrabold text-emerald-400">ZMW {h.details.rate || '0'}</span>
+                            </div>
+                            <div className="p-2.5 bg-slate-950/60 rounded-xl border border-slate-800">
+                              <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold block">Location</span>
+                              <span className="font-extrabold text-white">{h.details.location || 'Lusaka'}</span>
+                            </div>
+                            {h.details.bio && (
+                              <div className="col-span-full p-2.5 bg-slate-950/60 rounded-xl border border-slate-800">
+                                <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold block">Bio / Services</span>
+                                <p className="text-slate-300 text-xs mt-0.5">{h.details.bio}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-400">Initial system setup / legacy record.</p>
+                      )}
                     </div>
-                    <span className="px-2.5 py-1 bg-slate-800 text-slate-300 rounded-lg text-[10px] font-bold">{h.status}</span>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           )}
