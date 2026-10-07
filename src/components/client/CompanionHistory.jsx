@@ -50,7 +50,7 @@ export default function CompanionHistory({ currentUser }) {
     <div className="max-w-4xl mx-auto space-y-6 p-4 sm:p-6">
       <div>
         <h2 className="text-xl sm:text-2xl font-bold text-white">Advertisement History</h2>
-        <p className="text-xs sm:text-sm text-slate-400">Monitor your pending, accepted, and rejected ad submissions.</p>
+        <p className="text-xs sm:text-sm text-slate-400">Monitor your pending, accepted/approved, and rejected ad submissions.</p>
       </div>
 
       {ads.length === 0 ? (
@@ -61,7 +61,7 @@ export default function CompanionHistory({ currentUser }) {
       ) : (
         <div className="space-y-4">
           {ads.map((ad) => {
-            const status = ad.status || 'pending';
+            const status = (ad.status || 'pending').toLowerCase();
             return (
               <div 
                 key={ad._id}
@@ -78,14 +78,14 @@ export default function CompanionHistory({ currentUser }) {
                     {ad.location} {ad.specificLocation ? `• ${ad.specificLocation}` : ''} • <strong className="text-slate-200">ZMW {ad.price}</strong>
                   </p>
                   <p className="text-[11px] text-slate-500">
-                    Submitted on: {new Date(ad.createdAt).toLocaleDateString()}
+                    Submitted on: {ad.createdAt ? new Date(ad.createdAt).toLocaleDateString() : 'N/A'}
                   </p>
                 </div>
 
                 <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
-                  {status === 'accepted' && (
+                  {(status === 'accepted' || status === 'approved') && (
                     <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-950/40 text-emerald-400 border border-emerald-900/50 text-xs font-semibold rounded-full">
-                      <CheckCircle size={14} /> Accepted
+                      <CheckCircle size={14} /> {status === 'approved' ? 'Approved' : 'Accepted'}
                     </span>
                   )}
                   {status === 'rejected' && (
