@@ -316,6 +316,82 @@ app.post('/api/ladies', async (req, res) => {
   }
 });
 
+// PUT: Approve companion post
+app.put('/api/ladies/:identifier/approve', async (req, res) => {
+  try {
+    const cleanId = req.params.identifier.toLowerCase().trim();
+    let companion = mongoose.Types.ObjectId.isValid(cleanId) ? await Companion.findById(cleanId) : null;
+    if (!companion) {
+      companion = await Companion.findOne({ $or: [{ username: cleanId }, { name: cleanId }] });
+    }
+
+    if (!companion) {
+      return res.status(404).json({ success: false, error: "Companion profile not found." });
+    }
+
+    companion.status = 'active';
+    companion.approved = true;
+    companion.updatedAt = new Date();
+    await companion.save();
+
+    res.json({ success: true, companion });
+  } catch (err) {
+    console.error("[API Approve Companion Error]:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// PUT: Reject companion post
+app.put('/api/ladies/:identifier/reject', async (req, res) => {
+  try {
+    const cleanId = req.params.identifier.toLowerCase().trim();
+    let companion = mongoose.Types.ObjectId.isValid(cleanId) ? await Companion.findById(cleanId) : null;
+    if (!companion) {
+      companion = await Companion.findOne({ $or: [{ username: cleanId }, { name: cleanId }] });
+    }
+
+    if (!companion) {
+      return res.status(404).json({ success: false, error: "Companion profile not found." });
+    }
+
+    companion.status = 'rejected';
+    companion.approved = false;
+    companion.updatedAt = new Date();
+    await companion.save();
+
+    res.json({ success: true, companion });
+  } catch (err) {
+    console.error("[API Reject Companion Error]:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// PUT: Update companion price specifically
+app.put('/api/ladies/:identifier/price', async (req, res) => {
+  try {
+    const cleanId = req.params.identifier.toLowerCase().trim();
+    const { price } = req.body;
+
+    let companion = mongoose.Types.ObjectId.isValid(cleanId) ? await Companion.findById(cleanId) : null;
+    if (!companion) {
+      companion = await Companion.findOne({ $or: [{ username: cleanId }, { name: cleanId }] });
+    }
+
+    if (!companion) {
+      return res.status(404).json({ success: false, error: "Companion profile not found." });
+    }
+
+    companion.price = price;
+    companion.updatedAt = new Date();
+    await companion.save();
+
+    res.json({ success: true, companion });
+  } catch (err) {
+    console.error("[API Update Price Error]:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.put('/api/ladies/:identifier', async (req, res) => {
   try {
     const { identifier } = req.params;
