@@ -252,7 +252,6 @@ export default function ClientDirectory({
     reader.readAsDataURL(file);
   };
 
-  // Handle Custom Logo upload for sticker
   const handleLogoUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -361,7 +360,6 @@ export default function ClientDirectory({
     });
   };
 
-  // Proceed to Profile Details Step
   const handleProceedToDetails = async () => {
     const currentPhoto = newAdData.originalPhoto || newAdData.photo;
     if (!currentPhoto) {
@@ -381,13 +379,11 @@ export default function ClientDirectory({
     setProfileStep('details_step');
   };
 
-  // Form Field Updates
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setNewAdData(prev => ({ ...prev, [name]: value }));
   };
 
-  // 5. Save and Publish Ad to Backend
   const handleFormSubmit = async (e) => {
     e.preventDefault();
     if (!newAdData.name.trim() || !newAdData.rate) {
@@ -464,7 +460,6 @@ export default function ClientDirectory({
     }));
   };
 
-  // 6. Submit Report to Backend API
   const handleReportSubmit = async (e) => {
     e.preventDefault();
     if (!reportedUsername.trim() || !reportReason.trim()) {
@@ -1122,7 +1117,6 @@ export default function ClientDirectory({
                             <Sparkles className="w-4 h-4" /> Privacy Mask Configuration
                           </h3>
                           
-                          {/* Sticker Type Toggle */}
                           <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
                             <button
                               type="button"
@@ -1163,7 +1157,6 @@ export default function ClientDirectory({
                             </div>
                           )}
 
-                          {/* Size slider */}
                           <div>
                             <div className="flex justify-between text-xs text-slate-400 mb-1 font-semibold">
                               <span>Mask Scale</span>
@@ -1190,258 +1183,180 @@ export default function ClientDirectory({
                             <Move className="w-3.5 h-3.5 text-pink-400" /> Drag watermark over sensitive face regions
                           </p>
                           
-                          {/* Container for photo + movable sticker */}
                           <div 
                             id="photo-container"
                             ref={containerRef}
                             className="relative inline-block overflow-hidden rounded-2xl border border-slate-800 shadow-xl select-none max-w-full"
-                            style={{ maxHeight: '350px' }}
                           >
                             <img 
                               src={newAdData.originalPhoto} 
-                              alt="Source Preview" 
-                              className="block max-h-[350px] w-auto object-contain pointer-events-none" 
+                              alt="Source" 
+                              className="max-h-[320px] object-contain block pointer-events-none" 
                             />
                             
-                            {/* Draggable Sticker Element */}
                             <div
-                              id="privacy-sticker"
                               onMouseDown={handleStickerMouseDown}
-                              className="absolute cursor-move flex items-center justify-center transition-shadow hover:ring-2 hover:ring-pink-400 rounded-xl"
                               style={{
+                                position: 'absolute',
                                 left: `${stickerPos.x}px`,
                                 top: `${stickerPos.y}px`,
                                 width: `${stickerSize}px`,
                                 height: `${stickerSize}px`,
-                                fontSize: `${stickerSize * 0.75}px`
+                                cursor: 'move',
+                                touchAction: 'none'
                               }}
+                              className="flex items-center justify-center select-none z-20 group"
                             >
                               {stickerType === 'emoji' ? (
-                                <span className="drop-shadow-md">{selectedEmoji}</span>
-                              ) : customLogo ? (
-                                <img src={customLogo} alt="Logo Watermark" className="w-full h-full object-contain drop-shadow-md rounded-lg" />
+                                <span className="text-4xl drop-shadow-md select-none">{selectedEmoji}</span>
                               ) : (
-                                <span className="drop-shadow-md">🕶️</span>
+                                <img src={customLogo} alt="Watermark" className="w-full h-full object-contain drop-shadow-md pointer-events-none" />
                               )}
                             </div>
                           </div>
+
+                          <button
+                            type="button"
+                            onClick={handleProceedToDetails}
+                            className="w-full mt-4 py-3 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
+                          >
+                            <span>Proceed to Profile Details</span>
+                            <ArrowRight size={14} />
+                          </button>
                         </div>
                       ) : (
-                        <div className="text-center space-y-3 text-slate-500">
-                          <Camera className="w-12 h-12 mx-auto opacity-40 text-pink-500" />
-                          <p className="text-xs font-bold">Upload a photograph to activate privacy masking studio.</p>
+                        <div className="text-center space-y-2 py-12">
+                          <Camera className="w-12 h-12 text-slate-600 mx-auto" />
+                          <p className="text-xs text-slate-400 font-medium">Upload a photograph to activate the privacy mask editor.</p>
                         </div>
                       )}
                     </div>
-
-                  </div>
-
-                  {/* Step 1 Footer Action */}
-                  <div className="flex justify-end pt-4 border-t border-slate-800">
-                    <button
-                      type="button"
-                      disabled={!newAdData.originalPhoto || loading}
-                      onClick={handleProceedToDetails}
-                      className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-xs transition-all shadow-lg ${newAdData.originalPhoto && !loading ? 'bg-pink-600 hover:bg-pink-500 text-white cursor-pointer' : 'bg-slate-900 text-slate-500 cursor-not-allowed border border-slate-800'}`}
-                    >
-                      {loading ? <Loader2 size={16} className="animate-spin" /> : <>Next: Profile Details <ArrowRight className="w-4 h-4" /></>}
-                    </button>
                   </div>
                 </div>
               )}
 
               {/* STEP 2: PROFILE DETAILS */}
               {profileStep === 'details_step' && (
-                <form onSubmit={handleFormSubmit} className="space-y-6 animate-fadeIn">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    
-                    {/* Thumbnail Preview Card */}
-                    <div className="md:col-span-1 bg-slate-900/50 p-5 rounded-2xl border border-slate-800 flex flex-col items-center text-center space-y-4">
-                      <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Masked Photo Preview</span>
-                      <div className="w-32 h-32 rounded-2xl overflow-hidden border-2 border-pink-500/50 shadow-lg bg-slate-950">
-                        {newAdData.photo && <img src={newAdData.photo} alt="Masked profile" className="w-full h-full object-cover" />}
-                      </div>
-                      <p className="text-[11px] text-slate-400">This masked version will be published publicly on your elite directory card.</p>
-                      
-                      <button
-                        type="button"
-                        onClick={() => setProfileStep('photo_step')}
-                        className="text-xs text-pink-400 hover:text-pink-300 underline font-bold cursor-pointer"
+                <form onSubmit={handleFormSubmit} className="space-y-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-300">Companion Name / Alias</label>
+                      <input 
+                        type="text" 
+                        name="name" 
+                        value={newAdData.name} 
+                        onChange={handleInputChange} 
+                        placeholder="Enter name" 
+                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition" 
+                        required 
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-300">Category</label>
+                      <select 
+                        name="category" 
+                        value={newAdData.category} 
+                        onChange={handleInputChange} 
+                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition font-bold"
                       >
-                        Adjust Mask Positioning
-                      </button>
+                        <option value="VIP">VIP Companion</option>
+                        <option value="Elite">Elite Hostess</option>
+                        <option value="Standard">Standard Companion</option>
+                      </select>
                     </div>
 
-                    {/* Form Fields */}
-                    <div className="md:col-span-2 space-y-4 bg-slate-900/30 p-6 rounded-2xl border border-slate-800">
-                      <h3 className="text-xs font-bold text-pink-300 uppercase tracking-wider mb-2">Personnel Metadata</h3>
-                      
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-[10px] uppercase font-bold text-slate-300 mb-1">Full Name / Alias *</label>
-                          <input 
-                            type="text" 
-                            name="name"
-                            value={newAdData.name}
-                            onChange={handleInputChange}
-                            placeholder="e.g. Jessica" 
-                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-pink-500 font-medium"
-                            required
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-[10px] uppercase font-bold text-slate-300 mb-1">Category *</label>
-                          <select 
-                            name="category"
-                            value={newAdData.category}
-                            onChange={handleInputChange}
-                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-pink-500 font-medium cursor-pointer"
-                          >
-                            <option value="VIP">VIP</option>
-                            <option value="Elite">Elite</option>
-                            <option value="Standard">Standard</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-[10px] uppercase font-bold text-slate-300 mb-1">Location / City *</label>
-                          <input 
-                            type="text" 
-                            name="location"
-                            value={newAdData.location}
-                            onChange={handleInputChange}
-                            placeholder="e.g. Lusaka" 
-                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-pink-500 font-medium"
-                            required
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-[10px] uppercase font-bold text-slate-300 mb-1">Specific Area / Neighborhood</label>
-                          <input 
-                            type="text" 
-                            name="specificLocation"
-                            value={newAdData.specificLocation || ''}
-                            onChange={handleInputChange}
-                            placeholder="e.g. Kabulonga" 
-                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-pink-500 font-medium"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-[10px] uppercase font-bold text-slate-300 mb-1">WhatsApp Phone Number *</label>
-                          <input 
-                            type="text" 
-                            name="phone"
-                            value={newAdData.phone}
-                            onChange={handleInputChange}
-                            placeholder="e.g. 260970000000" 
-                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-pink-500 font-medium"
-                            required
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-[10px] uppercase font-bold text-slate-300 mb-1">Rate (ZMW) *</label>
-                          <input 
-                            type="text" 
-                            name="rate"
-                            value={newAdData.rate}
-                            onChange={handleInputChange}
-                            placeholder="e.g. 500" 
-                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-pink-500 font-medium"
-                            required
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] uppercase font-bold text-slate-300 mb-1">Services / Bio / Preferences</label>
-                        <textarea 
-                          name="bio"
-                          rows="3"
-                          value={newAdData.bio}
-                          onChange={handleInputChange}
-                          placeholder="Brief overview of availability, services, and preferences..."
-                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-pink-500 resize-none font-medium"
-                        />
-                      </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-300">Location Hub</label>
+                      <select 
+                        name="location" 
+                        value={newAdData.location} 
+                        onChange={handleInputChange} 
+                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition font-bold"
+                      >
+                        <option value="Lusaka">Lusaka</option>
+                        <option value="Ndola">Ndola</option>
+                        <option value="Livingstone">Livingstone</option>
+                      </select>
                     </div>
 
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-300">WhatsApp Phone Number</label>
+                      <input 
+                        type="text" 
+                        name="phone" 
+                        value={newAdData.phone} 
+                        onChange={handleInputChange} 
+                        placeholder="+260 97..." 
+                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition" 
+                        required 
+                      />
+                    </div>
+
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <label className="text-xs font-semibold text-slate-300">Rate / Price (ZMW)</label>
+                      <input 
+                        type="text" 
+                        name="rate" 
+                        value={newAdData.rate} 
+                        onChange={handleInputChange} 
+                        placeholder="e.g. 1500" 
+                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition" 
+                        required 
+                      />
+                    </div>
+
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <label className="text-xs font-semibold text-slate-300">Biography & Services</label>
+                      <textarea 
+                        name="bio" 
+                        rows="4" 
+                        value={newAdData.bio} 
+                        onChange={handleInputChange} 
+                        placeholder="Describe your services, preferences, and availability..." 
+                        className="w-full p-4 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition resize-none" 
+                      />
+                    </div>
                   </div>
 
-                  {/* Step 2 Footer Actions */}
-                  <div className="flex justify-between items-center pt-4 border-t border-slate-800">
-                    <button
-                      type="button"
-                      onClick={() => setProfileStep('photo_step')}
-                      className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-xl text-xs font-bold transition-all border border-slate-800 cursor-pointer"
+                  <div className="flex gap-3 pt-4">
+                    <button 
+                      type="button" 
+                      onClick={() => setProfileStep('photo_step')} 
+                      className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition cursor-pointer flex items-center gap-2"
                     >
-                      <ArrowLeft className="w-4 h-4" /> Back to Photo Masking
+                      <ArrowLeft size={14} /> Back to Photo
                     </button>
-
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white rounded-xl font-bold text-xs transition-all shadow-lg cursor-pointer disabled:opacity-50"
+                    <button 
+                      type="submit" 
+                      disabled={loading} 
+                      className="flex-1 py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                     >
-                      {loading ? <Loader2 size={16} className="animate-spin" /> : <>Complete Registration <CheckCircle2 className="w-4 h-4" /></>}
+                      {loading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                      {loading ? 'Publishing Profile...' : 'Publish Profile & Listing'}
                     </button>
                   </div>
                 </form>
               )}
 
-              {/* STEP 3: SUCCESS & COMPLETED RECORD */}
+              {/* STEP 3: SUCCESS */}
               {profileStep === 'success_step' && (
-                <div className="space-y-6 text-center py-6 animate-fadeIn">
-                  <div className="w-16 h-16 bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 rounded-full flex items-center justify-center mx-auto shadow-lg">
-                    <CheckCircle2 className="w-8 h-8" />
+                <div className="text-center py-12 space-y-6">
+                  <div className="w-20 h-20 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-3xl flex items-center justify-center mx-auto shadow-inner">
+                    <CheckCircle2 size={40} />
                   </div>
-
-                  <div className="space-y-2">
-                    <h3 className="text-xl font-bold tracking-tight text-white">Profile Verified & Published Successfully</h3>
-                    <p className="text-xs text-slate-400 max-w-md mx-auto">
-                      Your privacy mask has been securely baked into the companion record, and metadata has been submitted to the elite catalog ledger.
+                  <div className="space-y-2 max-w-md mx-auto">
+                    <h3 className="text-xl font-extrabold text-white">Profile Successfully Published!</h3>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Your verified profile with privacy watermark protection has been submitted to the catalog and is pending final administrator review.
                     </p>
                   </div>
-
-                  {/* Preview Card Result */}
-                  <div className="max-w-xs mx-auto bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-2xl text-left">
-                    <div className="h-28 bg-gradient-to-r from-pink-900 via-purple-900 to-slate-900 relative">
-                      <div className="absolute -bottom-8 left-6 w-16 h-16 rounded-2xl border-2 border-slate-900 overflow-hidden bg-slate-950 shadow-md">
-                        {newAdData.photo && <img src={newAdData.photo} alt="Avatar" className="w-full h-full object-cover" />}
-                      </div>
-                    </div>
-                    
-                    <div className="pt-10 p-5 space-y-3">
-                      <div>
-                        <h4 className="text-sm font-extrabold text-white">{newAdData.name}</h4>
-                        <p className="text-[11px] text-pink-400 font-bold">{newAdData.category} Companion</p>
-                      </div>
-
-                      <div className="space-y-1.5 text-xs text-slate-300 border-t border-slate-800 pt-3">
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-3.5 h-3.5 text-slate-500" />
-                          <span>{newAdData.location}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Phone className="w-3.5 h-3.5 text-slate-500" />
-                          <span>{newAdData.phone}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-4 flex justify-center gap-4">
-                    <button
-                      type="button"
-                      onClick={resetDirectoryForm}
-                      className="px-6 py-2.5 bg-pink-600 hover:bg-pink-500 text-white rounded-xl font-bold text-xs transition-all shadow-lg cursor-pointer"
-                    >
-                      Update Profile or Photo Again
-                    </button>
-                  </div>
+                  <button 
+                    onClick={resetDirectoryForm}
+                    className="px-6 py-3 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded-xl text-xs shadow-lg transition cursor-pointer"
+                  >
+                    Edit / Update Profile
+                  </button>
                 </div>
               )}
             </div>
@@ -1449,61 +1364,68 @@ export default function ClientDirectory({
 
           {/* TAB 3: NEWS & ANNOUNCEMENTS */}
           {activeTab === 'news' && (
-            <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6 animate-fadeIn">
-              <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-                <div>
-                  <h2 className="text-xl font-extrabold text-white">Platform News & Announcements</h2>
-                  <p className="text-xs text-slate-400">Important notices and updates from administration</p>
-                </div>
+            <div className="space-y-6 animate-fadeIn">
+              <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-4">
+                <h2 className="text-xl font-extrabold text-white">Platform News & Announcements</h2>
+                <p className="text-xs text-slate-400">Important notices, updates, and directives from administration.</p>
               </div>
 
               {isAdminUser && (
-                <div className="p-5 bg-slate-900/60 border border-slate-800 rounded-2xl space-y-4">
-                  <h3 className="text-xs font-bold text-pink-300 uppercase tracking-wider">Publish New Announcement</h3>
-                  <form onSubmit={handleCreateAnnouncement} className="space-y-3">
-                    <input 
-                      type="text" 
-                      placeholder="Announcement Title" 
-                      value={newTitle} 
-                      onChange={(e) => setNewTitle(e.target.value)} 
-                      className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 font-medium"
-                      required
-                    />
-                    <textarea 
-                      rows="3" 
-                      placeholder="Announcement content..." 
-                      value={newContent} 
-                      onChange={(e) => setNewContent(e.target.value)} 
-                      className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 resize-none font-medium"
-                      required
-                    />
-                    <div className="flex items-center justify-between gap-4">
+                <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-4">
+                  <h3 className="text-sm font-extrabold text-pink-400">Publish New Announcement</h3>
+                  <form onSubmit={handleCreateAnnouncement} className="space-y-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-300">Title</label>
+                      <input 
+                        type="text" 
+                        value={newTitle} 
+                        onChange={(e) => setNewTitle(e.target.value)} 
+                        placeholder="Announcement title" 
+                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition" 
+                        required 
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-300">Target Visibility</label>
                       <select 
                         value={newVisibility} 
                         onChange={(e) => setNewVisibility(e.target.value)} 
-                        className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none font-medium cursor-pointer"
+                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition font-bold"
                       >
-                        <option value="all">Visible to All Users</option>
-                        <option value="female">Female Companions Only</option>
-                        <option value="male">Male Clients Only</option>
+                        <option value="all">All Users</option>
+                        <option value="female">Companions Only</option>
+                        <option value="male">Clients Only</option>
                       </select>
-                      <button type="submit" className="px-5 py-2.5 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded-xl text-xs transition shadow cursor-pointer">
-                        Publish Announcement
-                      </button>
                     </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-300">Content</label>
+                      <textarea 
+                        rows="3" 
+                        value={newContent} 
+                        onChange={(e) => setNewContent(e.target.value)} 
+                        placeholder="Announcement content..." 
+                        className="w-full p-4 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition resize-none" 
+                        required 
+                      />
+                    </div>
+                    <button type="submit" className="py-3 px-6 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded-xl text-xs shadow-lg transition cursor-pointer">
+                      Publish Announcement
+                    </button>
                   </form>
                 </div>
               )}
 
               <div className="space-y-4">
                 {visibleAnnouncements.length === 0 ? (
-                  <p className="text-xs text-slate-500 text-center py-8">No announcements available at this time.</p>
+                  <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-8 text-center text-slate-500 text-xs">
+                    No announcements available.
+                  </div>
                 ) : (
                   visibleAnnouncements.map(item => (
-                    <div key={item.id} className="p-5 bg-slate-900/50 border border-slate-800 rounded-2xl space-y-2">
+                    <div key={item.id} className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 shadow-xl space-y-2">
                       <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-bold text-white">{item.title}</h3>
-                        <span className="text-[10px] text-slate-500">{new Date(item.timestamp).toLocaleDateString()}</span>
+                        <h3 className="text-base font-extrabold text-white">{item.title}</h3>
+                        <span className="text-[10px] text-slate-500 font-bold">{new Date(item.timestamp).toLocaleDateString()}</span>
                       </div>
                       <p className="text-xs text-slate-300 leading-relaxed">{item.content}</p>
                     </div>
@@ -1513,39 +1435,46 @@ export default function ClientDirectory({
             </div>
           )}
 
-          {/* TAB 4: FAVORITES (FOR MALE USERS) */}
+          {/* TAB 4: FAVORITES (FOR CLIENTS) */}
           {activeTab === 'favorites' && !isFemaleUser && !isAdminUser && (
             <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6 animate-fadeIn">
-              <h2 className="text-xl font-extrabold text-white">Your Favorite Companions</h2>
-              <p className="text-xs text-slate-400">Quick access to your saved elite profiles.</p>
-              <div className="py-12 text-center bg-slate-900/30 border border-slate-800 rounded-2xl space-y-2">
-                <Heart size={32} className="mx-auto text-slate-600" />
-                <p className="text-xs text-slate-400 font-bold">No favorite companions saved yet.</p>
+              <div>
+                <h2 className="text-xl font-extrabold text-white">Favorite Companions</h2>
+                <p className="text-xs text-slate-400">Your saved bookmarks and preferred profiles.</p>
+              </div>
+              <div className="py-12 text-center text-slate-500 text-xs">
+                No favorites saved yet. Click the heart icon on any profile to bookmark them.
               </div>
             </div>
           )}
 
-          {/* TAB 5: SUBSCRIPTION STATUS (FOR MALE USERS) */}
+          {/* TAB 5: SUBSCRIPTION (FOR CLIENTS) */}
           {activeTab === 'subscription' && !isFemaleUser && !isAdminUser && (
             <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6 animate-fadeIn">
-              <h2 className="text-xl font-extrabold text-white">Subscription & Account Status</h2>
-              <div className="p-6 bg-slate-900/50 border border-slate-800 rounded-2xl space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-400 uppercase">Account Status</span>
-                  <span className="px-3 py-1 bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 rounded-full text-[10px] font-black">ACTIVE</span>
+              <div>
+                <h2 className="text-xl font-extrabold text-white">Subscription Status</h2>
+                <p className="text-xs text-slate-400">Review your active tier and access package privileges.</p>
+              </div>
+              <div className="p-6 bg-slate-900/60 border border-slate-800 rounded-2xl space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-bold text-slate-400 uppercase">Current Tier</span>
+                  <span className="text-xs font-extrabold text-emerald-400 px-3 py-1 bg-emerald-500/10 rounded-full border border-emerald-500/20">Active VIP Member</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-400 uppercase">Location Locked</span>
-                  <span className="text-xs font-extrabold text-white">{userLockedLocation}</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-bold text-slate-400 uppercase">Hub Access</span>
+                  <span className="text-xs font-extrabold text-white">{currentUser.location || 'Lusaka'} Region</span>
                 </div>
               </div>
             </div>
           )}
 
-          {/* TAB 6: ACCOUNT SETTINGS & HISTORY */}
-          {(activeTab === 'settings' || activeTab === 'history') && !isAdminUser && (
+          {/* TAB 6: HISTORY (FOR FEMALES) */}
+          {activeTab === 'history' && isFemaleUser && (
             <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6 animate-fadeIn">
-              <h2 className="text-xl font-extrabold text-white">Account Details & Activity History</h2>
+              <div>
+                <h2 className="text-xl font-extrabold text-white">Submission History</h2>
+                <p className="text-xs text-slate-400">Track your past profile updates and verification status.</p>
+              </div>
               <div className="space-y-3">
                 {profileHistory.map(h => (
                   <div key={h.id} className="p-4 bg-slate-900/50 border border-slate-800 rounded-2xl flex items-center justify-between">
@@ -1559,8 +1488,37 @@ export default function ClientDirectory({
               </div>
             </div>
           )}
+
+          {/* TAB 7: ACCOUNT DETAILS / SETTINGS */}
+          {activeTab === 'settings' && !isAdminUser && (
+            <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6 animate-fadeIn">
+              <div>
+                <h2 className="text-xl font-extrabold text-white">Account Details</h2>
+                <p className="text-xs text-slate-400">Review your profile credentials and account settings.</p>
+              </div>
+              <div className="space-y-4 p-5 bg-slate-900/50 border border-slate-800 rounded-2xl">
+                <div className="flex justify-between items-center py-2 border-b border-slate-800">
+                  <span className="text-xs font-bold text-slate-400 uppercase">Username</span>
+                  <span className="text-xs font-extrabold text-white">{currentUser.username}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-slate-800">
+                  <span className="text-xs font-bold text-slate-400 uppercase">Role / Gender</span>
+                  <span className="text-xs font-extrabold text-pink-400">{currentUser.gender || currentUser.role || 'Client'}</span>
+                </div>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-xs font-bold text-slate-400 uppercase">Location Hub</span>
+                  <span className="text-xs font-extrabold text-white">{currentUser.location || 'Lusaka'}</span>
+                </div>
+              </div>
+            </div>
+          )}
         </main>
       </div>
+
+      {/* Footer */}
+      <footer className="border-t border-slate-800/80 py-6 text-center text-xs text-slate-500 mt-auto">
+        DODIXCLUB Portal &copy; 2026. All rights reserved.
+      </footer>
     </div>
   );
 }
