@@ -73,8 +73,10 @@ export default function ClientDirectory({
 
   const [newAdData, setNewAdData] = useState({
     name: currentUser.name || initialName,
-    category: currentUser.category || 'VIP',
-    location: currentUser.location || userLockedLocation,
+    category: currentUser.category || '', // Rule: Category starts blank / unselected
+    location: currentUser.location || userLockedLocation, // Rule: Locked to registered location
+    neighborhood: currentUser.neighborhood || '', // Rule: Neighborhood input field added
+    hosting: currentUser.hosting || 'Yes', // Rule: Hosting availability toggle/dropdown added
     phone: currentUser.phone || '',
     rate: currentUser.rate || '',
     photo: currentUser.photo || currentUser.photoUrl || '',
@@ -386,8 +388,8 @@ export default function ClientDirectory({
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
-    if (!newAdData.name.trim() || !newAdData.rate) {
-      alert("Please fill in your name and rate.");
+    if (!newAdData.name.trim() || !newAdData.category || !newAdData.rate) {
+      alert("Please fill in your name, select a category, and provide your rate.");
       return;
     }
 
@@ -440,6 +442,8 @@ export default function ClientDirectory({
           name: newAdData.name,
           category: newAdData.category,
           location: newAdData.location,
+          neighborhood: newAdData.neighborhood,
+          hosting: newAdData.hosting,
           rate: newAdData.rate,
           phone: newAdData.phone,
           bio: newAdData.bio,
@@ -576,6 +580,7 @@ export default function ClientDirectory({
     const matchesLoc = l.location === userLockedLocation;
     const matchesCat = selectedCategory === 'All' || l.category === selectedCategory;
     const matchesSearch = l.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          (l.neighborhood && l.neighborhood.toLowerCase().includes(searchQuery.toLowerCase())) ||
                           (l.specificLocation && l.specificLocation.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesLoc && matchesCat && matchesSearch;
   });
@@ -626,7 +631,7 @@ export default function ClientDirectory({
                   </div>
                   <p className="text-xs text-pink-400 font-semibold uppercase tracking-wider">{selectedProfile.category || 'VIP'} Companion</p>
                   <p className="text-xs text-slate-400 flex items-center gap-1">
-                    <MapPin size={14} className="text-pink-500" /> {selectedProfile.specificLocation || selectedProfile.location}
+                    <MapPin size={14} className="text-pink-500" /> {selectedProfile.neighborhood ? `${selectedProfile.neighborhood}, ` : ''}{selectedProfile.location}
                   </p>
                 </div>
               </div>
@@ -1030,7 +1035,7 @@ export default function ClientDirectory({
                             <span className="text-sm font-black text-emerald-400">ZMW {lady.price || lady.rate}</span>
                           </div>
                           <p className="text-xs text-slate-400 flex items-center gap-1">
-                            <MapPin size={13} className="text-pink-500" /> {lady.specificLocation || lady.location}
+                            <MapPin size={13} className="text-pink-500" /> {lady.neighborhood ? `${lady.neighborhood}, ` : ''}{lady.location}
                           </p>
                         </div>
 
@@ -1248,6 +1253,8 @@ export default function ClientDirectory({
               {profileStep === 'details_step' && (
                 <form onSubmit={handleFormSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    
+                    {/* Rule 1: Companion Name / Alias prefilled automatically from username */}
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-slate-300">Companion Name / Alias</label>
                       <input 
@@ -1261,6 +1268,7 @@ export default function ClientDirectory({
                       />
                     </div>
 
+                    {/* Rule 2: Category starts blank/unselected so they can pick it */}
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-slate-300">Category</label>
                       <select 
@@ -1268,24 +1276,53 @@ export default function ClientDirectory({
                         value={newAdData.category} 
                         onChange={handleInputChange} 
                         className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition font-bold"
+                        required
                       >
+                        <option value="" disabled>-- Select Category --</option>
                         <option value="VIP">VIP Companion</option>
                         <option value="Elite">Elite Hostess</option>
                         <option value="Standard">Standard Companion</option>
                       </select>
                     </div>
 
+                    {/* Rule 3: Location Hub locked to the location they registered with */}
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-300">Location Hub</label>
-                      <select 
+                      <label className="text-xs font-semibold text-slate-300">Location Hub (Locked)</label>
+                      <input 
+                        type="text" 
                         name="location" 
                         value={newAdData.location} 
+                        readOnly 
+                        disabled 
+                        className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800/80 rounded-xl text-xs text-slate-400 cursor-not-allowed font-bold" 
+                      />
+                    </div>
+
+                    {/* Rule 4: Neighborhood input field added */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-300">Neighborhood / Area</label>
+                      <input 
+                        type="text" 
+                        name="neighborhood" 
+                        value={newAdData.neighborhood} 
+                        onChange={handleInputChange} 
+                        placeholder="e.g. Kabulonga, Woodlands" 
+                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition" 
+                      />
+                    </div>
+
+                    {/* Rule 5: Hosting Availability toggle or dropdown added */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-300">Hosting Availability</label>
+                      <select 
+                        name="hosting" 
+                        value={newAdData.hosting} 
                         onChange={handleInputChange} 
                         className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition font-bold"
                       >
-                        <option value="Lusaka">Lusaka</option>
-                        <option value="Ndola">Ndola</option>
-                        <option value="Livingstone">Livingstone</option>
+                        <option value="Yes">Yes (Able to Host)</option>
+                        <option value="No">No (Outcall Only)</option>
+                        <option value="Both">Both (Hosting & Outcall)</option>
                       </select>
                     </div>
 
@@ -1529,6 +1566,18 @@ export default function ClientDirectory({
                               <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold block">Location</span>
                               <span className="font-extrabold text-white">{h.details.location || 'Lusaka'}</span>
                             </div>
+                            {h.details.neighborhood && (
+                              <div className="p-2.5 bg-slate-950/60 rounded-xl border border-slate-800">
+                                <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold block">Neighborhood</span>
+                                <span className="font-extrabold text-white">{h.details.neighborhood}</span>
+                              </div>
+                            )}
+                            {h.details.hosting && (
+                              <div className="p-2.5 bg-slate-950/60 rounded-xl border border-slate-800">
+                                <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold block">Hosting</span>
+                                <span className="font-extrabold text-white">{h.details.hosting}</span>
+                              </div>
+                            )}
                             {h.details.bio && (
                               <div className="col-span-full p-2.5 bg-slate-950/60 rounded-xl border border-slate-800">
                                 <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold block">Bio / Services</span>
