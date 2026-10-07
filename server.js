@@ -88,6 +88,7 @@ const userSchema = new mongoose.Schema({
   securityQuestion: { type: String, default: 'What was your first pet’s name?' },
   securityAnswerHash: { type: String, default: '' },
   activated: { type: Boolean, default: false },
+  wasActivatedBefore: { type: Boolean, default: false },
   isEmailVerified: { type: Boolean, default: true },
   lastSeen: { type: Date, default: Date.now },
   createdAt: { type: Date, default: Date.now }
@@ -111,6 +112,7 @@ const companionSchema = new mongoose.Schema({
   verificationVideoName: { type: String, default: '' },
   status: { type: String, enum: ['pending', 'accepted', 'rejected', 'active'], default: 'pending' },
   approved: { type: Boolean, default: false },
+  rejectionReason: { type: String, default: '' },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 }, { bufferCommands: false });
@@ -150,6 +152,7 @@ async function seedDefaultAdmin() {
         location: 'Lusaka',
         role: 'admin',
         activated: true,
+        wasActivatedBefore: true,
         isEmailVerified: true,
         securityQuestion: 'What was your first pet’s name?',
         securityAnswerHash: defaultAnswerHash
@@ -226,6 +229,7 @@ app.post('/api/register', async (req, res) => {
       securityQuestion: securityQuestion || 'What was your first pet’s name?',
       securityAnswerHash: hashedAnswer,
       activated: false,
+      wasActivatedBefore: false,
       isEmailVerified: true,
       lastSeen: new Date()
     });
@@ -253,6 +257,9 @@ app.post('/api/users/toggle', async (req, res) => {
     const user = await User.findOne({ username: username?.toLowerCase().trim() });
     if (user) {
       user.activated = !user.activated;
+      if (user.activated) {
+        user.wasActivatedBefore = true;
+      }
       await user.save();
       res.json({ success: true, user });
     } else {
@@ -266,9 +273,12 @@ app.post('/api/users/toggle', async (req, res) => {
 // Companions / Ads Endpoints
 app.get('/api/ladies', async (req, res) => {
   try {
-    const { location, category, status } = req.query;
+    const { location, category, status, username } = req.query;
     let query = {};
 
+    if (username && typeof username === 'string' && username.trim() !== '') {
+      query.username = username.trim().toLowerCase();
+    }
     if (location && typeof location === 'string' && location.trim() !== '') {
       query.location = { $regex: new RegExp(location.trim(), 'i') };
     }
@@ -331,6 +341,7 @@ app.put('/api/ladies/:identifier/approve', async (req, res) => {
 
     companion.status = 'active';
     companion.approved = true;
+    companion.rejectionReason = '';
     companion.updatedAt = new Date();
     await companion.save();
 
@@ -345,6 +356,8 @@ app.put('/api/ladies/:identifier/approve', async (req, res) => {
 app.put('/api/ladies/:identifier/reject', async (req, res) => {
   try {
     const cleanId = req.params.identifier.toLowerCase().trim();
+    const { reason } = req.body;
+
     let companion = mongoose.Types.ObjectId.isValid(cleanId) ? await Companion.findById(cleanId) : null;
     if (!companion) {
       companion = await Companion.findOne({ $or: [{ username: cleanId }, { name: cleanId }] });
@@ -356,6 +369,7 @@ app.put('/api/ladies/:identifier/reject', async (req, res) => {
 
     companion.status = 'rejected';
     companion.approved = false;
+    companion.rejectionReason = reason || 'Listing guidelines not met.';
     companion.updatedAt = new Date();
     await companion.save();
 

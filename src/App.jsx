@@ -1,9 +1,5 @@
-// src/App.jsx
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  DEFAULT_LADIES_DB, 
-  DEFAULT_MESSAGES_DB 
-} from './data/constants';
+import { DEFAULT_LADIES_DB, DEFAULT_MESSAGES_DB } from './data/constants';
 import { decryptStorageData, encryptStorageData } from './utils/storageEncryption';
 import { Clock, RefreshCw, LogOut, MessageCircle } from 'lucide-react';
 
@@ -13,7 +9,6 @@ import AdminDashboard from './components/admin/AdminDashboard';
 import ClientDirectory from './components/client/ClientDirectory';
 import PageTransition from './components/common/PageTransition';
 
-// Sanitize BACKEND_URL by removing any trailing slashes to prevent malformed requests
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000').replace(/\/+$/, '');
 
 export default function App() {
