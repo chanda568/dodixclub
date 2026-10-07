@@ -14,18 +14,30 @@ export default function AdminCompanionsTab({
 }) {
   // Track failed image loads per companion ID/index to show fallback smoothly
   const [imageErrors, setImageErrors] = useState({});
+  const [activeTab, setActiveTab] = useState('all'); // 'all', 'pending', 'active', 'rejected'
 
   const handleImageError = (key) => {
     setImageErrors(prev => ({ ...prev, [key]: true }));
   };
 
+  // Filter companions by tab and search query
   const filteredLadies = ladies.filter(lady => {
+    const status = (lady.status || 'active').toLowerCase();
+    
+    // Status tab filtering
+    if (activeTab === 'pending' && status !== 'pending') return false;
+    if (activeTab === 'active' && status !== 'active' && status !== 'accepted') return false;
+    if (activeTab === 'rejected' && status !== 'rejected') return false;
+
+    // Search query filtering
     const name = lady.name || lady.username || '';
     return name.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
   return (
     <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
+      
+      {/* Header & Controls Bar */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
         <div>
           <h2 className="text-base font-extrabold text-white">Companions & Profiles Database</h2>
@@ -68,10 +80,58 @@ export default function AdminCompanionsTab({
         </div>
       </div>
 
+      {/* Status Filter Tabs */}
+      <div className="flex flex-wrap gap-2 pt-2">
+        <button
+          onClick={() => setActiveTab('all')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+            activeTab === 'all' 
+              ? 'bg-pink-600 text-white shadow-md' 
+              : 'bg-slate-900 text-slate-400 hover:bg-slate-800 border border-slate-800'
+          }`}
+        >
+          All Posts ({ladies.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('pending')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+            activeTab === 'pending' 
+              ? 'bg-amber-600 text-white shadow-md' 
+              : 'bg-slate-900 text-slate-400 hover:bg-slate-800 border border-slate-800'
+          }`}
+        >
+          Pending ({ladies.filter(l => (l.status || 'active').toLowerCase() === 'pending').length})
+        </button>
+        <button
+          onClick={() => setActiveTab('active')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+            activeTab === 'active' 
+              ? 'bg-emerald-600 text-white shadow-md' 
+              : 'bg-slate-900 text-slate-400 hover:bg-slate-800 border border-slate-800'
+          }`}
+        >
+          Active ({ladies.filter(l => {
+            const st = (l.status || 'active').toLowerCase();
+            return st === 'active' || st === 'accepted';
+          }).length})
+        </button>
+        <button
+          onClick={() => setActiveTab('rejected')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+            activeTab === 'rejected' 
+              ? 'bg-rose-600 text-white shadow-md' 
+              : 'bg-slate-900 text-slate-400 hover:bg-slate-800 border border-slate-800'
+          }`}
+        >
+          Rejected ({ladies.filter(l => (l.status || 'active').toLowerCase() === 'rejected').length})
+        </button>
+      </div>
+
+      {/* Companions Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredLadies.length === 0 ? (
           <div className="col-span-full text-center py-12 text-slate-500 text-xs">
-            No companions found matching your search.
+            No companion profiles found in this section.
           </div>
         ) : (
           filteredLadies.map((lady, i) => {
@@ -80,6 +140,7 @@ export default function AdminCompanionsTab({
             const mediaUrl = lady.photo || lady.imageUrl || lady.image;
             const videoSource = lady.videoUrl || lady.verificationVideoUrl;
             const hasValidImage = mediaUrl && !imageErrors[companionKey];
+            const status = lady.status || 'active';
 
             return (
               <div key={companionKey} className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 flex flex-col justify-between space-y-4 hover:border-slate-700 transition">
@@ -128,13 +189,16 @@ export default function AdminCompanionsTab({
 
                 <div className="flex items-center justify-between pt-3 border-t border-slate-800/60">
                   <span className="text-[10px] font-semibold text-slate-400">
-                    Status: <strong className="text-emerald-400">Active</strong>
+                    Status: <strong className={`capitalize ${
+                      status === 'active' || status === 'accepted' ? 'text-emerald-400' :
+                      status === 'rejected' ? 'text-rose-400' : 'text-amber-400'
+                    }`}>{status}</strong>
                   </span>
                   <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => handleOpenCompanionModal(lady)}
                       className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs transition cursor-pointer"
-                      title="Edit Companion"
+                      title="Edit / Moderate Companion"
                     >
                       <Edit3 size={13} />
                     </button>

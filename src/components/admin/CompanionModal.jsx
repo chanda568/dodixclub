@@ -28,7 +28,6 @@ export default function CompanionModal({ companion, onClose, onSavePrice, onAppr
     }
   };
 
-  // When face is revealed, show original/unmasked photo. When masked, show the face-sticker photo.
   const rawPhoto = isFaceRevealed 
     ? (companion.originalPhoto || companion.unmaskedPhoto || companion.photo)
     : (companion.maskedPhoto || companion.photo || companion.originalPhoto);
@@ -47,8 +46,14 @@ export default function CompanionModal({ companion, onClose, onSavePrice, onAppr
             <h3 className="text-sm font-bold text-white truncate">
               {displayName}
             </h3>
-            <span className="inline-flex items-center gap-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shrink-0">
-              Video Pending Review
+            <span className={`inline-flex items-center gap-1 border text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shrink-0 ${
+              companion.status === 'active' || companion.status === 'accepted'
+                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                : companion.status === 'rejected'
+                ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+            }`}>
+              Status: {companion.status || 'pending'}
             </span>
           </div>
           <button 
@@ -80,7 +85,6 @@ export default function CompanionModal({ companion, onClose, onSavePrice, onAppr
               </button>
             </div>
 
-            {/* Locked Container to Prevent Shifting */}
             <div className="relative aspect-square w-48 mx-auto rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 shadow-inner flex items-center justify-center">
               {rawPhoto ? (
                 <img 
@@ -121,7 +125,7 @@ export default function CompanionModal({ companion, onClose, onSavePrice, onAppr
             </div>
           </form>
 
-          {/* Post Moderation Actions (Approve / Reject) */}
+          {/* Post Moderation Actions */}
           <div className="space-y-3 bg-slate-950 p-4 rounded-2xl border border-slate-800">
             <label className="block text-xs font-semibold text-slate-300">Admin Post Moderation</label>
             <div className="grid grid-cols-2 gap-3">
