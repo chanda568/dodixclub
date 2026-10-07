@@ -1,19 +1,31 @@
 // src/components/admin/CompanionModal.jsx
 import React, { useState } from 'react';
-import { X, Eye, EyeOff, DollarSign, Check, User, ShieldCheck, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
+import { X, Eye, EyeOff, DollarSign, Check, User, CheckCircle2, XCircle } from 'lucide-react';
 
 export default function CompanionModal({ companion, onClose, onSavePrice, onApprove, onReject }) {
   const [isFaceRevealed, setIsFaceRevealed] = useState(false);
   const [price, setPrice] = useState(companion?.price || '');
+  const [isLoading, setIsLoading] = useState(false);
 
   if (!companion) return null;
 
   const companionId = companion._id || companion.id;
-  const hasVerificationVideo = Boolean(companion?.verificationVideoUrl);
 
   const handlePriceSubmit = (e) => {
     e.preventDefault();
     onSavePrice(companionId, price);
+  };
+
+  const handleAction = async (actionFn) => {
+    if (!actionFn) return;
+    try {
+      setIsLoading(true);
+      await actionFn(companionId);
+    } catch (error) {
+      console.error("Error executing moderation action:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // When face is revealed, show original/unmasked photo. When masked, show the face-sticker photo.
@@ -35,15 +47,9 @@ export default function CompanionModal({ companion, onClose, onSavePrice, onAppr
             <h3 className="text-sm font-bold text-white truncate">
               {displayName}
             </h3>
-            {hasVerificationVideo ? (
-              <span className="inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shrink-0">
-                <ShieldCheck size={12} /> Verified Video Active
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shrink-0">
-                <AlertCircle size={12} /> Video Pending Review
-              </span>
-            )}
+            <span className="inline-flex items-center gap-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shrink-0">
+              Video Pending Review
+            </span>
           </div>
           <button 
             onClick={onClose}
@@ -121,17 +127,19 @@ export default function CompanionModal({ companion, onClose, onSavePrice, onAppr
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => onApprove && onApprove(companionId)}
-                className="flex items-center justify-center gap-2 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 py-3 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md"
+                disabled={isLoading}
+                onClick={() => handleAction(onApprove)}
+                className="flex items-center justify-center gap-2 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 py-3 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md disabled:opacity-50"
               >
-                <CheckCircle2 className="w-4 h-4" /> Approve Post
+                <CheckCircle2 className="w-4 h-4" /> {isLoading ? 'Processing...' : 'Approve Post'}
               </button>
               <button
                 type="button"
-                onClick={() => onReject && onReject(companionId)}
-                className="flex items-center justify-center gap-2 bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 py-3 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md"
+                disabled={isLoading}
+                onClick={() => handleAction(onReject)}
+                className="flex items-center justify-center gap-2 bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 py-3 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md disabled:opacity-50"
               >
-                <XCircle className="w-4 h-4" /> Reject Post
+                <XCircle className="w-4 h-4" /> {isLoading ? 'Processing...' : 'Reject Post'}
               </button>
             </div>
           </div>

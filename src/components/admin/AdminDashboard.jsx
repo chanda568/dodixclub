@@ -179,6 +179,48 @@ export default function AdminDashboard({
     }
   };
 
+  // Handler for Approving Companion Post
+  const handleApproveCompanionPost = async (companionId) => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/ladies/${companionId}/approve`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await response.json();
+      if (data.success) {
+        alert("Companion post approved successfully!");
+        setSelectedCompanionModal(null);
+        loadBackendData();
+      } else {
+        alert(data.error || "Failed to approve post.");
+      }
+    } catch (err) {
+      console.error("Error approving companion post:", err);
+      alert("Error connecting to server.");
+    }
+  };
+
+  // Handler for Rejecting Companion Post
+  const handleRejectCompanionPost = async (companionId) => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/ladies/${companionId}/reject`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await response.json();
+      if (data.success) {
+        alert("Companion post rejected successfully!");
+        setSelectedCompanionModal(null);
+        loadBackendData();
+      } else {
+        alert(data.error || "Failed to reject post.");
+      }
+    } catch (err) {
+      console.error("Error rejecting companion post:", err);
+      alert("Error connecting to server.");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col font-sans selection:bg-pink-500 selection:text-white">
       <header className="px-6 py-4 bg-slate-950/85 backdrop-blur-md border-b border-slate-800/80 sticky top-0 z-40 flex items-center justify-between">
@@ -292,7 +334,8 @@ export default function AdminDashboard({
             companion={selectedCompanionModal}
             onClose={() => setSelectedCompanionModal(null)}
             onSavePrice={handleSaveCompanionPrice}
-            loadBackendData={loadBackendData}
+            onApprove={handleApproveCompanionPost}
+            onReject={handleRejectCompanionPost}
           />
         )}
       </main>
