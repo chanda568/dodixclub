@@ -37,7 +37,7 @@ const BUCKET_NAME = process.env.AWS_BUCKET_NAME || 'dodix-club-media';
 
 async function uploadBase64ToS3(base64String, folder = 'uploads') {
   if (!base64String || !base64String.startsWith('data:')) {
-    return base64String; // Return as-is if it's already a URL
+    return base64String; 
   }
 
   try {
@@ -168,12 +168,10 @@ async function seedDefaultAdmin() {
 // 4. REST API Endpoints
 // ==========================================
 
-// Health Check
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'success', message: 'Server is up and running!' });
 });
 
-// Username Availability
 app.get('/api/check-username/:username', async (req, res) => {
   try {
     const cleanUsername = req.params.username.toLowerCase().trim();
@@ -184,7 +182,6 @@ app.get('/api/check-username/:username', async (req, res) => {
   }
 });
 
-// User Authentication
 app.post('/api/login', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -241,7 +238,6 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-// Users Management
 app.get('/api/users', async (req, res) => {
   try {
     const users = await User.find({}).lean();
@@ -257,9 +253,7 @@ app.post('/api/users/toggle', async (req, res) => {
     const user = await User.findOne({ username: username?.toLowerCase().trim() });
     if (user) {
       user.activated = !user.activated;
-      if (user.activated) {
-        user.wasActivatedBefore = true;
-      }
+      if (user.activated) user.wasActivatedBefore = true;
       await user.save();
       res.json({ success: true, user });
     } else {
@@ -270,7 +264,7 @@ app.post('/api/users/toggle', async (req, res) => {
   }
 });
 
-// Companions / Ads Endpoints
+// Companions Endpoints (Supports filtering by username for history view)
 app.get('/api/ladies', async (req, res) => {
   try {
     const { location, category, status, username } = req.query;
@@ -289,7 +283,7 @@ app.get('/api/ladies', async (req, res) => {
       query.status = status;
     }
 
-    const ladies = await Companion.find(query).limit(100).lean();
+    const ladies = await Companion.find(query).sort({ createdAt: -1 }).limit(100).lean();
     res.json({ success: true, ladies });
   } catch (err) {
     console.error("[API Ladies Error]:", err);
@@ -326,7 +320,6 @@ app.post('/api/ladies', async (req, res) => {
   }
 });
 
-// PUT: Approve companion post
 app.put('/api/ladies/:identifier/approve', async (req, res) => {
   try {
     const cleanId = req.params.identifier.toLowerCase().trim();
@@ -335,9 +328,7 @@ app.put('/api/ladies/:identifier/approve', async (req, res) => {
       companion = await Companion.findOne({ $or: [{ username: cleanId }, { name: cleanId }] });
     }
 
-    if (!companion) {
-      return res.status(404).json({ success: false, error: "Companion profile not found." });
-    }
+    if (!companion) return res.status(404).json({ success: false, error: "Companion profile not found." });
 
     companion.status = 'active';
     companion.approved = true;
@@ -347,12 +338,10 @@ app.put('/api/ladies/:identifier/approve', async (req, res) => {
 
     res.json({ success: true, companion });
   } catch (err) {
-    console.error("[API Approve Companion Error]:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// PUT: Reject companion post
 app.put('/api/ladies/:identifier/reject', async (req, res) => {
   try {
     const cleanId = req.params.identifier.toLowerCase().trim();
@@ -363,9 +352,7 @@ app.put('/api/ladies/:identifier/reject', async (req, res) => {
       companion = await Companion.findOne({ $or: [{ username: cleanId }, { name: cleanId }] });
     }
 
-    if (!companion) {
-      return res.status(404).json({ success: false, error: "Companion profile not found." });
-    }
+    if (!companion) return res.status(404).json({ success: false, error: "Companion profile not found." });
 
     companion.status = 'rejected';
     companion.approved = false;
@@ -375,101 +362,6 @@ app.put('/api/ladies/:identifier/reject', async (req, res) => {
 
     res.json({ success: true, companion });
   } catch (err) {
-    console.error("[API Reject Companion Error]:", err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// PUT: Update companion price specifically
-app.put('/api/ladies/:identifier/price', async (req, res) => {
-  try {
-    const cleanId = req.params.identifier.toLowerCase().trim();
-    const { price } = req.body;
-
-    let companion = mongoose.Types.ObjectId.isValid(cleanId) ? await Companion.findById(cleanId) : null;
-    if (!companion) {
-      companion = await Companion.findOne({ $or: [{ username: cleanId }, { name: cleanId }] });
-    }
-
-    if (!companion) {
-      return res.status(404).json({ success: false, error: "Companion profile not found." });
-    }
-
-    companion.price = price;
-    companion.updatedAt = new Date();
-    await companion.save();
-
-    res.json({ success: true, companion });
-  } catch (err) {
-    console.error("[API Update Price Error]:", err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-app.put('/api/ladies/:identifier', async (req, res) => {
-  try {
-    const { identifier } = req.params;
-    const updateData = req.body;
-
-    if (updateData.photo) updateData.photo = await uploadBase64ToS3(updateData.photo, 'photos');
-    if (updateData.originalPhoto) updateData.originalPhoto = await uploadBase64ToS3(updateData.originalPhoto, 'originals');
-    if (updateData.unmaskedPhoto) updateData.unmaskedPhoto = await uploadBase64ToS3(updateData.unmaskedPhoto, 'unmasked');
-    if (updateData.verificationVideoUrl) updateData.verificationVideoUrl = await uploadBase64ToS3(updateData.verificationVideoUrl, 'videos');
-
-    updateData.updatedAt = new Date();
-
-    let companion = null;
-    if (mongoose.Types.ObjectId.isValid(identifier)) {
-      companion = await Companion.findByIdAndUpdate(identifier, updateData, { new: true });
-    }
-    
-    if (!companion) {
-      companion = await Companion.findOneAndUpdate(
-        { username: identifier.toLowerCase().trim() },
-        updateData,
-        { new: true, upsert: true, setDefaultsOnInsert: true }
-      );
-    }
-
-    if (!companion) {
-      return res.status(404).json({ success: false, error: "Companion profile not found." });
-    }
-
-    res.json({ success: true, companion });
-  } catch (err) {
-    console.error("[API Update Companion Error]:", err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-app.post('/api/ladies/:identifier/upload-video', async (req, res) => {
-  try {
-    const cleanId = req.params.identifier.toLowerCase().trim();
-    const { videoBase64, videoName } = req.body;
-
-    if (!videoBase64) {
-      return res.status(400).json({ success: false, error: 'Video data is required.' });
-    }
-
-    let companion = mongoose.Types.ObjectId.isValid(cleanId) ? await Companion.findById(cleanId) : null;
-    if (!companion) {
-      companion = await Companion.findOne({ $or: [{ username: cleanId }, { name: cleanId }] });
-    }
-
-    if (!companion) {
-      return res.status(404).json({ success: false, error: 'Companion profile not found. Please create your ad first.' });
-    }
-
-    const uploadedVideoUrl = await uploadBase64ToS3(videoBase64, 'verification-videos');
-
-    companion.verificationVideoUrl = uploadedVideoUrl;
-    if (videoName) companion.verificationVideoName = videoName;
-    companion.updatedAt = new Date();
-    await companion.save();
-
-    res.json({ success: true, verificationVideoUrl: uploadedVideoUrl, companion });
-  } catch (err) {
-    console.error('[API Video Upload Error]:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -487,21 +379,16 @@ app.delete('/api/ladies/:identifier', async (req, res) => {
   }
 });
 
-// Reports & Messages Endpoints
+// Messages & Reports
 app.post('/api/reports', async (req, res) => {
   try {
     const { reporter, targetUser, reason } = req.body;
-    if (!reporter || !targetUser || !reason) {
-      return res.status(400).json({ success: false, error: "All report fields are required." });
-    }
-
     const newReport = new Report({
       reporter: reporter.toLowerCase().trim(),
       targetUser: targetUser.toLowerCase().trim(),
       reason,
       timestamp: new Date()
     });
-
     await newReport.save();
     res.json({ success: true, report: newReport });
   } catch (err) {
@@ -519,32 +406,24 @@ app.get('/api/messages', async (req, res) => {
 });
 
 // ==========================================
-// 5. Socket.io Real-Time Handler
+// 5. Socket.io
 // ==========================================
 io.on('connection', (socket) => {
-  console.log(`[Socket] User connected: ${socket.id}`);
-
   socket.on('send-message', async (data) => {
     try {
       const { sender, recipient, content } = data;
       if (!sender || !content) return;
-
       const newMessage = new Message({
         sender: sender.toLowerCase().trim(),
         recipient: recipient ? recipient.toLowerCase().trim() : 'public',
         content,
         timestamp: new Date()
       });
-
       await newMessage.save();
       io.emit('receive-message', newMessage);
     } catch (err) {
-      console.error('[Socket Message Error]:', err);
+      console.error('[Socket Error]:', err);
     }
-  });
-
-  socket.on('disconnect', () => {
-    console.log(`[Socket] User disconnected: ${socket.id}`);
   });
 });
 
