@@ -1,11 +1,10 @@
 // src/components/admin/CompanionModal.jsx
 import React, { useState } from 'react';
-import { X, Eye, EyeOff, DollarSign, Video, Check, User, ShieldCheck, AlertCircle } from 'lucide-react';
+import { X, Eye, EyeOff, DollarSign, Check, User, ShieldCheck, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
 
-export default function CompanionModal({ companion, onClose, onSavePrice }) {
+export default function CompanionModal({ companion, onClose, onSavePrice, onApprove, onReject }) {
   const [isFaceRevealed, setIsFaceRevealed] = useState(false);
   const [price, setPrice] = useState(companion?.price || '');
-  const [selectedVideo, setSelectedVideo] = useState(null);
 
   if (!companion) return null;
 
@@ -116,59 +115,28 @@ export default function CompanionModal({ companion, onClose, onSavePrice }) {
             </div>
           </form>
 
-          {/* Verification Video Review / Receiver Section */}
+          {/* Post Moderation Actions (Approve / Reject) */}
           <div className="space-y-3 bg-slate-950 p-4 rounded-2xl border border-slate-800">
-            <label className="block text-xs font-semibold text-slate-300">Companion Verification Video (Admin Review)</label>
-            {hasVerificationVideo ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-emerald-400 font-bold flex items-center gap-1.5">
-                    <ShieldCheck size={14} /> Video uploaded by companion
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedVideo(companion.verificationVideoUrl)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-pink-600 hover:bg-pink-500 text-white rounded-xl text-xs font-bold transition shadow cursor-pointer"
-                  >
-                    <Video size={14} /> Play Fullscreen
-                  </button>
-                </div>
-                <div className="relative rounded-xl overflow-hidden bg-black aspect-video max-h-48 flex items-center justify-center border border-slate-800">
-                  <video 
-                    src={companion.verificationVideoUrl} 
-                    className="w-full h-full object-cover"
-                    controls
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="py-6 text-center space-y-2 bg-slate-900/50 rounded-xl border border-dashed border-slate-800">
-                <AlertCircle className="w-6 h-6 text-amber-400 mx-auto opacity-80" />
-                <p className="text-xs text-slate-400 font-medium">No verification video uploaded by this companion yet.</p>
-                <span className="text-[10px] text-slate-500 block">Companions upload their verification video directly from their portal dashboard.</span>
-              </div>
-            )}
+            <label className="block text-xs font-semibold text-slate-300">Admin Post Moderation</label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => onApprove && onApprove(companionId)}
+                className="flex items-center justify-center gap-2 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 py-3 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md"
+              >
+                <CheckCircle2 className="w-4 h-4" /> Approve Post
+              </button>
+              <button
+                type="button"
+                onClick={() => onReject && onReject(companionId)}
+                className="flex items-center justify-center gap-2 bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 py-3 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md"
+              >
+                <XCircle className="w-4 h-4" /> Reject Post
+              </button>
+            </div>
           </div>
 
         </div>
-
-        {/* Fullscreen Video Modal Sub-View */}
-        {selectedVideo && (
-          <div className="absolute inset-0 z-60 bg-black/90 flex flex-col items-center justify-center p-4">
-            <button 
-              onClick={() => setSelectedVideo(null)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white p-2 bg-slate-800 rounded-full cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <video 
-              src={selectedVideo} 
-              controls 
-              autoPlay 
-              className="max-h-[80vh] max-w-full rounded-xl shadow-2xl"
-            />
-          </div>
-        )}
 
       </div>
     </div>
