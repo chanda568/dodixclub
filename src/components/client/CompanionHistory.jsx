@@ -70,12 +70,13 @@ export default function CompanionHistory({ currentUser }) {
                 className="bg-[#0b101d] border border-slate-800/80 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 transition hover:border-slate-700"
               >
                 <div className="flex items-center gap-4">
-                  {/* Thumbnail Preview */}
+                  {/* Thumbnail Preview with Click Handler */}
                   {ad.images && ad.images.length > 0 ? (
                     <img 
                       src={ad.images[0]} 
                       alt={ad.name} 
-                      className="w-14 h-14 rounded-xl object-cover border border-slate-800 flex-shrink-0" 
+                      onClick={() => setSelectedAd(ad)}
+                      className="w-14 h-14 rounded-xl object-cover border border-slate-800 flex-shrink-0 cursor-pointer hover:opacity-80 transition" 
                     />
                   ) : (
                     <div className="w-14 h-14 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-600 text-xs">
