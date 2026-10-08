@@ -8,10 +8,10 @@ import LogoLoader from '../common/LogoLoader';
 import { encryptStorageData, decryptStorageData } from '../../utils/storageEncryption';
 import HomeDashboard from './HomeDashboard';
 
-// Reference brand logo directly from the public folder[cite: 13]
+// Reference brand logo directly from the public folder
 const brandLogo = '/logo.jpg';
 
-// Sanitize BACKEND_URL by removing trailing slashes[cite: 13]
+// Sanitize BACKEND_URL by removing trailing slashes
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000').replace(/\/+$/, '');
 
 export default function ClientDirectory({ 
@@ -25,7 +25,7 @@ export default function ClientDirectory({
   const isFemaleUser = currentUser?.gender?.toLowerCase() === 'female' || currentUser?.gender?.toLowerCase() === 'lady';
   const isAdminUser = currentUser?.role === 'admin' || currentUser?.username?.toLowerCase() === 'admin';
   
-  const [activeTab, setActiveTab] = useState('home'); // Set 'home' as default landing tab[cite: 13]
+  const [activeTab, setActiveTab] = useState('home'); // Set 'home' as default landing tab
   const [sidebarOpen, setSidebarOpen] = useState(false);
   
   const [reportModalOpen, setReportModalOpen] = useState(false);
@@ -74,10 +74,10 @@ export default function ClientDirectory({
 
   const [newAdData, setNewAdData] = useState({
     name: currentUser.name || initialName,
-    category: currentUser.category || '', // Rule: Category starts blank / unselected[cite: 13]
-    location: currentUser.location || userLockedLocation, // Rule: Locked to registered location[cite: 13]
-    neighborhood: currentUser.neighborhood || '', // Rule: Neighborhood input field added[cite: 13]
-    hosting: currentUser.hosting || 'Yes', // Rule: Hosting availability toggle/dropdown added[cite: 13]
+    category: currentUser.category || '', // Rule: Category starts blank / unselected
+    location: currentUser.location || userLockedLocation, // Rule: Locked to registered location
+    neighborhood: currentUser.neighborhood || '', // Rule: Neighborhood input field added
+    hosting: currentUser.hosting || 'Yes', // Rule: Hosting availability toggle/dropdown added
     phone: currentUser.phone || '',
     rate: currentUser.rate || '',
     photo: currentUser.photo || currentUser.photoUrl || '',
@@ -99,7 +99,7 @@ export default function ClientDirectory({
     }
   });
 
-  // 1. Sync Live Listings from Backend[cite: 13]
+  // 1. Sync Live Listings from Backend
   const fetchBackendLadies = async (isManual = false) => {
     if (isManual) setIsRefreshingCatalog(true);
     try {
@@ -126,7 +126,7 @@ export default function ClientDirectory({
     fetchBackendLadies();
   }, [setLadies]);
 
-  // 2. Heartbeat & Last Seen Tracker[cite: 13]
+  // 2. Heartbeat & Last Seen Tracker
   useEffect(() => {
     if (!currentUser?.username) return;
 
@@ -169,7 +169,7 @@ export default function ClientDirectory({
     return () => clearInterval(interval);
   }, [currentUser?.username]);
 
-  // 3. Load Announcements[cite: 13]
+  // 3. Load Announcements
   useEffect(() => {
     try {
       const savedAnnouncements = localStorage.getItem('dodix_announcements_db');
@@ -225,7 +225,7 @@ export default function ClientDirectory({
     window.open(`https://wa.me/${adminPhone}?text=${supportMsg}`, '_blank');
   };
 
-  // 4. Handle Clean Photo Upload[cite: 13]
+  // 4. Handle Clean Photo Upload
   const handlePhotoUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -267,7 +267,7 @@ export default function ClientDirectory({
     }
   };
 
-  // Mouse Drag Handlers for Sticker[cite: 13]
+  // Mouse Drag Handlers for Sticker
   const handleStickerMouseDown = (e) => {
     e.preventDefault();
     setIsDraggingSticker(true);
@@ -310,7 +310,7 @@ export default function ClientDirectory({
     };
   }, [isDraggingSticker, dragOffset, stickerSize]);
 
-  // Flatten Sticker to Canvas (Bake Privacy Mask)[cite: 13]
+  // Flatten Sticker to Canvas (Bake Privacy Mask)
   const flattenStickerToImage = () => {
     return new Promise((resolve) => {
       const currentPhoto = newAdData.originalPhoto || newAdData.photo;
