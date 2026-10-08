@@ -1,47 +1,36 @@
-// src/components/admin/AdminCompanionsTab.jsx
-import React, { useState } from 'react';
-import { Video, Search, X, RefreshCw, MapPin, Eye, Edit3, Trash2, ShieldCheck, CheckCircle2, User } from 'lucide-react';
+// src/components/admin/AdminUsersTab.jsx
+import React from 'react';
+import { Search, X, RefreshCw, MapPin, MessageCircle, Edit3 } from 'lucide-react';
+import AdminUserTimer from './AdminUserTimer';
 
-export default function AdminCompanionsTab({
-  ladies,
+export default function AdminUsersTab({
+  usersDb,
   searchQuery,
   setSearchQuery,
+  userGenderFilter,
+  setUserGenderFilter,
   loadBackendData,
-  handleOpenCompanionModal,
-  handleDeleteCompanion,
-  setFullScreenImage,
-  setFullScreenVideo
+  handleWhatsAppContact,
+  handleOpenUserInspect,
+  handleToggleUserActivation,
+  formatLastSeenDetail
 }) {
-  // Track failed image loads per companion ID/index to show fallback smoothly
-  const [imageErrors, setImageErrors] = useState({});
-  const [activeTab, setActiveTab] = useState('all'); // 'all', 'pending', 'active', 'rejected'
+  const filteredUsers = usersDb.filter(u => {
+    const g = u.gender?.toLowerCase() || '';
+    const matchesGender = 
+      userGenderFilter === 'male' ? g === 'male' :
+      userGenderFilter === 'female' ? g === 'female' : true;
 
-  const handleImageError = (key) => {
-    setImageErrors(prev => ({ ...prev, [key]: true }));
-  };
-
-  // Filter companions by tab and search query
-  const filteredLadies = ladies.filter(lady => {
-    const status = (lady.status || 'active').toLowerCase();
-    
-    // Status tab filtering
-    if (activeTab === 'pending' && status !== 'pending') return false;
-    if (activeTab === 'active' && status !== 'active' && status !== 'accepted') return false;
-    if (activeTab === 'rejected' && status !== 'rejected') return false;
-
-    // Search query filtering
-    const name = lady.name || lady.username || '';
-    return name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = u.username?.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesGender && matchesSearch;
   });
 
   return (
     <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
-      
-      {/* Header & Controls Bar */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
         <div>
-          <h2 className="text-base font-extrabold text-white">Companions & Profiles Database</h2>
-          <p className="text-xs text-slate-400">Manage companion profiles, photos, videos, rates, and verification status</p>
+          <h2 className="text-base font-extrabold text-white">Registered Users & Client Database</h2>
+          <p className="text-xs text-slate-400">Inspect accounts, view real-time online status / exact last seen, registration & expiry countdown</p>
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
@@ -51,7 +40,7 @@ export default function AdminCompanionsTab({
             </span>
             <input
               type="text"
-              placeholder="Search companion..."
+              placeholder="Search username..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-slate-900 border border-slate-800 rounded-2xl pl-9 pr-8 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-pink-500 transition"
@@ -66,155 +55,126 @@ export default function AdminCompanionsTab({
             )}
           </div>
 
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => handleOpenCompanionModal(null)}
-              className="px-4 py-2 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white rounded-2xl text-xs font-bold transition shadow-lg cursor-pointer flex items-center justify-center gap-2"
+          <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 p-1.5 rounded-2xl">
+            <button
+              onClick={() => setUserGenderFilter('all')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${userGenderFilter === 'all' ? 'bg-pink-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
             >
-              + Add Companion
+              All ({usersDb.length})
             </button>
-            <button onClick={loadBackendData} className="p-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-2xl text-slate-300 transition cursor-pointer" title="Refresh">
+            <button
+              onClick={() => setUserGenderFilter('male')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${userGenderFilter === 'male' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
+            >
+              Male ({usersDb.filter(u => u.gender?.toLowerCase() === 'male').length})
+            </button>
+            <button
+              onClick={() => setUserGenderFilter('female')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${userGenderFilter === 'female' ? 'bg-pink-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
+            >
+              Female ({usersDb.filter(u => u.gender?.toLowerCase() === 'female').length})
+            </button>
+            <button onClick={loadBackendData} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 transition cursor-pointer ml-1" title="Refresh">
               <RefreshCw size={14} />
             </button>
           </div>
         </div>
       </div>
 
-      {/* Status Filter Tabs */}
-      <div className="flex flex-wrap gap-2 pt-2">
-        <button
-          onClick={() => setActiveTab('all')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
-            activeTab === 'all' 
-              ? 'bg-pink-600 text-white shadow-md' 
-              : 'bg-slate-900 text-slate-400 hover:bg-slate-800 border border-slate-800'
-          }`}
-        >
-          All Posts ({ladies.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('pending')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
-            activeTab === 'pending' 
-              ? 'bg-amber-600 text-white shadow-md' 
-              : 'bg-slate-900 text-slate-400 hover:bg-slate-800 border border-slate-800'
-          }`}
-        >
-          Pending ({ladies.filter(l => (l.status || 'active').toLowerCase() === 'pending').length})
-        </button>
-        <button
-          onClick={() => setActiveTab('active')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
-            activeTab === 'active' 
-              ? 'bg-emerald-600 text-white shadow-md' 
-              : 'bg-slate-900 text-slate-400 hover:bg-slate-800 border border-slate-800'
-          }`}
-        >
-          Active ({ladies.filter(l => {
-            const st = (l.status || 'active').toLowerCase();
-            return st === 'active' || st === 'accepted';
-          }).length})
-        </button>
-        <button
-          onClick={() => setActiveTab('rejected')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
-            activeTab === 'rejected' 
-              ? 'bg-rose-600 text-white shadow-md' 
-              : 'bg-slate-900 text-slate-400 hover:bg-slate-800 border border-slate-800'
-          }`}
-        >
-          Rejected ({ladies.filter(l => (l.status || 'active').toLowerCase() === 'rejected').length})
-        </button>
-      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-xs whitespace-nowrap">
+          <thead className="bg-slate-900 text-slate-400 uppercase tracking-wider font-bold">
+            <tr>
+              <th className="p-3.5 rounded-l-xl">Username</th>
+              <th className="p-3.5">Gender</th>
+              <th className="p-3.5">Plan</th>
+              <th className="p-3.5">Location</th>
+              <th className="p-3.5">Registration & Expiry</th>
+              <th className="p-3.5">Online / Last Seen</th>
+              <th className="p-3.5">Status</th>
+              <th className="p-3.5 rounded-r-xl text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-900">
+            {filteredUsers.length === 0 ? (
+              <tr>
+                <td colSpan="8" className="text-center py-8 text-slate-500">No users found matching your search or filter.</td>
+              </tr>
+            ) : (
+              filteredUsers.map((u, i) => {
+                const isActivated = u.activated !== false;
+                const isFemale = u.gender?.toLowerCase() === 'female';
+                const lastSeenInfo = formatLastSeenDetail(u.lastSeen);
 
-      {/* Companions Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredLadies.length === 0 ? (
-          <div className="col-span-full text-center py-12 text-slate-500 text-xs">
-            No companion profiles found in this section.
-          </div>
-        ) : (
-          filteredLadies.map((lady, i) => {
-            const companionKey = lady._id || i;
-            const displayName = lady.name || lady.username || 'Companion';
-            const mediaUrl = lady.photo || lady.imageUrl || lady.image;
-            const videoSource = lady.videoUrl || lady.verificationVideoUrl;
-            const hasValidImage = mediaUrl && !imageErrors[companionKey];
-            const status = lady.status || 'active';
-
-            return (
-              <div key={companionKey} className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 flex flex-col justify-between space-y-4 hover:border-slate-700 transition">
-                <div className="flex items-start gap-3">
-                  <div className="relative w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-slate-800 border border-slate-700 flex items-center justify-center">
-                    {hasValidImage ? (
-                      <img 
-                        src={mediaUrl} 
-                        alt={displayName} 
-                        className="w-full h-full object-cover cursor-pointer hover:scale-105 transition"
-                        onClick={() => setFullScreenImage(mediaUrl)}
-                        onError={() => handleImageError(companionKey)}
-                      />
-                    ) : videoSource ? (
-                      <video 
-                        src={videoSource} 
-                        className="w-full h-full object-cover cursor-pointer" 
-                        onClick={() => setFullScreenVideo(videoSource)}
-                      />
-                    ) : (
-                      <div className="flex flex-col items-center justify-center text-slate-500 text-[9px]">
-                        <User size={20} className="opacity-40 mb-0.5" />
-                        <span>No Photo</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <h3 className="text-sm font-bold text-white truncate">{displayName}</h3>
-                      {lady.verified && <CheckCircle2 size={14} className="text-pink-500 shrink-0" />}
-                    </div>
-                    <p className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
-                      <MapPin size={11} className="shrink-0 text-pink-400" /> <span className="truncate">{lady.location || 'Lusaka'}</span>
-                    </p>
-                    <div className="mt-2 flex items-center gap-2">
-                      <span className="px-2 py-0.5 bg-pink-950/80 text-pink-400 border border-pink-900/40 rounded-full text-[10px] font-bold">
-                        {lady.rate || lady.category || 'Standard'}
+                return (
+                  <tr key={u._id || i} className="hover:bg-slate-900/40 transition">
+                    <td className="p-3.5 font-bold text-white">
+                      @{u.username}
+                    </td>
+                    <td className="p-3.5">
+                      <span className={`font-semibold capitalize text-xs px-2.5 py-0.5 rounded-full ${isFemale ? 'bg-pink-950 text-pink-400 border border-pink-900/40' : 'bg-blue-950 text-blue-400 border border-blue-900/40'}`}>
+                        {u.gender || 'Client'}
                       </span>
-                      {lady.age && (
-                        <span className="text-[11px] text-slate-400 font-medium">Age: {lady.age}</span>
+                    </td>
+                    <td className="p-3.5 text-purple-400 font-bold">
+                      {u.plan || '7 Days'}
+                    </td>
+                    <td className="p-3.5 text-pink-400 font-semibold flex items-center gap-1 mt-1">
+                      <MapPin size={12} className="shrink-0" /> <span>{u.location || 'Lusaka'}</span>
+                    </td>
+                    <td className="p-3.5">
+                      <AdminUserTimer 
+                        createdAt={u.createdAt} 
+                        activatedAt={u.activatedAt} 
+                        plan={u.plan} 
+                        activated={u.activated} 
+                      />
+                    </td>
+                    <td className="p-3.5">
+                      {lastSeenInfo.isOnline ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-800/50 text-[10px] font-extrabold shadow-sm">
+                          <span className="w-2 h-2 rounded-full bg-emerald-400" /> Online
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900 text-slate-400 border border-slate-800 text-[10px] font-semibold">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-500" /> {lastSeenInfo.text}
+                        </span>
                       )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between pt-3 border-t border-slate-800/60">
-                  <span className="text-[10px] font-semibold text-slate-400">
-                    Status: <strong className={`capitalize ${
-                      status === 'active' || status === 'accepted' ? 'text-emerald-400' :
-                      status === 'rejected' ? 'text-rose-400' : 'text-amber-400'
-                    }`}>{status}</strong>
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => handleOpenCompanionModal(lady)}
-                      className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs transition cursor-pointer"
-                      title="Edit / Moderate Companion"
-                    >
-                      <Edit3 size={13} />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteCompanion(lady._id || lady.username)}
-                      className="p-2 bg-rose-950/60 hover:bg-rose-900/60 text-rose-400 border border-rose-900/40 rounded-xl text-xs transition cursor-pointer"
-                      title="Delete Companion"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })
-        )}
+                    </td>
+                    <td className="p-3.5">
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase inline-block ${isActivated ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/40' : 'bg-red-950 text-red-400 border border-red-800/40'}`}>
+                        {isActivated ? 'Active' : 'Pending'}
+                      </span>
+                    </td>
+                    <td className="p-3.5 text-right space-x-1.5 whitespace-nowrap">
+                      {isFemale && (
+                        <button 
+                          onClick={() => handleWhatsAppContact(u.phone, u.username)}
+                          className="px-2.5 py-1.5 bg-emerald-950/80 hover:bg-emerald-900/80 text-emerald-300 rounded-xl text-[11px] font-bold border border-emerald-800/50 transition inline-flex items-center gap-1 cursor-pointer shadow-sm"
+                          title="Verify on WhatsApp"
+                        >
+                          <MessageCircle size={13} />
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => handleOpenUserInspect(u.username)}
+                        className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-[11px] font-bold border border-slate-700 transition inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        <Edit3 size={13} />
+                      </button>
+                      <button 
+                        onClick={() => handleToggleUserActivation(u.username)}
+                        className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition cursor-pointer ${isActivated ? 'bg-amber-950/60 text-amber-400 border border-amber-800/40 hover:bg-amber-900/60' : 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-900/60'}`}
+                      >
+                        {isActivated ? 'Suspend' : 'Activate'}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
