@@ -1,7 +1,7 @@
 // src/components/admin/AdminDashboard.jsx
 import React, { useState, useEffect } from 'react';
 import { 
-  ShieldCheck, Users, Flag, Video, LogOut, MessageSquare, Bell 
+  ShieldCheck, Users, Flag, Video, LogOut, MessageSquare, Bell, X 
 } from 'lucide-react';
 import { LOGO_URL } from '../../data/constants';
 import AdminUsersTab from './AdminUsersTab';
@@ -147,6 +147,30 @@ export default function AdminDashboard({
     setIsEditingPhone(false);
   };
 
+  const handleSaveUserChanges = async (username) => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/users/${username}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          location: newLocationInput,
+          phone: newPhoneInput
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        alert("User details updated successfully!");
+        setSelectedReportUser(null);
+        loadBackendData();
+      } else {
+        alert(data.error || "Failed to update user.");
+      }
+    } catch (err) {
+      console.error("Error updating user:", err);
+      alert("Error connecting to server.");
+    }
+  };
+
   const handleDeleteCompanion = async (idOrUsername) => {
     if (!confirm("Are you sure you want to delete this companion?")) return;
     try {
@@ -179,7 +203,6 @@ export default function AdminDashboard({
     }
   };
 
-  // Handler for Approving Companion Post
   const handleApproveCompanionPost = async (companionId) => {
     try {
       const response = await fetch(`${BACKEND_URL}/api/ladies/${companionId}/approve`, {
@@ -200,7 +223,6 @@ export default function AdminDashboard({
     }
   };
 
-  // Handler for Rejecting Companion Post
   const handleRejectCompanionPost = async (companionId) => {
     try {
       const response = await fetch(`${BACKEND_URL}/api/ladies/${companionId}/reject`, {
@@ -325,6 +347,75 @@ export default function AdminDashboard({
             <Flag size={32} className="mx-auto mb-2 text-pink-500 opacity-60" />
             <h3 className="text-sm font-bold text-white">User Reports & Moderation</h3>
             <p className="text-xs text-slate-500 mt-1">Inspect flagged accounts and moderation flags.</p>
+          </div>
+        )}
+
+        {/* User Inspect & Edit Modal */}
+        {selectedReportUser && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-5 relative">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="text-sm font-bold text-white">Inspect / Edit User</h3>
+                  <p className="text-xs text-pink-500 font-mono">@{selectedReportUser.username}</p>
+                </div>
+                <button 
+                  onClick={() => setSelectedReportUser(null)}
+                  className="p-1.5 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl transition cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 mb-1 uppercase tracking-wider">Gender / Role</label>
+                  <input 
+                    type="text" 
+                    disabled 
+                    value={selectedReportUser.gender || 'Client'} 
+                    className="w-full bg-slate-900/50 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-400 cursor-not-allowed"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 mb-1 uppercase tracking-wider">Location</label>
+                  <input 
+                    type="text" 
+                    value={newLocationInput} 
+                    onChange={(e) => setNewLocationInput(e.target.value)}
+                    placeholder="e.g. Lusaka, Ndola"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-pink-500 transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 mb-1 uppercase tracking-wider">Phone / WhatsApp</label>
+                  <input 
+                    type="text" 
+                    value={newPhoneInput} 
+                    onChange={(e) => setNewPhoneInput(e.target.value)}
+                    placeholder="e.g. +260..."
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-pink-500 transition"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  onClick={() => setSelectedReportUser(null)}
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-xl text-xs font-bold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleSaveUserChanges(selectedReportUser.username)}
+                  className="px-4 py-2 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white rounded-xl text-xs font-bold shadow-lg transition cursor-pointer"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

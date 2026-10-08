@@ -264,6 +264,34 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
+// Update User Details Endpoint
+app.put('/api/users/:identifier', async (req, res) => {
+  try {
+    const cleanId = req.params.identifier.toLowerCase().trim();
+    const { location, phone, role, plan, activated } = req.body;
+
+    const user = await User.findOne({ 
+      $or: [{ username: cleanId }, ...(mongoose.Types.ObjectId.isValid(cleanId) ? [{ _id: cleanId }] : [])] 
+    });
+
+    if (!user) return res.status(404).json({ success: false, error: "User not found." });
+
+    if (location !== undefined) user.location = location;
+    if (phone !== undefined) user.phone = phone;
+    if (role !== undefined) user.role = role;
+    if (plan !== undefined) user.plan = plan;
+    if (activated !== undefined) {
+      user.activated = activated;
+      if (activated) user.wasActivatedBefore = true;
+    }
+
+    await user.save();
+    res.json({ success: true, user });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.post('/api/users/toggle', async (req, res) => {
   try {
     const { username } = req.body;
@@ -383,6 +411,28 @@ app.put('/api/ladies/:identifier/reject', async (req, res) => {
   }
 });
 
+app.put('/api/ladies/:identifier/price', async (req, res) => {
+  try {
+    const cleanId = req.params.identifier.toLowerCase().trim();
+    const { price } = req.body;
+
+    let companion = mongoose.Types.ObjectId.isValid(cleanId) ? await Companion.findById(cleanId) : null;
+    if (!companion) {
+      companion = await Companion.findOne({ $or: [{ username: cleanId }, { name: cleanId }] });
+    }
+
+    if (!companion) return res.status(404).json({ success: false, error: "Companion not found." });
+
+    companion.price = price;
+    companion.updatedAt = new Date();
+    await companion.save();
+
+    res.json({ success: true, companion });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.delete('/api/ladies/:identifier', async (req, res) => {
   try {
     const cleanId = req.params.identifier.toLowerCase().trim();
@@ -421,6 +471,15 @@ app.post('/api/announcements', async (req, res) => {
 });
 
 // Messages & Reports
+app.get('/api/reports', async (req, res) => {
+  try {
+    const reports = await Report.find({}).sort({ timestamp: -1 }).limit(100).lean();
+    res.json({ success: true, reports });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.post('/api/reports', async (req, res) => {
   try {
     const { reporter, targetUser, reason } = req.body;
