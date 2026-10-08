@@ -5,16 +5,17 @@ import { Clock } from 'lucide-react';
 export default function AdminUserTimer({ createdAt, activatedAt, plan, activated }) {
   const [timeLeft, setTimeLeft] = useState({ expired: false, text: '' });
 
+  // A user is considered pending if activated is false, 'pending', or falsy
+  const isPending = !activated || activated === 'pending' || activated === false;
+
   useEffect(() => {
-    // CRITICAL: If the account is pending/not activated, do NOT start any countdown.
-    if (!activated || activated === 'pending' || activated === false) {
-      setTimeLeft({ expired: false, text: 'Not Activated' });
+    // If pending, do not run any countdown calculation
+    if (isPending) {
       return;
     }
 
     const calculateTime = () => {
-      // Countdown starts strictly from the activation date (activatedAt)
-      // If activatedAt is somehow missing for an active user, fall back to now or createdAt, but never start early if pending.
+      // Countdown starts strictly from activation date
       const startDate = new Date(activatedAt || createdAt || Date.now());
       const daysAllowed = plan === '30 Days' ? 30 : 7;
       const expiryDate = new Date(startDate.getTime() + daysAllowed * 24 * 60 * 60 * 1000);
@@ -40,7 +41,7 @@ export default function AdminUserTimer({ createdAt, activatedAt, plan, activated
     calculateTime();
     const timer = setInterval(calculateTime, 60000);
     return () => clearInterval(timer);
-  }, [createdAt, activatedAt, plan, activated]);
+  }, [createdAt, activatedAt, plan, activated, isPending]);
 
   const formattedDate = createdAt ? new Date(createdAt).toLocaleDateString('en-GB', {
     day: 'numeric',
@@ -48,13 +49,11 @@ export default function AdminUserTimer({ createdAt, activatedAt, plan, activated
     year: 'numeric'
   }) : '';
 
-  const isPending = !activated || activated === 'pending' || activated === false;
-
   return (
     <div className="flex flex-col text-[11px] space-y-0.5">
       <span className="text-slate-400 font-medium">Joined: {formattedDate}</span>
-      <span className={`font-bold flex items-center gap-1 ${timeLeft.expired ? 'text-rose-400' : (isPending ? 'text-slate-500' : 'text-emerald-400')}`}>
-        <Clock size={11} /> {timeLeft.text}
+      <span className={`font-bold flex items-center gap-1 ${isPending ? 'text-amber-400' : (timeLeft.expired ? 'text-rose-400' : 'text-emerald-400')}`}>
+        <Clock size={11} /> {isPending ? 'Waiting for activation' : timeLeft.text}
       </span>
     </div>
   );
