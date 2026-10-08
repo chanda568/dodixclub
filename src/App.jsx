@@ -362,6 +362,7 @@ export default function App() {
         isLoading={isLoading}
         loadingText={loadingText}
         triggerLoadingAction={triggerLoadingAction}
+        backendUrl={BACKEND_URL}
       />
     </PageTransition>
   );

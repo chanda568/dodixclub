@@ -131,18 +131,26 @@ const messageSchema = new mongoose.Schema({
   timestamp: { type: Date, default: Date.now }
 }, { bufferCommands: false });
 
+const announcementSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  text: { type: String, required: true },
+  date: { type: String, default: () => new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) },
+  createdAt: { type: Date, default: Date.now }
+}, { bufferCommands: false });
+
 const User = mongoose.model('User', userSchema);
 const Companion = mongoose.model('Companion', companionSchema);
 const Report = mongoose.model('Report', reportSchema);
 const Message = mongoose.model('Message', messageSchema);
+const Announcement = mongoose.model('Announcement', announcementSchema);
 
 // ==========================================
 // 3. Helper Functions & Seeding
 // ==========================================
-async function seedDefaultAdmin() {
+async function seedDefaultData() {
   try {
-    const count = await User.countDocuments();
-    if (count === 0) {
+    const userCount = await User.countDocuments();
+    if (userCount === 0) {
       const hashedPassword = await bcrypt.hash('password123', 10);
       const defaultAnswerHash = await bcrypt.hash('admin', 10);
       await User.create({
@@ -158,6 +166,15 @@ async function seedDefaultAdmin() {
         securityAnswerHash: defaultAnswerHash
       });
       console.log('[Database] Seeded default admin into MongoDB.');
+    }
+
+    const annCount = await Announcement.countDocuments();
+    if (annCount === 0) {
+      await Announcement.create([
+        { title: 'New Privacy Tool Update', text: 'Automatic watermarking is now active for all uploaded source photographs in Step 1.' },
+        { title: 'Weekend Verification Bonus', text: 'Listings verified before Friday midnight receive priority placement on the main catalog.' }
+      ]);
+      console.log('[Database] Seeded default announcements into MongoDB.');
     }
   } catch (err) {
     console.error('[Database] Seeding error:', err);
@@ -264,7 +281,7 @@ app.post('/api/users/toggle', async (req, res) => {
   }
 });
 
-// Companions Endpoints (Supports filtering by username for history view)
+// Companions Endpoints
 app.get('/api/ladies', async (req, res) => {
   try {
     const { location, category, status, username } = req.query;
@@ -379,6 +396,30 @@ app.delete('/api/ladies/:identifier', async (req, res) => {
   }
 });
 
+// Announcements Endpoints
+app.get('/api/announcements', async (req, res) => {
+  try {
+    const announcements = await Announcement.find({}).sort({ createdAt: -1 }).limit(10).lean();
+    res.json({ success: true, announcements });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/announcements', async (req, res) => {
+  try {
+    const { title, text } = req.body;
+    if (!title || !text) {
+      return res.status(400).json({ success: false, error: "Title and text are required." });
+    }
+    const newAnnouncement = new Announcement({ title, text });
+    await newAnnouncement.save();
+    res.json({ success: true, announcement: newAnnouncement });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Messages & Reports
 app.post('/api/reports', async (req, res) => {
   try {
@@ -436,7 +477,7 @@ const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/dodixclub'
 mongoose.connect(MONGO_URI)
   .then(async () => {
     console.log('[Database] Connected to MongoDB successfully.');
-    await seedDefaultAdmin();
+    await seedDefaultData();
     server.listen(PORT, () => {
       console.log(`[Server] Running on port ${PORT}`);
     });
