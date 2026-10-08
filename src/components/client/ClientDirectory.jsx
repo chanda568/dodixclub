@@ -1126,6 +1126,34 @@ export default function ClientDirectory({
               {/* STEP 1: PHOTO & PRIVACY MASK */}
               {profileStep === 'photo_step' && (
                 <div className="space-y-6">
+                  {/* Private Listing Option Card with clean WhatsApp trigger */}
+                  <div className="bg-gradient-to-r from-purple-950/70 via-slate-900 to-slate-900 border border-purple-800/40 p-5 rounded-3xl space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-purple-400 font-bold text-lg">
+                        🔒
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-100">Want Complete Discretion? Apply for a Private Listing</h3>
+                        <p className="text-xs text-purple-300/80">Your profile won't be published on the public site catalog.</p>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      If you prefer absolute privacy, you can choose not to publish your ad publicly. Instead, message us directly on WhatsApp and we will offer your profile exclusively to verified clients who inquire through our private channel.
+                    </p>
+
+                    <div className="pt-2 flex flex-wrap items-center gap-3">
+                      <a 
+                        href="https://wa.me/260571613227?text=Hello%2C%20I%20would%20like%20to%20apply%20for%20a%20private%20listing." 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-lg shadow-emerald-600/20"
+                      >
+                        <span>💬 Chat on WhatsApp for Private Listing</span>
+                      </a>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
                     
                     {/* Left: Upload & Controls */}
