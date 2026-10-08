@@ -1,11 +1,12 @@
 // src/components/client/ClientDirectory.jsx
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-  LogOut, MessageSquare, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, Crown, RefreshCw, CheckCircle, CheckCircle2, Flag, Heart, CreditCard, Settings, Bell, Plus, Trash2, Shield, MessageCircle, Loader2, DollarSign, AlertCircle, Save, Phone, Edit3, Sliders, Move, Check, Award, Filter, ArrowRight, ArrowLeft, Upload, Sparkles, FileText, Camera
+  LogOut, MessageSquare, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, Crown, RefreshCw, CheckCircle, CheckCircle2, Flag, Heart, CreditCard, Settings, Bell, Plus, Trash2, Shield, MessageCircle, Loader2, DollarSign, AlertCircle, Save, Phone, Edit3, Sliders, Move, Check, Award, Filter, ArrowRight, ArrowLeft, Upload, Sparkles, FileText, Camera, Home
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import LogoLoader from '../common/LogoLoader';
 import { encryptStorageData, decryptStorageData } from '../../utils/storageEncryption';
+import HomeDashboard from './HomeDashboard';
 
 // Reference brand logo directly from the public folder[cite: 13]
 const brandLogo = '/logo.jpg';
@@ -24,7 +25,7 @@ export default function ClientDirectory({
   const isFemaleUser = currentUser?.gender?.toLowerCase() === 'female' || currentUser?.gender?.toLowerCase() === 'lady';
   const isAdminUser = currentUser?.role === 'admin' || currentUser?.username?.toLowerCase() === 'admin';
   
-  const [activeTab, setActiveTab] = useState(isAdminUser ? 'news' : (isFemaleUser ? 'myprofile' : 'directory'));
+  const [activeTab, setActiveTab] = useState('home'); // Set 'home' as default landing tab[cite: 13]
   const [sidebarOpen, setSidebarOpen] = useState(false);
   
   const [reportModalOpen, setReportModalOpen] = useState(false);
@@ -788,6 +789,13 @@ export default function ClientDirectory({
                 </div>
 
                 <div className="space-y-2">
+                  <button 
+                    onClick={() => { setActiveTab('home'); setSidebarOpen(false); }}
+                    className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'home' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+                  >
+                    <Home size={16} /> Home Dashboard
+                  </button>
+
                   {!isFemaleUser && !isAdminUser && (
                     <button 
                       onClick={() => { setActiveTab('directory'); setSidebarOpen(false); }}
@@ -883,6 +891,15 @@ export default function ClientDirectory({
           <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-5 space-y-2 shadow-xl">
             <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500 px-3">Navigation</span>
             
+            <button 
+              onClick={() => setActiveTab('home')}
+              className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'home' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <Home className="w-4 h-4" /> Home Dashboard
+            </button>
+
             {!isFemaleUser && !isAdminUser && (
               <button 
                 onClick={() => setActiveTab('directory')}
@@ -963,6 +980,8 @@ export default function ClientDirectory({
 
         {/* MAIN CONTENT AREA */}
         <main className="flex-1 space-y-6">
+          {activeTab === 'home' && <HomeDashboard user={currentUser} onNavigate={setActiveTab} />}
+
           {/* TAB 1: DIRECTORY (FOR MALE / CLIENT USERS) */}
           {activeTab === 'directory' && !isFemaleUser && !isAdminUser && (
             <div className="space-y-6 animate-fadeIn">
