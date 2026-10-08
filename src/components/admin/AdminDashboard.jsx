@@ -1,7 +1,7 @@
 // src/components/admin/AdminDashboard.jsx
 import React, { useState, useEffect } from 'react';
 import { 
-  ShieldCheck, Users, Flag, Video, LogOut, MessageSquare, Bell, X 
+  ShieldCheck, Users, Flag, Video, LogOut, MessageSquare, Bell, X, AlertTriangle, Key, Trash2, UserX, CheckCircle2 
 } from 'lucide-react';
 import { LOGO_URL } from '../../data/constants';
 import AdminUsersTab from './AdminUsersTab';
@@ -117,7 +117,6 @@ export default function AdminDashboard({
       });
       const data = await response.json();
       if (data.success) {
-        // Update local inspection view state immediately if open
         if (selectedReportUser && selectedReportUser.username === username) {
           setSelectedReportUser(data.user);
         }
@@ -149,7 +148,6 @@ export default function AdminDashboard({
     }
     setNewPasswordInput('');
 
-    // Fetch report counts for this user
     try {
       const res = await fetch(`${BACKEND_URL}/api/users/${cleanUsername}/reports`);
       const data = await res.json();
@@ -399,7 +397,7 @@ export default function AdminDashboard({
               {/* Header */}
               <div className="flex items-center justify-between pb-4 border-b border-slate-800">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-pink-950/60 border border-pink-900/40 flex items-center justify-center text-pink-400 font-bold">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-pink-600/30 to-purple-600/30 border border-pink-500/30 flex items-center justify-center text-pink-400 font-bold">
                     @{selectedReportUser.username?.[0]?.toUpperCase()}
                   </div>
                   <div>
@@ -415,16 +413,18 @@ export default function AdminDashboard({
                 </button>
               </div>
 
-              {/* Report Monitoring Badge */}
-              <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className={`w-3 h-3 rounded-full ${userReportData.count > 0 ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`} />
+              {/* Report Monitoring Section */}
+              <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex items-center justify-between shadow-inner">
+                <div className="flex items-center gap-3">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${userReportData.count > 0 ? 'bg-rose-950/80 text-rose-400 border border-rose-800/50' : 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/50'}`}>
+                    <Flag size={16} />
+                  </div>
                   <div>
                     <span className="text-xs font-bold text-white block">Moderation & Report Status</span>
-                    <span className="text-[11px] text-slate-400">Total reports filed against this user account</span>
+                    <span className="text-[11px] text-slate-400">Total complaints filed against this account</span>
                   </div>
                 </div>
-                <span className={`px-3 py-1 rounded-full text-xs font-black ${userReportData.count > 0 ? 'bg-rose-950 text-rose-400 border border-rose-800/50' : 'bg-emerald-950 text-emerald-400 border border-emerald-800/50'}`}>
+                <span className={`px-3 py-1 rounded-full text-xs font-black shadow-sm ${userReportData.count > 0 ? 'bg-rose-950 text-rose-400 border border-rose-800/50' : 'bg-emerald-950 text-emerald-400 border border-emerald-800/50'}`}>
                   {userReportData.count} {userReportData.count === 1 ? 'Report' : 'Reports'}
                 </span>
               </div>
@@ -438,7 +438,7 @@ export default function AdminDashboard({
                       type="text" 
                       disabled 
                       value={selectedReportUser.gender || 'Client'} 
-                      className="w-full bg-slate-900/50 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-400 cursor-not-allowed"
+                      className="w-full bg-slate-900/50 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 capitalize cursor-not-allowed"
                     />
                   </div>
                   <div>
@@ -474,35 +474,37 @@ export default function AdminDashboard({
                   />
                 </div>
 
-                {/* Password Reset Section */}
-                <div className="pt-2 border-t border-slate-800/80">
-                  <label className="block text-[10px] font-extrabold text-amber-400 mb-1 uppercase tracking-wider">Reset Account Password</label>
+                {/* Secure Password Reset Section */}
+                <div className="pt-3 border-t border-slate-800/80">
+                  <label className="flex items-center gap-1.5 text-[10px] font-extrabold text-amber-400 mb-1 uppercase tracking-wider">
+                    <Key size={12} /> Reset Account Password
+                  </label>
                   <input 
                     type="text" 
                     value={newPasswordInput} 
                     onChange={(e) => setNewPasswordInput(e.target.value)}
-                    placeholder="Leave blank to keep current password..."
+                    placeholder="Enter new password to force-reset..."
                     className="w-full bg-slate-900 border border-amber-900/40 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-500 transition"
                   />
-                  <p className="text-[10px] text-slate-500 mt-1">Type a new password here only if you need to force-reset credentials for this user.</p>
+                  <p className="text-[10px] text-slate-500 mt-1">Leave blank to keep the user's existing password unchanged.</p>
                 </div>
               </div>
 
-              {/* Dangerous Actions & Save Footer */}
+              {/* Action Buttons Footer */}
               <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-800">
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                   <button
                     onClick={() => handleToggleUserActivation(selectedReportUser.username)}
-                    className={`flex-1 sm:flex-none px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer border ${selectedReportUser.activated !== false ? 'bg-amber-950/60 text-amber-400 border-amber-800/50 hover:bg-amber-900/60' : 'bg-emerald-950/60 text-emerald-400 border-emerald-800/50 hover:bg-emerald-900/60'}`}
+                    className={`flex-1 sm:flex-none px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer border flex items-center justify-center gap-1.5 ${selectedReportUser.activated !== false ? 'bg-amber-950/60 text-amber-400 border-amber-800/50 hover:bg-amber-900/60' : 'bg-emerald-950/60 text-emerald-400 border-emerald-800/50 hover:bg-emerald-900/60'}`}
                   >
-                    {selectedReportUser.activated !== false ? 'Suspend User' : 'Unsuspend'}
+                    <UserX size={13} /> {selectedReportUser.activated !== false ? 'Suspend User' : 'Unsuspend'}
                   </button>
                   
                   <button
                     onClick={() => handlePermanentDeleteUser(selectedReportUser.username)}
-                    className="flex-1 sm:flex-none px-3 py-2 bg-rose-950/60 hover:bg-rose-900/60 text-rose-400 border border-rose-800/50 rounded-xl text-xs font-bold transition cursor-pointer"
+                    className="flex-1 sm:flex-none px-3 py-2 bg-rose-950/60 hover:bg-rose-900/60 text-rose-400 border border-rose-800/50 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5"
                   >
-                    Delete Account
+                    <Trash2 size={13} /> Delete Account
                   </button>
                 </div>
 
@@ -515,9 +517,9 @@ export default function AdminDashboard({
                   </button>
                   <button
                     onClick={() => handleSaveUserChanges(selectedReportUser.username)}
-                    className="px-4 py-2 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white rounded-xl text-xs font-bold shadow-lg transition cursor-pointer"
+                    className="px-4 py-2 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white rounded-xl text-xs font-bold shadow-lg transition cursor-pointer flex items-center gap-1.5"
                   >
-                    Save Changes
+                    <CheckCircle2 size={14} /> Save Changes
                   </button>
                 </div>
               </div>
