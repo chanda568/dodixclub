@@ -1,35 +1,58 @@
 // src/components/admin/AdminUserTimer.jsx
 import React, { useState, useEffect } from 'react';
+import { Clock } from 'lucide-react';
 
-export default function AdminUserTimer({ expiryDate }) {
-  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+export default function AdminUserTimer({ createdAt, activatedAt, plan, activated }) {
+  const [timeLeft, setTimeLeft] = useState({ expired: false, text: '' });
 
   useEffect(() => {
+    // If the account is pending activation, don't start the countdown yet
+    if (!activated && activated !== undefined) {
+      setTimeLeft({ expired: false, text: 'Activation Pending' });
+      return;
+    }
+
     const calculateTime = () => {
-      const difference = new Date(expiryDate) - new Date();
-      if (difference > 0) {
-        setTimeLeft({
-          days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-          hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
-          minutes: Math.floor((difference / 1000 / 60) % 60),
-          seconds: Math.floor((difference / 1000) % 60)
-        });
+      // Countdown starts strictly from activation date, falling back to createdAt if needed
+      const startDate = new Date(activatedAt || createdAt || Date.now());
+      const daysAllowed = plan === '30 Days' ? 30 : 7;
+      const expiryDate = new Date(startDate.getTime() + daysAllowed * 24 * 60 * 60 * 1000);
+      const now = new Date();
+      const difference = expiryDate - now;
+
+      if (difference <= 0) {
+        setTimeLeft({ expired: true, text: 'Plan Expired' });
+        return;
+      }
+
+      const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
+      const minutes = Math.floor((difference / 1000 / 60) % 60);
+
+      if (days > 0) {
+        setTimeLeft({ expired: false, text: `${days}d ${hours}h left` });
       } else {
-        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+        setTimeLeft({ expired: false, text: `${hours}h ${minutes}m left` });
       }
     };
 
     calculateTime();
-    const timer = setInterval(calculateTime, 1000);
+    const timer = setInterval(calculateTime, 60000);
     return () => clearInterval(timer);
-  }, [expiryDate]);
+  }, [createdAt, activatedAt, plan, activated]);
+
+  const formattedDate = createdAt ? new Date(createdAt).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  }) : '';
 
   return (
-    <div className="flex items-center gap-1 font-mono text-[11px]">
-      <span className="px-1.5 py-0.5 bg-pink-500/10 text-pink-400 rounded">{timeLeft.days}d</span>
-      <span className="px-1.5 py-0.5 bg-pink-500/10 text-pink-400 rounded">{timeLeft.hours}h</span>
-      <span className="px-1.5 py-0.5 bg-pink-500/10 text-pink-400 rounded">{timeLeft.minutes}m</span>
-      <span className="px-1.5 py-0.5 bg-pink-500/10 text-pink-400 rounded">{timeLeft.seconds}s</span>
+    <div className="flex flex-col text-[11px] space-y-0.5">
+      <span className="text-slate-400 font-medium">Joined: {formattedDate}</span>
+      <span className={`font-bold flex items-center gap-1 ${timeLeft.expired ? 'text-rose-400' : (!activated ? 'text-amber-400' : 'text-emerald-400')}`}>
+        <Clock size={11} /> {timeLeft.text}
+      </span>
     </div>
   );
 }
