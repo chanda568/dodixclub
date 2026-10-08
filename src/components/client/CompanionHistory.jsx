@@ -1,13 +1,13 @@
 // CompanionHistory.jsx
 import React, { useState, useEffect } from 'react';
-import { Clock, CheckCircle, XCircle, AlertCircle, Trash2, Eye, X, MapPin, Tag, DollarSign, Calendar } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, AlertCircle, Trash2, Eye, X, MapPin, Tag, DollarSign, Calendar, ArrowLeft, ShieldCheck, Home } from 'lucide-react';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL.replace(/\/+$/, '');
 
 export default function CompanionHistory({ currentUser }) {
   const [ads, setAds] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedAd, setSelectedAd] = useState(null); // State for opening the preview modal
+  const [selectedAd, setSelectedAd] = useState(null); // State for viewing the full dedicated detail page
 
   const fetchMyAds = async () => {
     if (!currentUser?.username) return;
@@ -28,7 +28,8 @@ export default function CompanionHistory({ currentUser }) {
     fetchMyAds();
   }, [currentUser?.username]);
 
-  const handleDeleteAd = async (id) => {
+  const handleDeleteAd = async (id, e) => {
+    e.stopPropagation(); // Prevent triggering card click
     if (!window.confirm("Are you sure you want to delete this ad?")) return;
     try {
       const res = await fetch(`${BACKEND_URL}/api/ladies/${id}`, { method: 'DELETE' });
@@ -48,6 +49,143 @@ export default function CompanionHistory({ currentUser }) {
     return <div className="p-8 text-center text-slate-400">Loading your advertisement history...</div>;
   }
 
+  // --- DEDICATED FULL PAGE VIEW FOR SELECTED AD ---
+  if (selectedAd) {
+    const status = (selectedAd.status || 'pending').toLowerCase();
+    return (
+      <div className="max-w-4xl mx-auto space-y-6 p-4 sm:p-6 animate-fadeIn">
+        {/* Top Bar with Back Button */}
+        <div className="flex items-center justify-between">
+          <button 
+            onClick={() => setSelectedAd(null)}
+            className="flex items-center gap-2 px-4 py-2 bg-[#0b101d] hover:bg-slate-800 text-slate-200 border border-slate-800 rounded-xl transition text-xs font-semibold cursor-pointer"
+          >
+            <ArrowLeft size={16} /> Back to History
+          </button>
+
+          {/* Status Badge */}
+          <div>
+            {(status === 'accepted' || status === 'approved') && (
+              <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-950/40 text-emerald-400 border border-emerald-900/50 text-xs font-semibold rounded-full">
+                <CheckCircle size={14} /> {status === 'approved' ? 'Approved' : 'Accepted'}
+              </span>
+            )}
+            {status === 'rejected' && (
+              <span className="flex items-center gap-1.5 px-3 py-1 bg-rose-950/40 text-rose-400 border border-rose-900/50 text-xs font-semibold rounded-full">
+                <XCircle size={14} /> Rejected
+              </span>
+            )}
+            {status === 'pending' && (
+              <span className="flex items-center gap-1.5 px-3 py-1 bg-amber-950/40 text-amber-400 border border-amber-900/50 text-xs font-semibold rounded-full">
+                <Clock size={14} /> Pending Admin Approval
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Main Details Container */}
+        <div className="bg-[#0b101d] border border-slate-800/80 rounded-2xl p-6 sm:p-8 space-y-8 shadow-2xl">
+          
+          {/* Header Info */}
+          <div className="border-b border-slate-800 pb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <span className="text-xs uppercase tracking-wider text-purple-400 font-semibold">Submission Details</span>
+              <h1 className="text-2xl sm:text-3xl font-bold text-white mt-1">{selectedAd.name}</h1>
+              <p className="text-xs text-slate-400 mt-1">
+                Submitted on: {selectedAd.createdAt ? new Date(selectedAd.createdAt).toLocaleString() : 'N/A'}
+              </p>
+            </div>
+            <div className="bg-slate-950 px-5 py-3 rounded-xl border border-slate-800 text-right">
+              <span className="text-[10px] text-slate-400 block uppercase">Rate / Price</span>
+              <span className="text-emerald-400 font-bold text-lg">ZMW {selectedAd.price}</span>
+            </div>
+          </div>
+
+          {/* Photos Section */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+              <ShieldCheck size={16} className="text-purple-400" /> Uploaded Photographs (Masked & Unmasked Captured)
+            </h3>
+            {selectedAd.images && selectedAd.images.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                {selectedAd.images.map((imgUrl, idx) => (
+                  <a 
+                    key={idx} 
+                    href={imgUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="block group relative rounded-2xl overflow-hidden border border-slate-800 aspect-[3/4] bg-slate-950"
+                  >
+                    <img 
+                      src={imgUrl} 
+                      alt={`Ad photo ${idx + 1}`} 
+                      className="w-full h-full object-cover group-hover:scale-105 transition duration-500" 
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent opacity-0 group-hover:opacity-100 transition flex items-end p-4">
+                      <span className="text-xs text-white font-medium bg-black/60 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10">
+                        Click to view full size
+                      </span>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <div className="bg-slate-950 p-6 rounded-xl border border-slate-800 text-center text-slate-500 text-xs">
+                No photographs attached to this submission.
+              </div>
+            )}
+          </div>
+
+          {/* Breakdown Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-1">
+              <span className="text-[10px] uppercase text-slate-500 font-semibold flex items-center gap-1.5">
+                <Tag size={13} className="text-purple-400" /> Category
+              </span>
+              <p className="text-white font-medium text-sm">{selectedAd.category || 'Standard'}</p>
+            </div>
+
+            <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-1">
+              <span className="text-[10px] uppercase text-slate-500 font-semibold flex items-center gap-1.5">
+                <MapPin size={13} className="text-rose-400" /> Location / Neighborhood
+              </span>
+              <p className="text-white font-medium text-sm">
+                {selectedAd.location} {selectedAd.specificLocation ? `(${selectedAd.specificLocation})` : ''}
+              </p>
+            </div>
+
+            <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-1">
+              <span className="text-[10px] uppercase text-slate-500 font-semibold flex items-center gap-1.5">
+                <Home size={13} className="text-blue-400" /> Hosting
+              </span>
+              <p className="text-white font-medium text-sm">{selectedAd.hosting || 'No'}</p>
+            </div>
+          </div>
+
+          {/* Description Section */}
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold text-white">Description / Details</h3>
+            <div className="bg-slate-950 p-5 rounded-xl border border-slate-800 text-slate-200 text-sm leading-relaxed whitespace-pre-wrap">
+              {selectedAd.description || selectedAd.bio || "No description provided for this ad."}
+            </div>
+          </div>
+
+          {/* Bottom Back Button */}
+          <div className="flex justify-end pt-2">
+            <button 
+              onClick={() => setSelectedAd(null)}
+              className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs rounded-xl transition cursor-pointer"
+            >
+              Back to History
+            </button>
+          </div>
+
+        </div>
+      </div>
+    );
+  }
+
+  // --- DEFAULT LIST VIEW ---
   return (
     <div className="max-w-4xl mx-auto space-y-6 p-4 sm:p-6">
       <div>
@@ -67,16 +205,16 @@ export default function CompanionHistory({ currentUser }) {
             return (
               <div 
                 key={ad._id}
-                className="bg-[#0b101d] border border-slate-800/80 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 transition hover:border-slate-700"
+                onClick={() => setSelectedAd(ad)}
+                className="bg-[#0b101d] border border-slate-800/80 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 transition hover:border-slate-700 cursor-pointer group"
               >
                 <div className="flex items-center gap-4">
-                  {/* Thumbnail Preview with Click Handler */}
+                  {/* Thumbnail Preview */}
                   {ad.images && ad.images.length > 0 ? (
                     <img 
                       src={ad.images[0]} 
                       alt={ad.name} 
-                      onClick={() => setSelectedAd(ad)}
-                      className="w-14 h-14 rounded-xl object-cover border border-slate-800 flex-shrink-0 cursor-pointer hover:opacity-80 transition" 
+                      className="w-14 h-14 rounded-xl object-cover border border-slate-800 flex-shrink-0 group-hover:opacity-90 transition" 
                     />
                   ) : (
                     <div className="w-14 h-14 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-600 text-xs">
@@ -86,7 +224,7 @@ export default function CompanionHistory({ currentUser }) {
 
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2.5 flex-wrap">
-                      <h3 className="text-white font-bold text-base">{ad.name}</h3>
+                      <h3 className="text-white font-bold text-base group-hover:text-purple-400 transition">{ad.name}</h3>
                       <span className="text-[10px] px-2 py-0.5 bg-slate-900 border border-slate-800 text-slate-300 rounded-md font-medium">
                         {ad.category}
                       </span>
@@ -120,16 +258,19 @@ export default function CompanionHistory({ currentUser }) {
 
                   {/* View Full Details Button */}
                   <button 
-                    onClick={() => setSelectedAd(ad)}
-                    className="p-2 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 rounded-xl transition flex items-center gap-1 text-xs px-3"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedAd(ad);
+                    }}
+                    className="p-2 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 rounded-xl transition flex items-center gap-1 text-xs px-3 cursor-pointer"
                     title="View Full Post"
                   >
                     <Eye size={15} /> <span className="hidden md:inline">View Post</span>
                   </button>
 
                   <button 
-                    onClick={() => handleDeleteAd(ad._id)}
-                    className="p-2 bg-rose-950/30 hover:bg-rose-900/40 text-rose-400 border border-rose-900/40 rounded-xl transition"
+                    onClick={(e) => handleDeleteAd(ad._id, e)}
+                    className="p-2 bg-rose-950/30 hover:bg-rose-900/40 text-rose-400 border border-rose-900/40 rounded-xl transition cursor-pointer"
                     title="Delete Ad"
                   >
                     <Trash2 size={15} />
@@ -138,83 +279,6 @@ export default function CompanionHistory({ currentUser }) {
               </div>
             );
           })}
-        </div>
-      )}
-
-      {/* FULL POST PREVIEW MODAL */}
-      {selectedAd && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-[#0b101d] border border-slate-800 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl p-6 space-y-6 relative">
-            
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <div>
-                <span className="text-xs uppercase tracking-wider text-purple-400 font-semibold">Advert Preview</span>
-                <h3 className="text-xl font-bold text-white">{selectedAd.name}</h3>
-              </div>
-              <button 
-                onClick={() => setSelectedAd(null)}
-                className="p-2 text-slate-400 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl transition"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Images Grid */}
-            {selectedAd.images && selectedAd.images.length > 0 ? (
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-slate-400">Uploaded Photographs</label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {selectedAd.images.map((imgUrl, idx) => (
-                    <a key={idx} href={imgUrl} target="_blank" rel="noopener noreferrer" className="block group relative rounded-xl overflow-hidden border border-slate-800 aspect-square">
-                      <img src={imgUrl} alt={`Upload ${idx + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
-                    </a>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <p className="text-xs text-slate-500 italic">No photographs uploaded for this post.</p>
-            )}
-
-            {/* Details Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-950/50 p-4 rounded-xl border border-slate-800/60 text-xs">
-              <div className="flex items-center gap-2 text-slate-300">
-                <Tag size={15} className="text-purple-400 flex-shrink-0" />
-                <span><strong>Category:</strong> {selectedAd.category}</span>
-              </div>
-              <div className="flex items-center gap-2 text-slate-300">
-                <DollarSign size={15} className="text-emerald-400 flex-shrink-0" />
-                <span><strong>Rate/Price:</strong> ZMW {selectedAd.price}</span>
-              </div>
-              <div className="flex items-center gap-2 text-slate-300">
-                <MapPin size={15} className="text-rose-400 flex-shrink-0" />
-                <span><strong>Location:</strong> {selectedAd.location} {selectedAd.specificLocation ? `(${selectedAd.specificLocation})` : ''}</span>
-              </div>
-              <div className="flex items-center gap-2 text-slate-300">
-                <Calendar size={15} className="text-blue-400 flex-shrink-0" />
-                <span><strong>Submitted:</strong> {selectedAd.createdAt ? new Date(selectedAd.createdAt).toLocaleString() : 'N/A'}</span>
-              </div>
-            </div>
-
-            {/* Description / Bio */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-slate-400">Description / Details</label>
-              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 text-sm text-slate-200 whitespace-pre-wrap leading-relaxed">
-                {selectedAd.description || selectedAd.bio || "No description provided."}
-              </div>
-            </div>
-
-            {/* Modal Footer / Close */}
-            <div className="flex justify-end pt-2">
-              <button 
-                onClick={() => setSelectedAd(null)}
-                className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs rounded-xl transition"
-              >
-                Close Preview
-              </button>
-            </div>
-
-          </div>
         </div>
       )}
     </div>
