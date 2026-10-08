@@ -264,11 +264,22 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
-// Update User Details Endpoint
+// Get reports count and list for a specific user
+app.get('/api/users/:username/reports', async (req, res) => {
+  try {
+    const cleanUsername = req.params.username.toLowerCase().trim();
+    const reports = await Report.find({ targetUser: cleanUsername }).sort({ timestamp: -1 }).lean();
+    res.json({ success: true, count: reports.length, reports });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Update User Details, Status, or Password Reset Endpoint
 app.put('/api/users/:identifier', async (req, res) => {
   try {
     const cleanId = req.params.identifier.toLowerCase().trim();
-    const { location, phone, role, plan, activated } = req.body;
+    const { location, phone, role, plan, activated, newPassword } = req.body;
 
     const user = await User.findOne({ 
       $or: [{ username: cleanId }, ...(mongoose.Types.ObjectId.isValid(cleanId) ? [{ _id: cleanId }] : [])] 
@@ -283,6 +294,9 @@ app.put('/api/users/:identifier', async (req, res) => {
     if (activated !== undefined) {
       user.activated = activated;
       if (activated) user.wasActivatedBefore = true;
+    }
+    if (newPassword && newPassword.trim() !== '') {
+      user.password = await bcrypt.hash(newPassword.trim(), 10);
     }
 
     await user.save();
@@ -304,6 +318,21 @@ app.post('/api/users/toggle', async (req, res) => {
     } else {
       res.json({ success: false, error: "User not found." });
     }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Permanent User Deletion Endpoint
+app.delete('/api/users/:identifier', async (req, res) => {
+  try {
+    const cleanId = req.params.identifier.toLowerCase().trim();
+    let result = mongoose.Types.ObjectId.isValid(cleanId) ? await User.findByIdAndDelete(cleanId) : null;
+    if (!result) {
+      result = await User.findOneAndDelete({ username: cleanId });
+    }
+    if (!result) return res.status(404).json({ success: false, error: "User not found." });
+    res.json({ success: true, message: "User permanently deleted." });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

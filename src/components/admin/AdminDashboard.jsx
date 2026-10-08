@@ -31,10 +31,10 @@ export default function AdminDashboard({
   const [fullScreenImage, setFullScreenImage] = useState(null);
   const [fullScreenVideo, setFullScreenVideo] = useState(null);
   
-  const [isEditingLocation, setIsEditingLocation] = useState(false);
   const [newLocationInput, setNewLocationInput] = useState('');
-  const [isEditingPhone, setIsEditingPhone] = useState(false);
   const [newPhoneInput, setNewPhoneInput] = useState('');
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+  const [userReportData, setUserReportData] = useState({ count: 0, reports: [] });
 
   const formatLastSeenDetail = (isoString) => {
     if (!isoString) return { isOnline: false, text: 'Offline' };
@@ -117,6 +117,10 @@ export default function AdminDashboard({
       });
       const data = await response.json();
       if (data.success) {
+        // Update local inspection view state immediately if open
+        if (selectedReportUser && selectedReportUser.username === username) {
+          setSelectedReportUser(data.user);
+        }
         loadBackendData();
       }
     } catch (err) {
@@ -124,7 +128,7 @@ export default function AdminDashboard({
     }
   };
 
-  const handleOpenUserInspect = (reportedUsername) => {
+  const handleOpenUserInspect = async (reportedUsername) => {
     const cleanUsername = reportedUsername.replace('@', '').trim();
     const foundUser = usersDb.find(u => u.username?.toLowerCase() === cleanUsername.toLowerCase());
 
@@ -143,19 +147,36 @@ export default function AdminDashboard({
       setNewLocationInput('Lusaka');
       setNewPhoneInput('');
     }
-    setIsEditingLocation(false);
-    setIsEditingPhone(false);
+    setNewPasswordInput('');
+
+    // Fetch report counts for this user
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/users/${cleanUsername}/reports`);
+      const data = await res.json();
+      if (data.success) {
+        setUserReportData({ count: data.count, reports: data.reports });
+      } else {
+        setUserReportData({ count: 0, reports: [] });
+      }
+    } catch (err) {
+      setUserReportData({ count: 0, reports: [] });
+    }
   };
 
   const handleSaveUserChanges = async (username) => {
     try {
+      const payload = {
+        location: newLocationInput,
+        phone: newPhoneInput,
+      };
+      if (newPasswordInput.trim() !== '') {
+        payload.newPassword = newPasswordInput.trim();
+      }
+
       const response = await fetch(`${BACKEND_URL}/api/users/${username}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          location: newLocationInput,
-          phone: newPhoneInput
-        })
+        body: JSON.stringify(payload)
       });
       const data = await response.json();
       if (data.success) {
@@ -167,6 +188,26 @@ export default function AdminDashboard({
       }
     } catch (err) {
       console.error("Error updating user:", err);
+      alert("Error connecting to server.");
+    }
+  };
+
+  const handlePermanentDeleteUser = async (username) => {
+    if (!confirm(`WARNING: Are you sure you want to permanently delete @${username}? This action cannot be undone.`)) return;
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/users/${username}`, {
+        method: 'DELETE'
+      });
+      const data = await response.json();
+      if (data.success) {
+        alert("User permanently deleted from database.");
+        setSelectedReportUser(null);
+        loadBackendData();
+      } else {
+        alert(data.error || "Failed to delete user.");
+      }
+    } catch (err) {
+      console.error("Error deleting user:", err);
       alert("Error connecting to server.");
     }
   };
@@ -350,14 +391,21 @@ export default function AdminDashboard({
           </div>
         )}
 
-        {/* User Inspect & Edit Modal */}
+        {/* Professional User Inspect & Edit Modal */}
         {selectedReportUser && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-5 relative">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                <div>
-                  <h3 className="text-sm font-bold text-white">Inspect / Edit User</h3>
-                  <p className="text-xs text-pink-500 font-mono">@{selectedReportUser.username}</p>
+          <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 overflow-y-auto">
+            <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl space-y-5 relative my-8">
+              
+              {/* Header */}
+              <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-pink-950/60 border border-pink-900/40 flex items-center justify-center text-pink-400 font-bold">
+                    @{selectedReportUser.username?.[0]?.toUpperCase()}
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-extrabold text-white">Advanced User Management</h3>
+                    <p className="text-xs text-pink-400 font-mono">@{selectedReportUser.username}</p>
+                  </div>
                 </div>
                 <button 
                   onClick={() => setSelectedReportUser(null)}
@@ -367,19 +415,45 @@ export default function AdminDashboard({
                 </button>
               </div>
 
+              {/* Report Monitoring Badge */}
+              <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className={`w-3 h-3 rounded-full ${userReportData.count > 0 ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`} />
+                  <div>
+                    <span className="text-xs font-bold text-white block">Moderation & Report Status</span>
+                    <span className="text-[11px] text-slate-400">Total reports filed against this user account</span>
+                  </div>
+                </div>
+                <span className={`px-3 py-1 rounded-full text-xs font-black ${userReportData.count > 0 ? 'bg-rose-950 text-rose-400 border border-rose-800/50' : 'bg-emerald-950 text-emerald-400 border border-emerald-800/50'}`}>
+                  {userReportData.count} {userReportData.count === 1 ? 'Report' : 'Reports'}
+                </span>
+              </div>
+
+              {/* Editable Fields Form */}
               <div className="space-y-4">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-400 mb-1 uppercase tracking-wider">Gender / Role</label>
-                  <input 
-                    type="text" 
-                    disabled 
-                    value={selectedReportUser.gender || 'Client'} 
-                    className="w-full bg-slate-900/50 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-400 cursor-not-allowed"
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-slate-400 mb-1 uppercase tracking-wider">Account Role</label>
+                    <input 
+                      type="text" 
+                      disabled 
+                      value={selectedReportUser.gender || 'Client'} 
+                      className="w-full bg-slate-900/50 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-400 cursor-not-allowed"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-slate-400 mb-1 uppercase tracking-wider">Current Status</label>
+                    <input 
+                      type="text" 
+                      disabled 
+                      value={selectedReportUser.activated !== false ? 'Active' : 'Suspended'} 
+                      className={`w-full bg-slate-900/50 border border-slate-800 rounded-xl px-3 py-2 text-xs font-bold ${selectedReportUser.activated !== false ? 'text-emerald-400' : 'text-amber-400'}`}
+                    />
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-400 mb-1 uppercase tracking-wider">Location</label>
+                  <label className="block text-[10px] font-extrabold text-slate-400 mb-1 uppercase tracking-wider">Location / City</label>
                   <input 
                     type="text" 
                     value={newLocationInput} 
@@ -390,7 +464,7 @@ export default function AdminDashboard({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-400 mb-1 uppercase tracking-wider">Phone / WhatsApp</label>
+                  <label className="block text-[10px] font-extrabold text-slate-400 mb-1 uppercase tracking-wider">Phone / WhatsApp Number</label>
                   <input 
                     type="text" 
                     value={newPhoneInput} 
@@ -399,22 +473,55 @@ export default function AdminDashboard({
                     className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-pink-500 transition"
                   />
                 </div>
+
+                {/* Password Reset Section */}
+                <div className="pt-2 border-t border-slate-800/80">
+                  <label className="block text-[10px] font-extrabold text-amber-400 mb-1 uppercase tracking-wider">Reset Account Password</label>
+                  <input 
+                    type="text" 
+                    value={newPasswordInput} 
+                    onChange={(e) => setNewPasswordInput(e.target.value)}
+                    placeholder="Leave blank to keep current password..."
+                    className="w-full bg-slate-900 border border-amber-900/40 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-500 transition"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">Type a new password here only if you need to force-reset credentials for this user.</p>
+                </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
-                <button
-                  onClick={() => setSelectedReportUser(null)}
-                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-xl text-xs font-bold transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => handleSaveUserChanges(selectedReportUser.username)}
-                  className="px-4 py-2 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white rounded-xl text-xs font-bold shadow-lg transition cursor-pointer"
-                >
-                  Save Changes
-                </button>
+              {/* Dangerous Actions & Save Footer */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-800">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <button
+                    onClick={() => handleToggleUserActivation(selectedReportUser.username)}
+                    className={`flex-1 sm:flex-none px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer border ${selectedReportUser.activated !== false ? 'bg-amber-950/60 text-amber-400 border-amber-800/50 hover:bg-amber-900/60' : 'bg-emerald-950/60 text-emerald-400 border-emerald-800/50 hover:bg-emerald-900/60'}`}
+                  >
+                    {selectedReportUser.activated !== false ? 'Suspend User' : 'Unsuspend'}
+                  </button>
+                  
+                  <button
+                    onClick={() => handlePermanentDeleteUser(selectedReportUser.username)}
+                    className="flex-1 sm:flex-none px-3 py-2 bg-rose-950/60 hover:bg-rose-900/60 text-rose-400 border border-rose-800/50 rounded-xl text-xs font-bold transition cursor-pointer"
+                  >
+                    Delete Account
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <button
+                    onClick={() => setSelectedReportUser(null)}
+                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-xl text-xs font-bold transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => handleSaveUserChanges(selectedReportUser.username)}
+                    className="px-4 py-2 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white rounded-xl text-xs font-bold shadow-lg transition cursor-pointer"
+                  >
+                    Save Changes
+                  </button>
+                </div>
               </div>
+
             </div>
           </div>
         )}
