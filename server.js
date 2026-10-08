@@ -88,6 +88,7 @@ const userSchema = new mongoose.Schema({
   securityQuestion: { type: String, default: 'What was your first pet’s name?' },
   securityAnswerHash: { type: String, default: '' },
   activated: { type: Boolean, default: false },
+  activatedAt: { type: Date, default: null }, // Track exact activation timestamp for accurate timers
   wasActivatedBefore: { type: Boolean, default: false },
   isEmailVerified: { type: Boolean, default: true },
   lastSeen: { type: Date, default: Date.now },
@@ -160,6 +161,7 @@ async function seedDefaultData() {
         location: 'Lusaka',
         role: 'admin',
         activated: true,
+        activatedAt: new Date(),
         wasActivatedBefore: true,
         isEmailVerified: true,
         securityQuestion: 'What was your first pet’s name?',
@@ -243,6 +245,7 @@ app.post('/api/register', async (req, res) => {
       securityQuestion: securityQuestion || 'What was your first pet’s name?',
       securityAnswerHash: hashedAnswer,
       activated: false,
+      activatedAt: null,
       wasActivatedBefore: false,
       isEmailVerified: true,
       lastSeen: new Date()
@@ -264,7 +267,6 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
-// Get reports count and list for a specific user
 app.get('/api/users/:username/reports', async (req, res) => {
   try {
     const cleanUsername = req.params.username.toLowerCase().trim();
@@ -275,7 +277,6 @@ app.get('/api/users/:username/reports', async (req, res) => {
   }
 });
 
-// Update User Details, Status, or Password Reset Endpoint
 app.put('/api/users/:identifier', async (req, res) => {
   try {
     const cleanId = req.params.identifier.toLowerCase().trim();
@@ -293,7 +294,10 @@ app.put('/api/users/:identifier', async (req, res) => {
     if (plan !== undefined) user.plan = plan;
     if (activated !== undefined) {
       user.activated = activated;
-      if (activated) user.wasActivatedBefore = true;
+      if (activated) {
+        user.wasActivatedBefore = true;
+        if (!user.activatedAt) user.activatedAt = new Date();
+      }
     }
     if (newPassword && newPassword.trim() !== '') {
       user.password = await bcrypt.hash(newPassword.trim(), 10);
@@ -312,7 +316,10 @@ app.post('/api/users/toggle', async (req, res) => {
     const user = await User.findOne({ username: username?.toLowerCase().trim() });
     if (user) {
       user.activated = !user.activated;
-      if (user.activated) user.wasActivatedBefore = true;
+      if (user.activated) {
+        user.wasActivatedBefore = true;
+        if (!user.activatedAt) user.activatedAt = new Date(); // Start countdown timer tracking from exact moment of activation
+      }
       await user.save();
       res.json({ success: true, user });
     } else {
@@ -323,7 +330,6 @@ app.post('/api/users/toggle', async (req, res) => {
   }
 });
 
-// Permanent User Deletion Endpoint
 app.delete('/api/users/:identifier', async (req, res) => {
   try {
     const cleanId = req.params.identifier.toLowerCase().trim();
@@ -475,7 +481,6 @@ app.delete('/api/ladies/:identifier', async (req, res) => {
   }
 });
 
-// Announcements Endpoints
 app.get('/api/announcements', async (req, res) => {
   try {
     const announcements = await Announcement.find({}).sort({ createdAt: -1 }).limit(10).lean();
@@ -499,7 +504,6 @@ app.post('/api/announcements', async (req, res) => {
   }
 });
 
-// Messages & Reports
 app.get('/api/reports', async (req, res) => {
   try {
     const reports = await Report.find({}).sort({ timestamp: -1 }).limit(100).lean();
@@ -534,9 +538,6 @@ app.get('/api/messages', async (req, res) => {
   }
 });
 
-// ==========================================
-// 5. Socket.io
-// ==========================================
 io.on('connection', (socket) => {
   socket.on('send-message', async (data) => {
     try {
@@ -556,9 +557,6 @@ io.on('connection', (socket) => {
   });
 });
 
-// ==========================================
-// 6. Server Initialization
-// ==========================================
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/dodixclub';
 
