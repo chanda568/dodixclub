@@ -1,6 +1,6 @@
 // src/components/admin/CompanionModal.jsx
 import React, { useState } from 'react';
-import { X, Eye, EyeOff, DollarSign, Check, User, CheckCircle2, XCircle, MapPin, Calendar, FileText, Phone } from 'lucide-react';
+import { X, Eye, EyeOff, Check, User, CheckCircle2, XCircle, MapPin, Calendar, FileText, Phone } from 'lucide-react';
 
 export default function CompanionModal({ companion, onClose, onSavePrice, onApprove, onReject }) {
   const [isFaceRevealed, setIsFaceRevealed] = useState(false);
@@ -164,12 +164,12 @@ export default function CompanionModal({ companion, onClose, onSavePrice, onAppr
             <label className="block text-xs font-semibold text-slate-300">Edit Companion Rate / Price (ZMW)</label>
             <div className="flex gap-3">
               <div className="relative flex-1">
-                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-emerald-400">ZMW</span>
                 <input 
                   type="text"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-4 py-2 text-white text-xs focus:outline-none focus:border-pink-500"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-12 pr-4 py-2 text-white text-xs focus:outline-none focus:border-pink-500"
                   placeholder="Enter price..."
                 />
               </div>
