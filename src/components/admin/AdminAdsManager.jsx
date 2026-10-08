@@ -1,6 +1,6 @@
 // src/components/admin/AdminAdsManager.jsx
 import React, { useState, useEffect } from 'react';
-import { MapPin, CheckCircle, Trash2, Calendar, MessageCircle, Plus, X, Upload, Save, Loader2, Edit3, Eye, ShieldCheck, Tag, DollarSign, Home } from 'lucide-react';
+import { MapPin, CheckCircle, Trash2, Calendar, MessageCircle, Plus, X, Upload, Save, Loader2, Edit3 } from 'lucide-react';
 
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || 'https://dodixclub-backend.onrender.com').replace(/\/+$/, '');
 
@@ -8,7 +8,6 @@ export default function AdminAdsManager() {
   const [ads, setAds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedAdForReview, setSelectedAdForReview] = useState(null); // State for dedicated review popup
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -23,9 +22,7 @@ export default function AdminAdsManager() {
     phone: '',
     price: '',
     photo: '',
-    images: [],
     extraServices: '',
-    bio: '',
     username: 'admin'
   });
 
@@ -67,11 +64,9 @@ export default function AdminAdsManager() {
     setErrorMessage('');
     const reader = new FileReader();
     reader.onloadend = () => {
-      const result = reader.result;
       setAdData(prev => ({
         ...prev,
-        photo: result,
-        images: prev.images?.length > 0 ? [result, ...prev.images.slice(1)] : [result]
+        photo: reader.result // Base64 string assigned to photo property
       }));
     };
     reader.readAsDataURL(file);
@@ -87,9 +82,7 @@ export default function AdminAdsManager() {
       phone: '',
       price: '',
       photo: '',
-      images: [],
       extraServices: '',
-      bio: '',
       username: 'admin'
     });
     setErrorMessage('');
@@ -106,10 +99,8 @@ export default function AdminAdsManager() {
       specificLocation: ad.specificLocation || '',
       phone: ad.phone || '',
       price: ad.price || '',
-      photo: ad.photo || (ad.images && ad.images[0]) || '',
-      images: ad.images || (ad.photo ? [ad.photo] : []),
-      extraServices: ad.extraServices || '',
-      bio: ad.bio || '',
+      photo: ad.photo || '',
+      extraServices: ad.extraServices || ad.bio || '',
       username: ad.username || 'admin'
     });
     setErrorMessage('');
@@ -119,7 +110,7 @@ export default function AdminAdsManager() {
 
   const handleSubmitAd = async (e) => {
     e.preventDefault();
-    if (!adData.photo && (!adData.images || adData.images.length === 0)) {
+    if (!adData.photo) {
       setErrorMessage('An advertisement photo is required.');
       return;
     }
@@ -211,117 +202,6 @@ export default function AdminAdsManager() {
           <Plus size={16} /> Create New Ad
         </button>
       </div>
-
-      {/* COMPREHENSIVE ADMIN REVIEW MODAL */}
-      {selectedAdForReview && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0b101d] border border-slate-800 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl p-6 sm:p-8 space-y-6 text-white relative">
-            
-            {/* Header & Close */}
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-              <div>
-                <span className="text-[10px] uppercase tracking-wider text-purple-400 font-semibold">Admin Verification Portal</span>
-                <h3 className="text-xl font-bold">{selectedAdForReview.name || selectedAdForReview.alias || 'Unnamed Listing'}</h3>
-              </div>
-              <button 
-                onClick={() => setSelectedAdForReview(null)}
-                className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-900 border border-slate-800 transition cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Photographs Grid */}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
-                <ShieldCheck size={15} className="text-purple-400" /> Uploaded Photographs (Masked & Unmasked Captured)
-              </label>
-              {selectedAdForReview.images && selectedAdForReview.images.length > 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {selectedAdForReview.images.map((imgUrl, idx) => (
-                    <a key={idx} href={imgUrl} target="_blank" rel="noopener noreferrer" className="block group relative rounded-xl overflow-hidden border border-slate-800 aspect-[3/4] bg-slate-950">
-                      <img src={imgUrl} alt={`Upload ${idx + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
-                    </a>
-                  ))}
-                </div>
-              ) : selectedAdForReview.photo ? (
-                <div className="relative w-32 h-40 rounded-xl overflow-hidden border border-slate-800 bg-slate-950">
-                  <img src={selectedAdForReview.photo} alt="Primary Upload" className="w-full h-full object-cover" />
-                </div>
-              ) : (
-                <p className="text-xs text-slate-500 italic">No photographs attached.</p>
-              )}
-            </div>
-
-            {/* Every Field Filled Breakdown Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 bg-slate-950/60 p-4 rounded-2xl border border-slate-800 text-xs">
-              <div className="space-y-0.5">
-                <span className="text-slate-500 block text-[10px] uppercase font-semibold">Name / Alias</span>
-                <strong className="text-slate-200 text-sm">{selectedAdForReview.name || selectedAdForReview.alias || 'N/A'}</strong>
-              </div>
-              <div className="space-y-0.5">
-                <span className="text-slate-500 block text-[10px] uppercase font-semibold">Category</span>
-                <strong className="text-purple-300 text-sm">{selectedAdForReview.category || 'N/A'}</strong>
-              </div>
-              <div className="space-y-0.5">
-                <span className="text-slate-500 block text-[10px] uppercase font-semibold">Rate / Price</span>
-                <strong className="text-emerald-400 text-sm">ZMW {selectedAdForReview.price || '0'}</strong>
-              </div>
-              <div className="space-y-0.5">
-                <span className="text-slate-500 block text-[10px] uppercase font-semibold">City / Location</span>
-                <strong className="text-slate-200 text-sm">{selectedAdForReview.location || 'N/A'}</strong>
-              </div>
-              <div className="space-y-0.5">
-                <span className="text-slate-500 block text-[10px] uppercase font-semibold">Specific Neighborhood</span>
-                <strong className="text-slate-200 text-sm">{selectedAdForReview.specificLocation || 'N/A'}</strong>
-              </div>
-              <div className="space-y-0.5">
-                <span className="text-slate-500 block text-[10px] uppercase font-semibold">Hosting</span>
-                <strong className="text-slate-200 text-sm">{selectedAdForReview.hosting || 'N/A'}</strong>
-              </div>
-              <div className="space-y-0.5">
-                <span className="text-slate-500 block text-[10px] uppercase font-semibold">WhatsApp Phone</span>
-                <strong className="text-emerald-300 text-sm">{selectedAdForReview.phone || 'N/A'}</strong>
-              </div>
-              <div className="space-y-0.5">
-                <span className="text-slate-500 block text-[10px] uppercase font-semibold">Owner Username</span>
-                <strong className="text-slate-200 text-sm">@{selectedAdForReview.username || 'admin'}</strong>
-              </div>
-              <div className="space-y-0.5">
-                <span className="text-slate-500 block text-[10px] uppercase font-semibold">Submitted Date</span>
-                <strong className="text-slate-200 text-sm">{formatDate(selectedAdForReview.createdAt)}</strong>
-              </div>
-            </div>
-
-            {/* Bio / Description / Extra Services */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-400">Description / Bio & Services</label>
-              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 text-sm text-slate-200 whitespace-pre-wrap leading-relaxed">
-                {selectedAdForReview.extraServices || selectedAdForReview.bio || "No description provided."}
-              </div>
-            </div>
-
-            {/* Modal Actions */}
-            <div className="flex items-center justify-between pt-4 border-t border-slate-800">
-              <button 
-                onClick={() => {
-                  handleWhatsAppContact(selectedAdForReview.phone, selectedAdForReview.username);
-                }}
-                className="px-4 py-2 bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-400 border border-emerald-900/50 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
-              >
-                <MessageCircle size={14} /> Contact via WhatsApp
-              </button>
-              <button 
-                onClick={() => setSelectedAdForReview(null)}
-                className="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition cursor-pointer"
-              >
-                Close Review
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
 
       {/* CREATE / EDIT MODAL */}
       {isModalOpen && (
@@ -492,70 +372,56 @@ export default function AdminAdsManager() {
         </p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {ads.map((ad) => {
-            const displayPhoto = ad.photo || (ad.images && ad.images[0]);
-            return (
-              <div 
-                key={ad._id || ad.id} 
-                onClick={() => setSelectedAdForReview(ad)}
-                className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl overflow-hidden shadow-xl flex flex-col justify-between p-4 space-y-4 cursor-pointer transition group"
-              >
-                {displayPhoto && (
-                  <div className="h-40 w-full rounded-xl overflow-hidden bg-slate-950 relative">
-                    <img src={displayPhoto} alt={ad.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
-                  </div>
-                )}
-
-                <div className="flex justify-between items-center">
-                  <span className="text-xs font-black px-2.5 py-1 rounded-full border bg-emerald-500/10 text-emerald-400 border-emerald-500/20 flex items-center gap-1 shadow">
-                    <CheckCircle size={12} /> {ad.category || 'LIVE DIRECT'}
-                  </span>
-                  <span className="text-xs font-bold text-emerald-400">ZMW {ad.price || '0'}</span>
+          {ads.map((ad) => (
+            <div key={ad._id || ad.id} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl flex flex-col justify-between p-4 space-y-4">
+              {ad.photo && (
+                <div className="h-40 w-full rounded-xl overflow-hidden bg-slate-950 relative">
+                  <img src={ad.photo} alt={ad.name} className="w-full h-full object-cover" />
                 </div>
+              )}
 
-                <div className="space-y-1">
-                  <h3 className="font-bold text-white text-sm group-hover:text-pink-400 transition">{ad.name || ad.username}, {ad.age || '23'}</h3>
-                  <p className="text-xs text-slate-400 flex items-center gap-1">
-                    <MapPin size={12} className="text-pink-500" /> {ad.specificLocation || ad.location || 'Lusaka'}
-                  </p>
-                  <p className="text-xs text-slate-500">Owner: @{ad.username}</p>
-                  <p className="text-[11px] text-slate-400 flex items-center gap-1 pt-1">
-                    <Calendar size={11} className="text-slate-400" /> Posted: {formatDate(ad.createdAt)}
-                  </p>
-                </div>
-
-                <div className="flex gap-2 pt-2 border-t border-slate-800" onClick={(e) => e.stopPropagation()}>
-                  <button 
-                    onClick={() => setSelectedAdForReview(ad)}
-                    className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition flex items-center justify-center gap-1 text-xs px-3"
-                    title="View Full Details"
-                  >
-                    <Eye size={14} /> <span className="hidden sm:inline">Details</span>
-                  </button>
-                  <button 
-                    onClick={() => handleOpenEditModal(ad)}
-                    className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition flex items-center justify-center"
-                    title="Edit Ad"
-                  >
-                    <Edit3 size={14} />
-                  </button>
-                  <button 
-                    onClick={() => handleWhatsAppContact(ad.phone, ad.username)}
-                    className="flex-1 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 text-xs font-bold py-2 rounded-xl transition flex items-center justify-center gap-1 shadow"
-                  >
-                    <MessageCircle size={14} /> WhatsApp
-                  </button>
-                  <button 
-                    onClick={() => handleDelete(ad._id || ad.id)}
-                    className="bg-rose-950/60 hover:bg-rose-900/80 text-rose-400 border border-rose-900/50 px-3 py-2 rounded-xl transition flex items-center justify-center"
-                    title="Remove Ad"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-black px-2.5 py-1 rounded-full border bg-emerald-500/10 text-emerald-400 border-emerald-500/20 flex items-center gap-1 shadow">
+                  <CheckCircle size={12} /> {ad.category || 'LIVE DIRECT'}
+                </span>
+                <span className="text-xs font-bold text-emerald-400">ZMW {ad.price || '0'}</span>
               </div>
-            );
-          })}
+
+              <div className="space-y-1">
+                <h3 className="font-bold text-white text-sm">{ad.name || ad.username}, {ad.age || '23'}</h3>
+                <p className="text-xs text-slate-400 flex items-center gap-1">
+                  <MapPin size={12} className="text-pink-500" /> {ad.specificLocation || ad.location || 'Lusaka'}
+                </p>
+                <p className="text-xs text-slate-500">Owner: @{ad.username}</p>
+                <p className="text-[11px] text-slate-400 flex items-center gap-1 pt-1">
+                  <Calendar size={11} className="text-slate-400" /> Posted: {formatDate(ad.createdAt)}
+                </p>
+              </div>
+
+              <div className="flex gap-2 pt-2 border-t border-slate-800">
+                <button 
+                  onClick={() => handleOpenEditModal(ad)}
+                  className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition flex items-center justify-center"
+                  title="Edit Ad"
+                >
+                  <Edit3 size={14} />
+                </button>
+                <button 
+                  onClick={() => handleWhatsAppContact(ad.phone, ad.username)}
+                  className="flex-1 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 text-xs font-bold py-2 rounded-xl transition flex items-center justify-center gap-1 shadow"
+                >
+                  <MessageCircle size={14} /> WhatsApp
+                </button>
+                <button 
+                  onClick={() => handleDelete(ad._id || ad.id)}
+                  className="bg-rose-950/60 hover:bg-rose-900/80 text-rose-400 border border-rose-900/50 px-3 py-2 rounded-xl transition flex items-center justify-center"
+                  title="Remove Ad"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

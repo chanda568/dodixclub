@@ -1,6 +1,6 @@
 // src/components/admin/CompanionModal.jsx
 import React, { useState } from 'react';
-import { X, Eye, EyeOff, DollarSign, Check, User, CheckCircle2, XCircle } from 'lucide-react';
+import { X, Eye, EyeOff, DollarSign, Check, User, CheckCircle2, XCircle, MapPin, Calendar, FileText, Phone } from 'lucide-react';
 
 export default function CompanionModal({ companion, onClose, onSavePrice, onApprove, onReject }) {
   const [isFaceRevealed, setIsFaceRevealed] = useState(false);
@@ -35,6 +35,12 @@ export default function CompanionModal({ companion, onClose, onSavePrice, onAppr
   const displayName = (!companion.name || companion.name.toLowerCase() === 'female') 
     ? (companion.username ? `@${companion.username}` : 'Companion Profile') 
     : companion.name;
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const options = { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' };
+    return new Date(dateString).toLocaleDateString('en-US', options);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 overflow-y-auto">
@@ -99,6 +105,57 @@ export default function CompanionModal({ companion, onClose, onSavePrice, onAppr
                   <span className="text-[10px]">No Photo</span>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* COMPREHENSIVE SUBMISSION DETAILS BREAKDOWN */}
+          <div className="space-y-2 bg-slate-950 p-4 rounded-2xl border border-slate-800">
+            <label className="block text-xs font-semibold text-slate-300 mb-2">Full Submission Details</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+              <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
+                <span className="text-slate-500 block text-[10px] uppercase font-semibold">Name / Alias</span>
+                <strong className="text-white">{companion.name || companion.alias || 'N/A'}</strong>
+              </div>
+              <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
+                <span className="text-slate-500 block text-[10px] uppercase font-semibold">Category / Tier</span>
+                <strong className="text-purple-300">{companion.category || 'N/A'}</strong>
+              </div>
+              <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
+                <span className="text-slate-500 block text-[10px] uppercase font-semibold">Age</span>
+                <strong className="text-white">{companion.age || 'N/A'}</strong>
+              </div>
+              <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
+                <span className="text-slate-500 block text-[10px] uppercase font-semibold">City / Location</span>
+                <strong className="text-white">{companion.location || 'N/A'}</strong>
+              </div>
+              <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
+                <span className="text-slate-500 block text-[10px] uppercase font-semibold">Neighborhood</span>
+                <strong className="text-white">{companion.specificLocation || companion.neighborhood || 'N/A'}</strong>
+              </div>
+              <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
+                <span className="text-slate-500 block text-[10px] uppercase font-semibold">Hosting Status</span>
+                <strong className="text-white">{companion.hosting || 'N/A'}</strong>
+              </div>
+              <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
+                <span className="text-slate-500 block text-[10px] uppercase font-semibold">WhatsApp / Phone</span>
+                <strong className="text-emerald-400">{companion.phone || companion.whatsapp || 'N/A'}</strong>
+              </div>
+              <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
+                <span className="text-slate-500 block text-[10px] uppercase font-semibold">Owner Username</span>
+                <strong className="text-white">@{companion.username || 'N/A'}</strong>
+              </div>
+              <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
+                <span className="text-slate-500 block text-[10px] uppercase font-semibold">Submitted Date</span>
+                <strong className="text-white">{formatDate(companion.createdAt)}</strong>
+              </div>
+            </div>
+
+            {/* Bio / Description section */}
+            <div className="mt-3 bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+              <span className="text-slate-500 block text-[10px] uppercase font-semibold mb-1">Description / Bio & Services</span>
+              <p className="text-slate-200 text-xs whitespace-pre-wrap leading-relaxed">
+                {companion.description || companion.bio || companion.extraServices || 'No description provided.'}
+              </p>
             </div>
           </div>
 
