@@ -25,7 +25,7 @@ export default function ClientDirectory({
   const isFemaleUser = currentUser?.gender?.toLowerCase() === 'female' || currentUser?.gender?.toLowerCase() === 'lady';
   const isAdminUser = currentUser?.role === 'admin' || currentUser?.username?.toLowerCase() === 'admin';
   
-  const [activeTab, setActiveTab] = useState('home'); // Set 'home' as default landing tab
+  const [activeTab, setActiveTab] = useState('home'); 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   
   const [reportModalOpen, setReportModalOpen] = useState(false);
@@ -49,10 +49,10 @@ export default function ClientDirectory({
   // Multi-step Companion Form Wizard State ('photos_step' | 'masking_step' | 'details_step' | 'success_step')
   const [profileStep, setProfileStep] = useState('photos_step');
 
-  // Multi-photo state management (Min 2, Max 5 pictures)
-  const [selectedFiles, setSelectedFiles] = useState([]); // Raw uploaded files[cite: 13]
-  const [maskedPhotos, setMaskedPhotos] = useState([]); // Processed/masked base64 images[cite: 13]
-  const [currentMaskIndex, setCurrentMaskIndex] = useState(0); // Index of photo currently being masked[cite: 13]
+  // Multi-photo state management (Min 2, Max 5 pictures)[cite: 13]
+  const [selectedFiles, setSelectedFiles] = useState([]); 
+  const [maskedPhotos, setMaskedPhotos] = useState([]); 
+  const [currentMaskIndex, setCurrentMaskIndex] = useState(0); 
 
   // Advertisement Form State & Privacy Mask Studio States
   const [loading, setLoading] = useState(false);

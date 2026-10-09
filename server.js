@@ -103,6 +103,7 @@ const companionSchema = new mongoose.Schema({
   specificLocation: { type: String, default: '' },
   phone: { type: String, required: true },
   photo: { type: String, default: '' },
+  photos: [{ type: String }], // Multi-photo gallery array
   originalPhoto: { type: String, default: '' },
   unmaskedPhoto: { type: String, default: '' },
   age: { type: String, default: '23' },
@@ -264,7 +265,6 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
-// Get reports count and list for a specific user
 app.get('/api/users/:username/reports', async (req, res) => {
   try {
     const cleanUsername = req.params.username.toLowerCase().trim();
@@ -275,7 +275,6 @@ app.get('/api/users/:username/reports', async (req, res) => {
   }
 });
 
-// Update User Details, Status, or Password Reset Endpoint
 app.put('/api/users/:identifier', async (req, res) => {
   try {
     const cleanId = req.params.identifier.toLowerCase().trim();
@@ -323,7 +322,6 @@ app.post('/api/users/toggle', async (req, res) => {
   }
 });
 
-// Permanent User Deletion Endpoint
 app.delete('/api/users/:identifier', async (req, res) => {
   try {
     const cleanId = req.params.identifier.toLowerCase().trim();
@@ -376,6 +374,13 @@ app.post('/api/ladies', async (req, res) => {
     profileData.originalPhoto = await uploadBase64ToS3(profileData.originalPhoto, 'originals');
     profileData.unmaskedPhoto = await uploadBase64ToS3(profileData.unmaskedPhoto, 'unmasked');
     profileData.verificationVideoUrl = await uploadBase64ToS3(profileData.verificationVideoUrl, 'videos');
+
+    // Process and upload all images in the multi-photo gallery array
+    if (Array.isArray(profileData.photos) && profileData.photos.length > 0) {
+      profileData.photos = await Promise.all(
+        profileData.photos.map(p => uploadBase64ToS3(p, 'photos'))
+      );
+    }
 
     const newCompanionAd = new Companion({
       ...profileData,
