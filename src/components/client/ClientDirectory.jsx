@@ -46,15 +46,27 @@ export default function ClientDirectory({
   const [newContent, setNewContent] = useState('');
   const [newVisibility, setNewVisibility] = useState('all');
 
-  // Multi-step Companion Form Wizard State ('photos_step' | 'details_step' | 'success_step')
-  const [profileStep, setProfileStep] = useState('photos_step');
+  // Multi-step Companion Form Wizard State ('photo_step' | 'details_step' | 'success_step')
+  const [profileStep, setProfileStep] = useState('photo_step');
 
-  // Multi-photo state management (Enforcing Min 2, Max 5 pictures)
-  const [selectedPhotos, setSelectedPhotos] = useState([]);
-  const [photoError, setPhotoError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Advertisement Form State & Privacy Mask Studio States
+  const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+
+  // Privacy Mask Customization States
+  const [stickerType, setStickerType] = useState('logo'); // 'emoji' | 'logo'
+  const [selectedEmoji, setSelectedEmoji] = useState('🕶️');
+  const [customLogo, setCustomLogo] = useState(brandLogo);
+  
+  // Draggable Sticker Interaction States inside Photo Editor
+  const [stickerPos, setStickerPos] = useState({ x: 120, y: 120 });
+  const [stickerSize, setStickerSize] = useState(80);
+  const [isDraggingSticker, setIsDraggingSticker] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+
+  const containerRef = useRef(null);
+  const canvasRef = useRef(null);
 
   const initialName = currentUser?.username && !['female', 'lady', 'client'].includes(currentUser.username.toLowerCase()) 
     ? currentUser.username 
@@ -62,12 +74,15 @@ export default function ClientDirectory({
 
   const [newAdData, setNewAdData] = useState({
     name: currentUser.name || initialName,
-    category: currentUser.category || '', 
-    location: currentUser.location || userLockedLocation, 
-    neighborhood: currentUser.neighborhood || '', 
-    hosting: currentUser.hosting || 'Yes', 
+    category: currentUser.category || '', // Rule: Category starts blank / unselected
+    location: currentUser.location || userLockedLocation, // Rule: Locked to registered location
+    neighborhood: currentUser.neighborhood || '', // Rule: Neighborhood input field added
+    hosting: currentUser.hosting || 'Yes', // Rule: Hosting availability toggle/dropdown added
     phone: currentUser.phone || '',
     rate: currentUser.rate || '',
+    photo: currentUser.photo || currentUser.photoUrl || '',
+    originalPhoto: currentUser.originalPhoto || currentUser.photo || currentUser.photoUrl || '',
+    unmaskedPhoto: currentUser.unmaskedPhoto || currentUser.photo || currentUser.photoUrl || '',
     bio: currentUser.bio || '',
     department: currentUser.department || '',
     title: currentUser.title || 'Elite Companion'
@@ -210,49 +225,166 @@ export default function ClientDirectory({
     window.open(`https://wa.me/${adminPhone}?text=${supportMsg}`, '_blank');
   };
 
-  // Handle Multi-Photo Upload & Validation (Min 2, Max 5)
-  const handleMultiPhotoUpload = (e) => {
-    const files = Array.from(e.target.files);
-    setPhotoError('');
+  // 4. Handle Clean Photo Upload
+  const handlePhotoUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-    const totalPhotos = [...selectedPhotos, ...files];
-
-    if (totalPhotos.length > 5) {
-      setPhotoError('You can upload a maximum of 5 pictures per advert.');
+    if (!file.type.startsWith('image/')) {
+      setErrorMessage('Please upload a valid image file.');
       return;
     }
 
-    for (let file of files) {
-      if (!file.type.startsWith('image/')) {
-        setPhotoError('Please upload valid image files (PNG, JPG, or WEBP).');
-        return;
-      }
-      if (file.size > 10 * 1024 * 1024) {
-        setPhotoError('Each file size must be under 10MB.');
-        return;
-      }
+    if (file.size > 10 * 1024 * 1024) {
+      setErrorMessage('File size must be under 10MB.');
+      return;
     }
 
-    setSelectedPhotos(totalPhotos);
+    setErrorMessage('');
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target.result;
+      setNewAdData(prev => ({
+        ...prev,
+        originalPhoto: result,
+        unmaskedPhoto: result,
+        photo: result
+      }));
+      setStickerPos({ x: 100, y: 100 });
+    };
+    reader.readAsDataURL(file);
   };
 
-  const removePhotoAtIndex = (indexToRemove) => {
-    setSelectedPhotos(selectedPhotos.filter((_, index) => index !== indexToRemove));
-    setPhotoError('');
+  const handleLogoUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setCustomLogo(event.target.result);
+        setStickerType('logo');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Mouse Drag Handlers for Sticker
+  const handleStickerMouseDown = (e) => {
+    e.preventDefault();
+    setIsDraggingSticker(true);
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    setDragOffset({
+      x: (e.clientX - rect.left) - stickerPos.x,
+      y: (e.clientY - rect.top) - stickerPos.y
+    });
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDraggingSticker || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    
+    let newX = (e.clientX - rect.left) - dragOffset.x;
+    let newY = (e.clientY - rect.top) - dragOffset.y;
+
+    const maxX = rect.width - stickerSize;
+    const maxY = rect.height - stickerSize;
+
+    newX = Math.max(0, Math.min(newX, maxX));
+    newY = Math.max(0, Math.min(newY, maxY));
+
+    setStickerPos({ x: newX, y: newY });
+  };
+
+  const handleMouseUp = () => {
+    setIsDraggingSticker(false);
+  };
+
+  useEffect(() => {
+    if (isDraggingSticker) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDraggingSticker, dragOffset, stickerSize]);
+
+  // Flatten Sticker to Canvas (Bake Privacy Mask)
+  const flattenStickerToImage = () => {
+    return new Promise((resolve) => {
+      const currentPhoto = newAdData.originalPhoto || newAdData.photo;
+      if (!currentPhoto || !containerRef.current) {
+        resolve(currentPhoto);
+        return;
+      }
+
+      const containerBox = containerRef.current.getBoundingClientRect();
+      const baseImage = new Image();
+      baseImage.crossOrigin = 'anonymous';
+      baseImage.src = currentPhoto;
+
+      baseImage.onload = () => {
+        const canvas = canvasRef.current || document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        canvas.width = baseImage.naturalWidth;
+        canvas.height = baseImage.naturalHeight;
+
+        ctx.drawImage(baseImage, 0, 0);
+
+        const scaleX = baseImage.naturalWidth / containerBox.width;
+        const scaleY = baseImage.naturalHeight / containerBox.height;
+
+        const renderX = stickerPos.x * scaleX;
+        const renderY = stickerPos.y * scaleY;
+        const renderSize = stickerSize * Math.max(scaleX, scaleY);
+
+        if (stickerType === 'emoji') {
+          ctx.font = `${renderSize}px sans-serif`;
+          ctx.textBaseline = 'top';
+          ctx.fillText(selectedEmoji, renderX, renderY);
+          resolve(canvas.toDataURL('image/jpeg', 0.92));
+        } else if (stickerType === 'logo' && customLogo) {
+          const logoImg = new Image();
+          logoImg.crossOrigin = 'anonymous';
+          logoImg.src = customLogo;
+          logoImg.onload = () => {
+            ctx.drawImage(logoImg, renderX, renderY, renderSize, renderSize);
+            resolve(canvas.toDataURL('image/jpeg', 0.92));
+          };
+          logoImg.onerror = () => resolve(currentPhoto);
+        } else {
+          resolve(currentPhoto);
+        }
+      };
+
+      baseImage.onerror = () => resolve(currentPhoto);
+    });
+  };
+
+  const handleProceedToDetails = async () => {
+    const currentPhoto = newAdData.originalPhoto || newAdData.photo;
+    if (!currentPhoto) {
+      setErrorMessage('Please upload a source photograph first.');
+      return;
+    }
+
+    setLoading(true);
+    const finalMasked = await flattenStickerToImage();
+    setNewAdData(prev => ({
+      ...prev,
+      photo: finalMasked,
+      photoUrl: finalMasked,
+      unmaskedPhoto: prev.originalPhoto || prev.photo
+    }));
+    setLoading(false);
+    setProfileStep('details_step');
   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setNewAdData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleProceedToDetails = (e) => {
-    e.preventDefault();
-    if (selectedPhotos.length < 2) {
-      setPhotoError('Please upload at least 2 pictures for your advert.');
-      return;
-    }
-    setProfileStep('details_step');
   };
 
   const handleFormSubmit = async (e) => {
@@ -262,30 +394,25 @@ export default function ClientDirectory({
       return;
     }
 
-    setIsSubmitting(true);
-    setPhotoError('');
+    setLoading(true);
     setErrorMessage('');
     setSuccessMessage('');
 
     try {
-      const formData = new FormData();
-      formData.append('username', currentUser?.username || 'anonymous');
-      formData.append('name', newAdData.name);
-      formData.append('category', newAdData.category);
-      formData.append('location', newAdData.location);
-      formData.append('neighborhood', newAdData.neighborhood);
-      formData.append('hosting', newAdData.hosting);
-      formData.append('phone', newAdData.phone);
-      formData.append('price', newAdData.rate);
-      formData.append('extraServices', newAdData.bio);
+      const payload = {
+        ...newAdData,
+        username: currentUser.username,
+        price: newAdData.rate,
+        extraServices: newAdData.bio,
+        originalPhoto: newAdData.originalPhoto,
+        unmaskedPhoto: newAdData.unmaskedPhoto || newAdData.originalPhoto,
+        photo: newAdData.photo
+      };
 
-      selectedPhotos.forEach((file) => {
-        formData.append('advertPhotos', file);
-      });
-
-      const response = await fetch(`${BACKEND_URL}/api/adverts`, {
+      const response = await fetch(`${BACKEND_URL}/api/ladies`, {
         method: 'POST',
-        body: formData
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
       });
 
       const contentType = response.headers.get("content-type");
@@ -300,13 +427,18 @@ export default function ClientDirectory({
         throw new Error(data.message || data.error || 'Failed to save profile configuration.');
       }
 
-      fetchBackendLadies();
+      if (data.companion) {
+        setLadies([data.companion, ...ladies.filter(l => l._id !== data.companion._id && l.id !== data.companion.id)]);
+      } else {
+        fetchBackendLadies();
+      }
+
       setSuccessMessage('Profile saved and published successfully!');
       setProfileStep('success_step');
 
       const newHistoryItem = {
         id: Date.now(),
-        action: 'Submitted Advertisement with Multi-Photos',
+        action: 'Submitted Advertisement (Masked & Unmasked Captured)',
         details: {
           name: newAdData.name,
           category: newAdData.category,
@@ -316,7 +448,7 @@ export default function ClientDirectory({
           rate: newAdData.rate,
           phone: newAdData.phone,
           bio: newAdData.bio,
-          photosCount: selectedPhotos.length
+          photo: newAdData.photo
         },
         timestamp: new Date().toISOString(),
         status: 'Pending Admin Approval'
@@ -326,16 +458,20 @@ export default function ClientDirectory({
       localStorage.setItem(`dodix_history_${currentUser?.username}`, encryptStorageData(updatedHistory));
 
     } catch (err) {
-      setPhotoError(err.message || 'An error occurred while connecting to the server.');
+      setErrorMessage(err.message || 'An error occurred while connecting to the server.');
     } finally {
-      setIsSubmitting(false);
+      setLoading(false);
     }
   };
 
   const resetDirectoryForm = () => {
-    setProfileStep('photos_step');
-    setSelectedPhotos([]);
-    setSuccessMessage('');
+    setProfileStep('photo_step');
+    setNewAdData(prev => ({
+      ...prev,
+      photo: '',
+      originalPhoto: '',
+      unmaskedPhoto: ''
+    }));
   };
 
   const handleReportSubmit = async (e) => {
@@ -463,6 +599,7 @@ export default function ClientDirectory({
 
   return (
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col relative selection:bg-pink-500 selection:text-white font-sans">
+      <canvas ref={canvasRef} className="hidden" />
       {isLoading && <LogoLoader text={loadingText} />}
 
       {/* PROFILE DETAIL MODAL */}
@@ -484,11 +621,11 @@ export default function ClientDirectory({
 
               <div className="flex items-center gap-4">
                 <div className="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-pink-500/40 shadow-lg shrink-0 bg-slate-950">
-                  <img src={selectedProfile.photo || selectedProfile.photoUrl || (selectedProfile.photos && selectedProfile.photos[0])} alt={selectedProfile.name} className="w-full h-full object-cover" />
+                  <img src={selectedProfile.photo || selectedProfile.photoUrl} alt={selectedProfile.name} className="w-full h-full object-cover" />
                 </div>
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-xl font-extrabold text-white">{selectedProfile.name}</h3>
+                    <h3 className="text-xl font-extrabold text-white">{selectedProfile.name}, {selectedProfile.age || '23'}</h3>
                     <span className="bg-emerald-500/90 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
                       <ShieldCheck size={11} /> VERIFIED FEMALE
                     </span>
@@ -898,7 +1035,7 @@ export default function ClientDirectory({
                     >
                       <div className="relative h-56 bg-slate-950 overflow-hidden">
                         <img 
-                          src={lady.photo || lady.photoUrl || (lady.photos && lady.photos[0])} 
+                          src={lady.photo || lady.photoUrl} 
                           alt={lady.name} 
                           className="w-full h-full object-cover group-hover:scale-105 transition duration-500" 
                         />
@@ -913,7 +1050,7 @@ export default function ClientDirectory({
                       <div className="p-5 space-y-4 flex-1 flex flex-col justify-between">
                         <div className="space-y-1">
                           <div className="flex items-center justify-between">
-                            <h3 className="text-base font-extrabold text-white">{lady.name}</h3>
+                            <h3 className="text-base font-extrabold text-white">{lady.name}, {lady.age || '23'}</h3>
                             <span className="text-sm font-black text-emerald-400">ZMW {lady.price || lady.rate}</span>
                           </div>
                           <p className="text-xs text-slate-400 flex items-center gap-1">
@@ -941,7 +1078,7 @@ export default function ClientDirectory({
             </div>
           )}
 
-          {/* TAB 2: POST ADVERTISEMENT & MULTI-PHOTO UPLOAD WIZARD (FOR FEMALE USERS) */}
+          {/* TAB 2: POST ADVERTISEMENT & PRIVACY MASK STUDIO (FOR FEMALE USERS) */}
           {activeTab === 'myprofile' && isFemaleUser && (
             <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-8 animate-fadeIn">
               {/* Wizard Progress Header */}
@@ -952,12 +1089,12 @@ export default function ClientDirectory({
                       <ShieldCheck className="w-6 h-6" />
                     </div>
                     <div>
-                      <h2 className="text-xl font-bold tracking-tight text-white">DodixClub Advert Portal</h2>
-                      <p className="text-xs text-slate-400">Publish your verified listing with multi-photo support (Min 2, Max 5).</p>
+                      <h2 className="text-xl font-bold tracking-tight text-white">Companion Profile & Privacy Studio</h2>
+                      <p className="text-xs text-slate-400">Publish your verified listing with built-in privacy watermarking.</p>
                     </div>
                   </div>
                   <div className="text-xs font-semibold px-3 py-1.5 bg-slate-900 rounded-full text-pink-300 border border-slate-800">
-                    {profileStep === 'photos_step' && 'Step 1: Upload Advert Photos'}
+                    {profileStep === 'photo_step' && 'Step 1: Photo & Privacy Mask'}
                     {profileStep === 'details_step' && 'Step 2: Profile Details'}
                     {profileStep === 'success_step' && 'Step 3: Verification Complete'}
                   </div>
@@ -968,90 +1105,203 @@ export default function ClientDirectory({
                   <div 
                     className="bg-gradient-to-r from-pink-500 to-purple-500 h-full transition-all duration-500 ease-out"
                     style={{ 
-                      width: profileStep === 'photos_step' ? '33%' : profileStep === 'details_step' ? '66%' : '100%' 
+                      width: profileStep === 'photo_step' ? '33%' : profileStep === 'details_step' ? '66%' : '100%' 
                     }}
                   />
                 </div>
               </div>
 
-              {photoError && (
-                <div className="p-4 bg-red-950/50 border border-red-800/50 rounded-2xl text-xs text-red-300 font-semibold">
-                  {photoError}
+              {errorMessage && (
+                <div className="p-4 bg-red-950/50 border border-red-800/50 rounded-2xl text-xs text-red-300">
+                  {errorMessage}
                 </div>
               )}
 
-              {successMessage && profileStep === 'success_step' && (
-                <div className="p-4 bg-emerald-950/50 border border-emerald-800/50 rounded-2xl text-xs text-emerald-300 font-semibold">
+              {successMessage && (
+                <div className="p-4 bg-emerald-950/50 border border-emerald-800/50 rounded-2xl text-xs text-emerald-300">
                   {successMessage}
                 </div>
               )}
 
-              {/* STEP 1: MULTI-PHOTO UPLOAD & PREVIEW GRID */}
-              {profileStep === 'photos_step' && (
-                <form onSubmit={handleProceedToDetails} className="space-y-6">
-                  <div className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 shadow-inner">
-                    <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-                      Upload Advert Photographs <span className="text-pink-500">(Min 2, Max 5)</span>
-                    </label>
-                    
-                    <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-slate-700 border-dashed rounded-xl cursor-pointer bg-slate-900 hover:bg-slate-800 hover:border-pink-500 transition-all">
-                      <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4 text-center">
-                        <Upload className="w-8 h-8 mb-2 text-pink-400" />
-                        <p className="text-xs text-slate-300 font-medium">Click to select photos (Hold Ctrl/Cmd to select multiple)</p>
-                        <p className="text-[10px] text-slate-500 mt-1">PNG, JPG or WEBP, Max 10MB each</p>
+              {/* STEP 1: PHOTO & PRIVACY MASK */}
+              {profileStep === 'photo_step' && (
+                <div className="space-y-6">
+                  {/* Private Listing Option Card with clean WhatsApp trigger */}
+                  <div className="bg-gradient-to-r from-purple-950/70 via-slate-900 to-slate-900 border border-purple-800/40 p-5 rounded-3xl space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-purple-400 font-bold text-lg">
+                        🔒
                       </div>
-                      <input 
-                        type="file" 
-                        multiple 
-                        accept="image/png, image/jpeg, image/webp" 
-                        onChange={handleMultiPhotoUpload} 
-                        className="hidden" 
-                      />
-                    </label>
-                  </div>
-
-                  {/* Preview Grid */}
-                  {selectedPhotos.length > 0 && (
-                    <div className="space-y-3">
-                      <h3 className="text-xs font-bold text-pink-300 uppercase tracking-wider">
-                        Selected Photos ({selectedPhotos.length}/5)
-                      </h3>
-                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-                        {selectedPhotos.map((file, idx) => (
-                          <div key={idx} className="relative group rounded-xl overflow-hidden border border-slate-700 bg-slate-950 aspect-square shadow-lg">
-                            <img 
-                              src={URL.createObjectURL(file)} 
-                              alt={`Preview ${idx + 1}`} 
-                              className="w-full h-full object-cover"
-                            />
-                            <button 
-                              type="button"
-                              onClick={() => removePhotoAtIndex(idx)}
-                              className="absolute top-1.5 right-1.5 bg-black/70 hover:bg-red-600 text-white p-1 rounded-full transition-colors cursor-pointer"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-                        ))}
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-100">Want Complete Discretion? Apply for a Private Listing</h3>
+                        <p className="text-xs text-purple-300/80">Your profile won't be published on the public site catalog.</p>
                       </div>
                     </div>
-                  )}
 
-                  <button
-                    type="submit"
-                    disabled={selectedPhotos.length < 2 || selectedPhotos.length > 5}
-                    className="w-full py-3 bg-pink-600 hover:bg-pink-500 disabled:opacity-50 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <span>Proceed to Profile Details ({selectedPhotos.length}/5 photos)</span>
-                    <ArrowRight size={14} />
-                  </button>
-                </form>
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      If you prefer absolute privacy, you can choose not to publish your ad publicly. Instead, message us directly on WhatsApp and we will offer your profile exclusively to verified clients who inquire through our private channel.
+                    </p>
+
+                    <div className="pt-2 flex flex-wrap items-center gap-3">
+                      <a 
+                        href="https://wa.me/260571613227?text=Hello%2C%20I%20would%20like%20to%20apply%20for%20a%20private%20listing." 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-lg shadow-emerald-600/20"
+                      >
+                        <span>💬 Chat on WhatsApp for Private Listing</span>
+                      </a>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                    
+                    {/* Left: Upload & Controls */}
+                    <div className="space-y-6">
+                      <div className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 shadow-inner">
+                        <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Upload Source Photograph</label>
+                        <div className="flex items-center justify-center w-full">
+                          <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-700 border-dashed rounded-xl cursor-pointer bg-slate-900 hover:bg-slate-800 hover:border-pink-500 transition-all">
+                            <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4 text-center">
+                              <Upload className="w-8 h-8 mb-2 text-pink-400" />
+                              <p className="text-xs text-slate-300 font-medium">Click to upload photo</p>
+                              <p className="text-[10px] text-slate-500 mt-1">PNG, JPG or WEBP (Max 10MB)</p>
+                            </div>
+                            <input type="file" className="hidden" accept="image/*" onChange={handlePhotoUpload} />
+                          </label>
+                        </div>
+                      </div>
+
+                      {newAdData.originalPhoto && (
+                        <div className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 space-y-4">
+                          <h3 className="text-xs font-bold text-pink-300 uppercase tracking-wider flex items-center gap-2">
+                            <Sparkles className="w-4 h-4" /> Privacy Mask Configuration
+                          </h3>
+                          
+                          <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
+                            <button
+                              type="button"
+                              onClick={() => setStickerType('logo')}
+                              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${stickerType === 'logo' ? 'bg-pink-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
+                            >
+                              Brand Logo Watermark
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setStickerType('emoji')}
+                              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${stickerType === 'emoji' ? 'bg-pink-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
+                            >
+                              Emoji Mask
+                            </button>
+                          </div>
+
+                          {stickerType === 'emoji' ? (
+                            <div>
+                              <label className="block text-[10px] uppercase font-bold text-slate-400 mb-2">Select Mask Emoji</label>
+                              <div className="flex gap-2">
+                                {['🕶️', '🐱', '🦊', '⭐', '🔒', '👻'].map(emoji => (
+                                  <button
+                                    key={emoji}
+                                    type="button"
+                                    onClick={() => setSelectedEmoji(emoji)}
+                                    className={`p-2.5 text-xl rounded-xl border transition-all cursor-pointer ${selectedEmoji === emoji ? 'bg-pink-600/30 border-pink-500 scale-105' : 'bg-slate-950 border-slate-800 hover:border-slate-600'}`}
+                                  >
+                                    {emoji}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <div>
+                              <label className="block text-[10px] uppercase font-bold text-slate-400 mb-2">Custom Watermark Logo</label>
+                              <input type="file" accept="image/*" onChange={handleLogoUpload} className="text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-pink-600 file:text-white hover:file:bg-pink-700 cursor-pointer" />
+                            </div>
+                          )}
+
+                          <div>
+                            <div className="flex justify-between text-xs text-slate-400 mb-1 font-semibold">
+                              <span>Mask Scale</span>
+                              <span>{stickerSize}px</span>
+                            </div>
+                            <input 
+                              type="range" 
+                              min="40" 
+                              max="180" 
+                              value={stickerSize} 
+                              onChange={(e) => setStickerSize(Number(e.target.value))}
+                              className="w-full accent-pink-500 bg-slate-950 rounded-lg cursor-pointer"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Right: Interactive Preview Area */}
+                    <div className="bg-slate-900/30 p-6 rounded-2xl border border-slate-800 flex flex-col items-center justify-center min-h-[380px]">
+                      {newAdData.originalPhoto ? (
+                        <div className="space-y-3 w-full flex flex-col items-center">
+                          <p className="text-xs text-slate-400 flex items-center gap-1.5 font-medium">
+                            <Move className="w-3.5 h-3.5 text-pink-400" /> Drag watermark over sensitive face regions
+                          </p>
+                          
+                          <div 
+                            id="photo-container"
+                            ref={containerRef}
+                            className="relative inline-block overflow-hidden rounded-2xl border border-slate-800 shadow-xl select-none max-w-full"
+                          >
+                            <img 
+                              src={newAdData.originalPhoto} 
+                              alt="Source" 
+                              className="max-h-[320px] object-contain block pointer-events-none" 
+                            />
+                            
+                            <div
+                              onMouseDown={handleStickerMouseDown}
+                              style={{
+                                position: 'absolute',
+                                left: `${stickerPos.x}px`,
+                                top: `${stickerPos.y}px`,
+                                width: `${stickerSize}px`,
+                                height: `${stickerSize}px`,
+                                cursor: 'move',
+                                touchAction: 'none'
+                              }}
+                              className="flex items-center justify-center select-none z-20 group"
+                            >
+                              {stickerType === 'emoji' ? (
+                                <span className="text-4xl drop-shadow-md select-none">{selectedEmoji}</span>
+                              ) : (
+                                <img src={customLogo} alt="Watermark" className="w-full h-full object-contain drop-shadow-md pointer-events-none" />
+                              )}
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={handleProceedToDetails}
+                            className="w-full mt-4 py-3 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
+                          >
+                            <span>Proceed to Profile Details</span>
+                            <ArrowRight size={14} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="text-center space-y-2 py-12">
+                          <Camera className="w-12 h-12 text-slate-600 mx-auto" />
+                          <p className="text-xs text-slate-400 font-medium">Upload a photograph to activate the privacy mask editor.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               )}
 
               {/* STEP 2: PROFILE DETAILS */}
               {profileStep === 'details_step' && (
                 <form onSubmit={handleFormSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    
+                    {/* Rule 1: Companion Name / Alias prefilled automatically from username */}
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-slate-300">Companion Name / Alias</label>
                       <input 
@@ -1065,6 +1315,7 @@ export default function ClientDirectory({
                       />
                     </div>
 
+                    {/* Rule 2: Category starts blank/unselected so they can pick it */}
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-slate-300">Category</label>
                       <select 
@@ -1081,6 +1332,7 @@ export default function ClientDirectory({
                       </select>
                     </div>
 
+                    {/* Rule 3: Location Hub locked to the location they registered with */}
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-slate-300">Location Hub (Locked)</label>
                       <input 
@@ -1093,6 +1345,7 @@ export default function ClientDirectory({
                       />
                     </div>
 
+                    {/* Rule 4: Neighborhood input field added */}
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-slate-300">Neighborhood / Area</label>
                       <input 
@@ -1105,6 +1358,7 @@ export default function ClientDirectory({
                       />
                     </div>
 
+                    {/* Rule 5: Hosting Availability toggle or dropdown added */}
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-slate-300">Hosting Availability</label>
                       <select 
@@ -1158,23 +1412,21 @@ export default function ClientDirectory({
                     </div>
                   </div>
 
-                  {photoError && <p className="text-red-400 text-xs font-semibold">{photoError}</p>}
-
                   <div className="flex gap-3 pt-4">
                     <button 
                       type="button" 
-                      onClick={() => setProfileStep('photos_step')} 
+                      onClick={() => setProfileStep('photo_step')} 
                       className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition cursor-pointer flex items-center gap-2"
                     >
-                      <ArrowLeft size={14} /> Back to Photos
+                      <ArrowLeft size={14} /> Back to Photo
                     </button>
                     <button 
                       type="submit" 
-                      disabled={isSubmitting} 
+                      disabled={loading} 
                       className="flex-1 py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                     >
-                      {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                      {isSubmitting ? 'Publishing Profile...' : 'Publish Profile & Listing'}
+                      {loading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                      {loading ? 'Publishing Profile...' : 'Publish Profile & Listing'}
                     </button>
                   </div>
                 </form>
@@ -1189,14 +1441,14 @@ export default function ClientDirectory({
                   <div className="space-y-2 max-w-md mx-auto">
                     <h3 className="text-xl font-extrabold text-white">Profile Successfully Published!</h3>
                     <p className="text-xs text-slate-400 leading-relaxed">
-                      Your verified profile with multi-photo support has been submitted to the catalog and is pending final administrator review.
+                      Your verified profile with privacy watermark protection has been submitted to the catalog and is pending final administrator review.
                     </p>
                   </div>
                   <button 
                     onClick={resetDirectoryForm}
                     className="px-6 py-3 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded-xl text-xs shadow-lg transition cursor-pointer"
                   >
-                    Post Another Advert
+                    Edit / Update Profile
                   </button>
                 </div>
               )}
@@ -1339,6 +1591,11 @@ export default function ClientDirectory({
                       {/* Render Full Post Details if Available */}
                       {h.details ? (
                         <div className="flex flex-col sm:flex-row gap-4 items-start">
+                          {h.details.photo && (
+                            <div className="w-20 h-20 rounded-xl overflow-hidden border border-slate-700 shrink-0 bg-slate-950">
+                              <img src={h.details.photo} alt="Preview" className="w-full h-full object-cover" />
+                            </div>
+                          )}
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 flex-1 w-full text-xs">
                             <div className="p-2.5 bg-slate-950/60 rounded-xl border border-slate-800">
                               <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold block">Alias / Name</span>
@@ -1366,12 +1623,6 @@ export default function ClientDirectory({
                               <div className="p-2.5 bg-slate-950/60 rounded-xl border border-slate-800">
                                 <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold block">Hosting</span>
                                 <span className="font-extrabold text-white">{h.details.hosting}</span>
-                              </div>
-                            )}
-                            {h.details.photosCount && (
-                              <div className="p-2.5 bg-slate-950/60 rounded-xl border border-slate-800">
-                                <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold block">Photos Count</span>
-                                <span className="font-extrabold text-pink-400">{h.details.photosCount} files</span>
                               </div>
                             )}
                             {h.details.bio && (
