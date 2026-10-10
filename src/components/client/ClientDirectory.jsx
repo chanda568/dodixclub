@@ -36,10 +36,9 @@ export default function ClientDirectory({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProfile, setSelectedProfile] = useState(null);
 
-  const [allUsers, setAllUsers] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
 
-  // Multi-step Companion Form Wizard State ('photos_step' | 'masking_step' | 'details_step' | 'success_step')
+  // Multi-step Companion Form Wizard State
   const [profileStep, setProfileStep] = useState('photos_step');
 
   // Multi-photo state management (Min 2, Max 5 pictures)
@@ -163,35 +162,34 @@ export default function ClientDirectory({
     setErrorMessage('');
   };
 
-  const handleLogoUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setCustomLogo(event.target.result);
-        setStickerType('logo');
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleStickerMouseDown = (e) => {
-    e.preventDefault();
+  // Sticker dragging handlers supporting both Mouse and Touch events for mobile compatibility
+  const handleStickerStart = (clientX, clientY) => {
     setIsDraggingSticker(true);
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
     setDragOffset({
-      x: (e.clientX - rect.left) - stickerPos.x,
-      y: (e.clientY - rect.top) - stickerPos.y
+      x: (clientX - rect.left) - stickerPos.x,
+      y: (clientY - rect.top) - stickerPos.y
     });
   };
 
-  const handleMouseMove = (e) => {
+  const handleStickerMouseDown = (e) => {
+    e.preventDefault();
+    handleStickerStart(e.clientX, e.clientY);
+  };
+
+  const handleStickerTouchStart = (e) => {
+    if (e.touches && e.touches[0]) {
+      handleStickerStart(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  };
+
+  const handleMove = (clientX, clientY) => {
     if (!isDraggingSticker || !containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
     
-    let newX = (e.clientX - rect.left) - dragOffset.x;
-    let newY = (e.clientY - rect.top) - dragOffset.y;
+    let newX = (clientX - rect.left) - dragOffset.x;
+    let newY = (clientY - rect.top) - dragOffset.y;
 
     const maxX = rect.width - stickerSize;
     const maxY = rect.height - stickerSize;
@@ -202,18 +200,32 @@ export default function ClientDirectory({
     setStickerPos({ x: newX, y: newY });
   };
 
-  const handleMouseUp = () => {
+  const handleMouseMove = (e) => {
+    handleMove(e.clientX, e.clientY);
+  };
+
+  const handleTouchMove = (e) => {
+    if (e.touches && e.touches[0]) {
+      handleMove(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  };
+
+  const handleEnd = () => {
     setIsDraggingSticker(false);
   };
 
   useEffect(() => {
     if (isDraggingSticker) {
       window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('mouseup', handleEnd);
+      window.addEventListener('touchmove', handleTouchMove, { passive: false });
+      window.addEventListener('touchend', handleEnd);
     }
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('mouseup', handleEnd);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleEnd);
     };
   }, [isDraggingSticker, dragOffset, stickerSize]);
 
@@ -355,18 +367,7 @@ export default function ClientDirectory({
       const newHistoryItem = {
         id: Date.now(),
         action: 'Submitted Advertisement (Multi-Photo Masked)',
-        details: {
-          name: newAdData.name,
-          category: newAdData.category,
-          location: newAdData.location,
-          neighborhood: newAdData.neighborhood,
-          hosting: newAdData.hosting,
-          rate: newAdData.rate,
-          phone: newAdData.phone,
-          bio: newAdData.bio,
-          photosCount: maskedPhotos.length,
-          photo: maskedPhotos[0]
-        },
+        details: payload,
         timestamp: new Date().toISOString(),
         status: 'Pending Admin Approval'
       };
@@ -1075,13 +1076,18 @@ export default function ClientDirectory({
                       </div>
                     </div>
                     <div className="bg-slate-900/30 p-6 rounded-2xl border border-slate-800 flex flex-col items-center justify-center">
-                      <div ref={containerRef} className="relative inline-block overflow-hidden rounded-2xl border border-slate-800 shadow-xl select-none">
+                      <div ref={containerRef} className="relative inline-block overflow-hidden rounded-2xl border border-slate-800 shadow-xl select-none touch-none">
                         <img src={URL.createObjectURL(selectedFiles[currentMaskIndex])} alt="Mask" className="max-h-[300px] object-contain pointer-events-none" />
-                        <div onMouseDown={handleStickerMouseDown} style={{ position: 'absolute', left: `${stickerPos.x}px`, top: `${stickerPos.y}px`, width: `${stickerSize}px`, height: `${stickerSize}px`, cursor: 'move' }} className="flex items-center justify-center z-20">
-                          {stickerType === 'emoji' ? <span className="text-4xl">{selectedEmoji}</span> : <img src={customLogo} alt="Logo" className="w-full h-full object-contain" />}
+                        <div 
+                          onMouseDown={handleStickerMouseDown}
+                          onTouchStart={handleStickerTouchStart}
+                          style={{ position: 'absolute', left: `${stickerPos.x}px`, top: `${stickerPos.y}px`, width: `${stickerSize}px`, height: `${stickerSize}px`, cursor: 'move' }} 
+                          className="flex items-center justify-center z-20 touch-none"
+                        >
+                          {stickerType === 'emoji' ? <span className="text-4xl">{selectedEmoji}</span> : <img src={customLogo} alt="Logo" className="w-full h-full object-contain pointer-events-none" />}
                         </div>
                       </div>
-                      <button type="button" onClick={handleSaveMaskAndNext} className="w-full mt-4 py-3 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded-xl text-xs shadow-lg transition">
+                      <button type="button" onClick={handleSaveMaskAndNext} className="w-full mt-4 py-3 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded-xl text-xs shadow-lg transition cursor-pointer">
                         {currentMaskIndex + 1 < selectedFiles.length ? 'Save Watermark & Next Photo' : 'Save & Proceed to Details'}
                       </button>
                     </div>
