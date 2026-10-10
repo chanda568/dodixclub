@@ -13,6 +13,12 @@ export default function CompanionModal({ companion, onClose, onSavePrice, onAppr
     ? companion.photos 
     : (companion?.photo || companion?.photoUrl ? [companion.photo || companion.photoUrl] : []);
 
+  const unmaskedPhotosArray = companion?.originalPhotos && companion.originalPhotos.length > 0
+    ? companion.originalPhotos
+    : (companion?.unmaskedPhotos && companion.unmaskedPhotos.length > 0
+      ? companion.unmaskedPhotos
+      : (companion?.originalPhoto || companion?.unmaskedPhoto ? [companion.originalPhoto || companion.unmaskedPhoto] : photosArray));
+
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   
   // Fullscreen Image Viewer State
@@ -53,10 +59,11 @@ export default function CompanionModal({ companion, onClose, onSavePrice, onAppr
   };
 
   const currentActivePhoto = photosArray[selectedPhotoIndex] || companion?.photo || companion?.photoUrl;
+  const currentUnmaskedPhoto = unmaskedPhotosArray[selectedPhotoIndex] || unmaskedPhotosArray[0] || currentActivePhoto;
   
   const rawPhoto = isFaceRevealed 
-    ? (companion.originalPhoto || companion.unmaskedPhoto || currentActivePhoto)
-    : (currentActivePhoto || companion.maskedPhoto);
+    ? (currentUnmaskedPhoto || companion.originalPhoto || companion.unmaskedPhoto || currentActivePhoto)
+    : (currentActivePhoto || companion.photo || companion.maskedPhoto);
 
   const displayName = (!companion.name || companion.name.toLowerCase() === 'female') 
     ? (companion.username ? `@${companion.username}` : 'Companion Profile') 
