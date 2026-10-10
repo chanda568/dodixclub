@@ -35,6 +35,7 @@ export default function ClientDirectory({
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProfile, setSelectedProfile] = useState(null);
+  const [activePhotoIdx, setActivePhotoIdx] = useState(0);
 
   const [announcements, setAnnouncements] = useState([]);
 
@@ -516,7 +517,6 @@ export default function ClientDirectory({
             ...(Array.isArray(selectedProfile.photos) ? selectedProfile.photos : [])
           ].filter(Boolean).filter((img, idx, arr) => arr.indexOf(img) === idx);
 
-          const [activePhotoIdx, setActivePhotoIdx] = useState(0);
           const currentDisplayPhoto = allProfilePhotos[activePhotoIdx] || allProfilePhotos[0];
 
           return (
@@ -972,7 +972,10 @@ export default function ClientDirectory({
                   filteredLadies.map((lady) => (
                     <div 
                       key={lady._id || lady.id}
-                      onClick={() => setSelectedProfile(lady)}
+                      onClick={() => {
+                        setActivePhotoIdx(0);
+                        setSelectedProfile(lady);
+                      }}
                       className="bg-[#0b101d] border border-slate-800/80 rounded-3xl overflow-hidden shadow-xl hover:border-pink-500/50 transition cursor-pointer group flex flex-col justify-between"
                     >
                       <div className="relative h-56 bg-slate-950 overflow-hidden">
