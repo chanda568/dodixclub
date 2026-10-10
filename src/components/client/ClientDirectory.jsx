@@ -1,7 +1,7 @@
 // src/components/client/ClientDirectory.jsx
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-  LogOut, MessageSquare, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, RefreshCw, CheckCircle2, Flag, Heart, CreditCard, Settings, Bell, Upload, Loader2, Home, AlertCircle
+  LogOut, MessageSquare, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, Crown, RefreshCw, CheckCircle, CheckCircle2, Flag, Heart, CreditCard, Settings, Bell, Plus, Trash2, Shield, MessageCircle, Loader2, DollarSign, AlertCircle, Save, Phone, Edit3, Sliders, Move, Check, Award, Filter, ArrowRight, ArrowLeft, Upload, Sparkles, FileText, Camera, Home
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import LogoLoader from '../common/LogoLoader';
@@ -19,12 +19,8 @@ export default function ClientDirectory({
   isLoading = false, 
   loadingText = '' 
 }) {
-  const userGender = currentUser?.gender?.toLowerCase() || '';
-  const userRole = currentUser?.role?.toLowerCase() || '';
-  
-  const isFemaleUser = userGender === 'female' || userGender === 'lady' || userRole === 'female' || userRole === 'companion';
-  const isAdminUser = userRole === 'admin' || currentUser?.username?.toLowerCase() === 'admin';
-  const isMaleUser = !isFemaleUser && !isAdminUser;
+  const isFemaleUser = currentUser?.gender?.toLowerCase() === 'female' || currentUser?.gender?.toLowerCase() === 'lady';
+  const isAdminUser = currentUser?.role === 'admin' || currentUser?.username?.toLowerCase() === 'admin';
   
   const [activeTab, setActiveTab] = useState('home'); 
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -40,9 +36,10 @@ export default function ClientDirectory({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProfile, setSelectedProfile] = useState(null);
 
+  const [allUsers, setAllUsers] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
 
-  // Multi-step Companion Form Wizard State
+  // Multi-step Companion Form Wizard State ('photos_step' | 'masking_step' | 'details_step' | 'success_step')
   const [profileStep, setProfileStep] = useState('photos_step');
 
   // Multi-photo state management (Min 2, Max 5 pictures)
@@ -164,6 +161,18 @@ export default function ClientDirectory({
   const removeFileAtIndex = (indexToRemove) => {
     setSelectedFiles(selectedFiles.filter((_, index) => index !== indexToRemove));
     setErrorMessage('');
+  };
+
+  const handleLogoUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setCustomLogo(event.target.result);
+        setStickerType('logo');
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleStickerMouseDown = (e) => {
@@ -339,13 +348,25 @@ export default function ClientDirectory({
       }
 
       fetchBackendLadies();
+
       setSuccessMessage('Advert with all masked photos published successfully!');
       setProfileStep('success_step');
 
       const newHistoryItem = {
         id: Date.now(),
         action: 'Submitted Advertisement (Multi-Photo Masked)',
-        details: payload,
+        details: {
+          name: newAdData.name,
+          category: newAdData.category,
+          location: newAdData.location,
+          neighborhood: newAdData.neighborhood,
+          hosting: newAdData.hosting,
+          rate: newAdData.rate,
+          phone: newAdData.phone,
+          bio: newAdData.bio,
+          photosCount: maskedPhotos.length,
+          photo: maskedPhotos[0]
+        },
         timestamp: new Date().toISOString(),
         status: 'Pending Admin Approval'
       };
@@ -415,6 +436,7 @@ export default function ClientDirectory({
 
   if (!currentUser) return null;
 
+  const isMaleUser = !isFemaleUser && !isAdminUser;
   const isPendingActivation = isMaleUser && currentUser?.activated === false;
   const wasEverActivated = currentUser?.wasActivatedBefore === true;
 
@@ -855,14 +877,7 @@ export default function ClientDirectory({
         </aside>
 
         <main className="flex-1 space-y-6">
-          {activeTab === 'home' && (
-            <HomeDashboard 
-              user={currentUser} 
-              isFemaleUser={isFemaleUser}
-              announcements={announcements} 
-              onNavigate={setActiveTab} 
-            />
-          )}
+          {activeTab === 'home' && <HomeDashboard user={currentUser} onNavigate={setActiveTab} />}
 
           {activeTab === 'directory' && !isFemaleUser && !isAdminUser && (
             <div className="space-y-6 animate-fadeIn">
