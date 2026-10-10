@@ -506,86 +506,127 @@ export default function ClientDirectory({
       <canvas ref={canvasRef} className="hidden" />
       {isLoading && <LogoLoader text={loadingText} />}
 
-      {/* PROFILE DETAIL MODAL */}
+      {/* PROFILE DETAIL MODAL WITH IMAGE VIEWER */}
       <AnimatePresence>
-        {selectedProfile && !isFemaleUser && !isAdminUser && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="max-w-lg w-full bg-[#0b101d] border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 relative overflow-hidden"
-            >
-              <button 
-                onClick={() => setSelectedProfile(null)}
-                className="absolute top-6 right-6 p-2 text-slate-400 hover:text-white rounded-xl bg-slate-900 border border-slate-800 transition cursor-pointer z-10"
-              >
-                <X size={20} />
-              </button>
+        {selectedProfile && !isFemaleUser && !isAdminUser && (() => {
+          const allProfilePhotos = [
+            selectedProfile.photo,
+            selectedProfile.photoUrl,
+            ...(Array.isArray(selectedProfile.photos) ? selectedProfile.photos : [])
+          ].filter(Boolean).filter((img, idx, arr) => arr.indexOf(img) === idx);
 
-              <div className="flex items-center gap-4">
-                <div className="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-pink-500/40 shadow-lg shrink-0 bg-slate-950">
-                  <img src={selectedProfile.photo || selectedProfile.photoUrl || (selectedProfile.photos && selectedProfile.photos[0])} alt={selectedProfile.name} className="w-full h-full object-cover" />
+          const [activePhotoIdx, setActivePhotoIdx] = useState(0);
+          const currentDisplayPhoto = allProfilePhotos[activePhotoIdx] || allProfilePhotos[0];
+
+          return (
+            <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
+              <motion.div 
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="max-w-xl w-full bg-[#0b101d] border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 relative overflow-hidden my-auto"
+              >
+                <button 
+                  onClick={() => setSelectedProfile(null)}
+                  className="absolute top-6 right-6 p-2 text-slate-400 hover:text-white rounded-xl bg-slate-900 border border-slate-800 transition cursor-pointer z-20"
+                >
+                  <X size={20} />
+                </button>
+
+                {/* Main Photo Viewer Display */}
+                <div className="relative w-full h-72 sm:h-80 rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 shadow-inner flex items-center justify-center">
+                  <img 
+                    src={currentDisplayPhoto} 
+                    alt={selectedProfile.name} 
+                    className="w-full h-full object-contain" 
+                  />
+                  
+                  {allProfilePhotos.length > 1 && (
+                    <>
+                      <button 
+                        onClick={() => setActivePhotoIdx(prev => (prev === 0 ? allProfilePhotos.length - 1 : prev - 1))}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 p-2 bg-black/60 hover:bg-black/90 text-white rounded-full border border-white/10 transition cursor-pointer"
+                      >
+                        <ArrowLeft size={16} />
+                      </button>
+                      <button 
+                        onClick={() => setActivePhotoIdx(prev => (prev === allProfilePhotos.length - 1 ? 0 : prev + 1))}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-black/60 hover:bg-black/90 text-white rounded-full border border-white/10 transition cursor-pointer"
+                      >
+                        <ArrowRight size={16} />
+                      </button>
+                      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/70 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold text-slate-200 border border-white/10">
+                        Photo {activePhotoIdx + 1} of {allProfilePhotos.length}
+                      </div>
+                    </>
+                  )}
                 </div>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-xl font-extrabold text-white">{selectedProfile.name}</h3>
-                    <span className="bg-emerald-500/90 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
-                      <ShieldCheck size={11} /> VERIFIED FEMALE
-                    </span>
+
+                {/* Thumbnail Selector Strip */}
+                {allProfilePhotos.length > 1 && (
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {allProfilePhotos.map((p, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setActivePhotoIdx(idx)}
+                        className={`w-14 h-14 rounded-xl overflow-hidden border-2 shrink-0 bg-slate-950 transition cursor-pointer ${activePhotoIdx === idx ? 'border-pink-500 scale-105' : 'border-slate-800 opacity-60 hover:opacity-100'}`}
+                      >
+                        <img src={p} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Profile Details Header */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-xl font-extrabold text-white">{selectedProfile.name}</h3>
+                      <span className="bg-emerald-500/90 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
+                        <ShieldCheck size={11} /> VERIFIED
+                      </span>
+                    </div>
+                    <span className="text-sm font-extrabold text-emerald-400">ZMW {selectedProfile.price || selectedProfile.rate}</span>
                   </div>
                   <p className="text-xs text-pink-400 font-semibold uppercase tracking-wider">{selectedProfile.category || 'VIP'} Companion</p>
                   <p className="text-xs text-slate-400 flex items-center gap-1">
                     <MapPin size={14} className="text-pink-500" /> {selectedProfile.neighborhood ? `${selectedProfile.neighborhood}, ` : ''}{selectedProfile.location}
                   </p>
                 </div>
-              </div>
 
-              {selectedProfile.photos && selectedProfile.photos.length > 1 && (
-                <div className="space-y-1.5">
-                  <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block">Gallery ({selectedProfile.photos.length} Photos)</span>
-                  <div className="flex gap-2 overflow-x-auto pb-1">
-                    {selectedProfile.photos.map((p, idx) => (
-                      <div key={idx} className="w-16 h-16 rounded-xl overflow-hidden border border-slate-800 shrink-0 bg-slate-950">
-                        <img src={p} alt={`Gallery ${idx + 1}`} className="w-full h-full object-cover" />
-                      </div>
-                    ))}
+                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800/80">
+                  <div className="p-3 bg-slate-900 border border-slate-800/80 rounded-2xl">
+                    <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block">Hosting Available</span>
+                    <span className="text-sm font-extrabold text-slate-200">{selectedProfile.hosting || 'Yes'}</span>
+                  </div>
+                  <div className="p-3 bg-slate-900 border border-slate-800/80 rounded-2xl">
+                    <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block">Total Photos</span>
+                    <span className="text-sm font-extrabold text-pink-400">{allProfilePhotos.length} Pictures</span>
                   </div>
                 </div>
-              )}
 
-              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800/80">
-                <div className="p-3 bg-slate-900 border border-slate-800/80 rounded-2xl">
-                  <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block">Rate / Price</span>
-                  <span className="text-sm font-extrabold text-emerald-400">ZMW {selectedProfile.price || selectedProfile.rate}</span>
-                </div>
-                <div className="p-3 bg-slate-900 border border-slate-800/80 rounded-2xl">
-                  <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block">Hosting Available</span>
-                  <span className="text-sm font-extrabold text-slate-200">{selectedProfile.hosting || 'Yes'}</span>
-                </div>
-              </div>
+                {(selectedProfile.extraServices || selectedProfile.bio) && (
+                  <div className="space-y-1.5 p-4 bg-slate-900/60 border border-slate-800 rounded-2xl">
+                    <span className="text-xs font-bold text-slate-300">Services & Preferences</span>
+                    <p className="text-xs text-slate-400 leading-relaxed">{selectedProfile.extraServices || selectedProfile.bio}</p>
+                  </div>
+                )}
 
-              {(selectedProfile.extraServices || selectedProfile.bio) && (
-                <div className="space-y-1.5 p-4 bg-slate-900/60 border border-slate-800 rounded-2xl">
-                  <span className="text-xs font-bold text-slate-300">Services & Preferences</span>
-                  <p className="text-xs text-slate-400 leading-relaxed">{selectedProfile.extraServices || selectedProfile.bio}</p>
+                <div className="grid grid-cols-1 gap-3 pt-2">
+                  <button 
+                    onClick={() => {
+                      setSelectedProfile(null);
+                      handleOpenWhatsApp(selectedProfile);
+                    }}
+                    className="py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
+                  >
+                    <MessageSquare size={16} /> Contact via WhatsApp
+                  </button>
                 </div>
-              )}
-
-              <div className="grid grid-cols-1 gap-3 pt-2">
-                <button 
-                  onClick={() => {
-                    setSelectedProfile(null);
-                    handleOpenWhatsApp(selectedProfile);
-                  }}
-                  className="py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
-                >
-                  <MessageSquare size={16} /> Contact via WhatsApp
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
+              </motion.div>
+            </div>
+          );
+        })()}
       </AnimatePresence>
 
       {/* REPORT MODAL */}
@@ -877,7 +918,14 @@ export default function ClientDirectory({
         </aside>
 
         <main className="flex-1 space-y-6">
-          {activeTab === 'home' && <HomeDashboard user={currentUser} onNavigate={setActiveTab} />}
+          {activeTab === 'home' && (
+            <HomeDashboard 
+              user={currentUser} 
+              isFemaleUser={isFemaleUser}
+              announcements={announcements} 
+              onNavigate={setActiveTab} 
+            />
+          )}
 
           {activeTab === 'directory' && !isFemaleUser && !isAdminUser && (
             <div className="space-y-6 animate-fadeIn">
