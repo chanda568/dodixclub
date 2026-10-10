@@ -1,9 +1,8 @@
 // src/components/client/HomeDashboard.jsx
 import React from 'react';
-import { Sparkles, Megaphone, ShieldCheck, ArrowRight, Bell, Calendar, Award } from 'lucide-react';
+import { Sparkles, Megaphone, ShieldCheck, ArrowRight, Bell, Calendar, Award, Compass, Heart } from 'lucide-react';
 
-export default function HomeDashboard({ user, announcements = [], onNavigate }) {
-  // Fallback announcements if none are passed from props
+export default function HomeDashboard({ user, isFemaleUser, announcements = [], onNavigate }) {
   const defaultAnnouncements = [
     {
       id: 1,
@@ -35,20 +34,31 @@ export default function HomeDashboard({ user, announcements = [], onNavigate }) 
               <Sparkles className="w-3.5 h-3.5" /> Welcome to Dodix Club Portal
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              Hello, {user?.username ? `@${user.username}` : 'Companion Partner'}! 👋
+              Hello, {user?.username ? `@${user.username}` : 'Member'}! 👋
             </h1>
             <p className="text-slate-300 text-xs sm:text-sm max-w-xl leading-relaxed">
-              Manage your verified listings, monitor announcement updates, and keep track of your active companion status securely in one place.
+              {isFemaleUser 
+                ? "Manage your verified listings, monitor announcement updates, and keep track of your active companion status securely in one place."
+                : "Explore verified elite companions in your area, manage your subscription tier, and connect securely."}
             </p>
           </div>
           
           <div className="flex flex-wrap gap-3">
-            <button
-              onClick={() => onNavigate && onNavigate('post')}
-              className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs px-5 py-3 rounded-2xl shadow-lg transition-all cursor-pointer"
-            >
-              Post / Edit Advertisement <ArrowRight className="w-4 h-4" />
-            </button>
+            {isFemaleUser ? (
+              <button
+                onClick={() => onNavigate && onNavigate('myprofile')}
+                className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs px-5 py-3 rounded-2xl shadow-lg transition-all cursor-pointer"
+              >
+                Post / Edit Advertisement <ArrowRight className="w-4 h-4" />
+              </button>
+            ) : (
+              <button
+                onClick={() => onNavigate && onNavigate('directory')}
+                className="flex items-center gap-2 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold text-xs px-5 py-3 rounded-2xl shadow-lg transition-all cursor-pointer"
+              >
+                Browse Elite Directory <ArrowRight className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -59,24 +69,42 @@ export default function HomeDashboard({ user, announcements = [], onNavigate }) 
           <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
             <ShieldCheck className="w-5 h-5" />
           </div>
-          <h3 className="text-sm font-bold text-white">Privacy Protected</h3>
-          <p className="text-xs text-slate-400">Built-in masking filters and watermarking keep your private photos secure until unmasked.</p>
+          <h3 className="text-sm font-bold text-white">
+            {isFemaleUser ? 'Privacy Protected' : 'Verified Listings'}
+          </h3>
+          <p className="text-xs text-slate-400">
+            {isFemaleUser 
+              ? 'Built-in masking filters and watermarking keep your private photos secure until unmasked.'
+              : 'All companions on the platform are verified with active location badges and authentic ratings.'}
+          </p>
         </div>
 
         <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-5 space-y-2">
           <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
-            <Award className="w-5 h-5" />
+            {isFemaleUser ? <Award className="w-5 h-5" /> : <Compass className="w-5 h-5" />}
           </div>
-          <h3 className="text-sm font-bold text-white">Tier Management</h3>
-          <p className="text-xs text-slate-400">Seamlessly categorize listings into Standard, VIP, or custom tiers with ZMW pricing.</p>
+          <h3 className="text-sm font-bold text-white">
+            {isFemaleUser ? 'Tier Management' : 'Elite Discovery'}
+          </h3>
+          <p className="text-xs text-slate-400">
+            {isFemaleUser 
+              ? 'Seamlessly categorize listings into Standard, VIP, or custom tiers with ZMW pricing.'
+              : 'Filter top-tier companions instantly by category, neighborhood, and hosting availability.'}
+          </p>
         </div>
 
         <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-5 space-y-2">
           <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
-            <Bell className="w-5 h-5" />
+            {isFemaleUser ? <Bell className="w-5 h-5" /> : <Heart className="w-5 h-5" />}
           </div>
-          <h3 className="text-sm font-bold text-white">Real-Time Support</h3>
-          <p className="text-xs text-slate-400">Direct connection to administrators for prompt post review and moderation assistance.</p>
+          <h3 className="text-sm font-bold text-white">
+            {isFemaleUser ? 'Real-Time Support' : 'Secure Bookings'}
+          </h3>
+          <p className="text-xs text-slate-400">
+            {isFemaleUser 
+              ? 'Direct connection to administrators for prompt post review and moderation assistance.'
+              : 'Connect directly via secure channels with instant support and verified contact routing.'}
+          </p>
         </div>
       </div>
 
@@ -107,7 +135,7 @@ export default function HomeDashboard({ user, announcements = [], onNavigate }) 
                 {item.title}
               </h3>
               <p className="text-xs text-slate-300 leading-relaxed">
-                {item.content}
+                {item.text || item.content}
               </p>
             </div>
           ))}
