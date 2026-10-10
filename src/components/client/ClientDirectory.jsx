@@ -74,10 +74,9 @@ export default function ClientDirectory({
     neighborhood: currentUser.neighborhood || '', 
     hosting: currentUser.hosting || 'Yes', 
     phone: currentUser.phone || '',
+    age: currentUser.age || '',
     rate: currentUser.rate || '',
-    bio: currentUser.bio || '',
-    department: currentUser.department || '',
-    title: currentUser.title || 'Elite Companion'
+    bio: currentUser.bio || ''
   });
 
   const [profileHistory, setProfileHistory] = useState(() => {
@@ -163,7 +162,6 @@ export default function ClientDirectory({
     setErrorMessage('');
   };
 
-  // Sticker dragging handlers supporting both Mouse and Touch events for mobile compatibility
   const handleStickerStart = (clientX, clientY) => {
     setIsDraggingSticker(true);
     if (!containerRef.current) return;
@@ -334,8 +332,8 @@ export default function ClientDirectory({
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
-    if (!newAdData.name.trim() || !newAdData.category || !newAdData.rate) {
-      alert("Please fill in your name, select a category, and provide your rate.");
+    if (!newAdData.name.trim() || !newAdData.category || !newAdData.rate || !newAdData.neighborhood.trim() || !newAdData.age || !newAdData.phone.trim() || !newAdData.hosting) {
+      alert("Please fill in all compulsory fields: Name, Category, Rate, Neighborhood, Age, WhatsApp Phone, and Hosting.");
       return;
     }
 
@@ -356,6 +354,7 @@ export default function ClientDirectory({
         neighborhood: newAdData.neighborhood,
         hosting: newAdData.hosting,
         phone: newAdData.phone,
+        age: newAdData.age,
         price: newAdData.rate,
         extraServices: newAdData.bio,
         photo: maskedPhotos[0],
@@ -599,7 +598,7 @@ export default function ClientDirectory({
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <h3 className="text-xl font-extrabold text-white">{selectedProfile.name}</h3>
+                      <h3 className="text-xl font-extrabold text-white">{selectedProfile.name} {selectedProfile.age ? `, ${selectedProfile.age}` : ''}</h3>
                       <span className="bg-emerald-500/90 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
                         <ShieldCheck size={11} /> VERIFIED
                       </span>
@@ -1009,7 +1008,7 @@ export default function ClientDirectory({
                       <div className="p-5 space-y-4 flex-1 flex flex-col justify-between">
                         <div className="space-y-1">
                           <div className="flex items-center justify-between">
-                            <h3 className="text-base font-extrabold text-white">{lady.name}</h3>
+                            <h3 className="text-base font-extrabold text-white">{lady.name} {lady.age ? `, ${lady.age}` : ''}</h3>
                             <span className="text-sm font-black text-emerald-400">ZMW {lady.price || lady.rate}</span>
                           </div>
                           <p className="text-xs text-slate-400 flex items-center gap-1">
@@ -1118,16 +1117,54 @@ export default function ClientDirectory({
               {profileStep === 'details_step' && (
                 <form onSubmit={handleFormSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <input type="text" name="name" value={newAdData.name} onChange={handleInputChange} placeholder="Name" className="px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white" required />
-                    <select name="category" value={newAdData.category} onChange={handleInputChange} className="px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white" required>
-                      <option value="" disabled>-- Select Category --</option>
-                      <option value="VIP">VIP</option>
-                      <option value="Elite">Elite</option>
-                      <option value="Standard">Standard</option>
-                    </select>
-                    <input type="text" name="rate" value={newAdData.rate} onChange={handleInputChange} placeholder="Rate (ZMW)" className="px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white" required />
-                    <input type="text" name="phone" value={newAdData.phone} onChange={handleInputChange} placeholder="WhatsApp Phone" className="px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white" required />
-                    <textarea name="bio" rows="3" value={newAdData.bio} onChange={handleInputChange} placeholder="Bio / Services..." className="sm:col-span-2 p-4 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white resize-none" />
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Full Name *</label>
+                      <input type="text" name="name" value={newAdData.name} onChange={handleInputChange} placeholder="Enter your name" className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white" required />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Category *</label>
+                      <select name="category" value={newAdData.category} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white" required>
+                        <option value="" disabled>-- Select Category --</option>
+                        <option value="VIP">VIP</option>
+                        <option value="Elite">Elite</option>
+                        <option value="Standard">Standard</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Age *</label>
+                      <input type="number" name="age" value={newAdData.age} onChange={handleInputChange} placeholder="Enter age" min="18" max="70" className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white" required />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Neighborhood *</label>
+                      <input type="text" name="neighborhood" value={newAdData.neighborhood} onChange={handleInputChange} placeholder="e.g. Woodlands, Kabulonga" className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white" required />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Rate (ZMW) *</label>
+                      <input type="text" name="rate" value={newAdData.rate} onChange={handleInputChange} placeholder="Rate / Price" className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white" required />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">WhatsApp Phone (Prefilled) *</label>
+                      <input type="text" name="phone" value={newAdData.phone} onChange={handleInputChange} placeholder="WhatsApp Phone Number" className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white" required />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Hosting Ability *</label>
+                      <select name="hosting" value={newAdData.hosting} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white" required>
+                        <option value="Yes">Yes (Hosting Available)</option>
+                        <option value="No">No (Outcall Only)</option>
+                        <option value="Both">Both (Hosting & Outcall)</option>
+                      </select>
+                    </div>
+
+                    <div className="sm:col-span-2 space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Bio / Services</label>
+                      <textarea name="bio" rows="3" value={newAdData.bio} onChange={handleInputChange} placeholder="Bio / Services..." className="w-full p-4 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white resize-none" />
+                    </div>
                   </div>
                   <button type="submit" disabled={loading} className="w-full py-3 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded-xl text-xs shadow-lg transition">
                     {loading ? 'Publishing...' : 'Publish Profile & All Photos'}
