@@ -1,12 +1,19 @@
 // src/components/admin/CompanionModal.jsx
 import React, { useState } from 'react';
-import { X, Eye, EyeOff, Check, User, CheckCircle2, XCircle, Maximize2, ZoomIn, ZoomOut, RotateCcw, Tag } from 'lucide-react';
+import { X, Eye, EyeOff, Check, User, CheckCircle2, XCircle, Maximize2, ZoomIn, ZoomOut, RotateCcw, Tag, ImageIcon } from 'lucide-react';
 
 export default function CompanionModal({ companion, onClose, onSavePrice, onApprove, onReject, onSaveCategory }) {
   const [isFaceRevealed, setIsFaceRevealed] = useState(false);
   const [price, setPrice] = useState(companion?.price || '');
   const [category, setCategory] = useState(companion?.category || '');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Multi-photo gallery state selection
+  const photosArray = companion?.photos && companion.photos.length > 0 
+    ? companion.photos 
+    : (companion?.photo || companion?.photoUrl ? [companion.photo || companion.photoUrl] : []);
+
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   
   // Fullscreen Image Viewer State
   const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
@@ -45,9 +52,11 @@ export default function CompanionModal({ companion, onClose, onSavePrice, onAppr
     }
   };
 
+  const currentActivePhoto = photosArray[selectedPhotoIndex] || companion?.photo || companion?.photoUrl;
+  
   const rawPhoto = isFaceRevealed 
-    ? (companion.originalPhoto || companion.unmaskedPhoto || companion.photo)
-    : (companion.maskedPhoto || companion.photo || companion.originalPhoto);
+    ? (companion.originalPhoto || companion.unmaskedPhoto || currentActivePhoto)
+    : (currentActivePhoto || companion.maskedPhoto);
 
   const displayName = (!companion.name || companion.name.toLowerCase() === 'female') 
     ? (companion.username ? `@${companion.username}` : 'Companion Profile') 
@@ -117,10 +126,12 @@ export default function CompanionModal({ companion, onClose, onSavePrice, onAppr
           {/* Modal Body */}
           <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
             
-            {/* Photo & Privacy Mode Toggle */}
+            {/* Multi-Photo Gallery & Privacy Mode Toggle */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-slate-300">Profile Photo & Privacy Mode</label>
+                <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                  <ImageIcon size={14} className="text-pink-400" /> Gallery Photos ({photosArray.length})
+                </label>
                 <button
                   type="button"
                   onClick={() => setIsFaceRevealed(!isFaceRevealed)}
@@ -135,11 +146,12 @@ export default function CompanionModal({ companion, onClose, onSavePrice, onAppr
                 </button>
               </div>
 
-              <div className="relative aspect-square w-48 mx-auto rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 shadow-inner flex items-center justify-center group">
+              {/* Main Active Photo Preview */}
+              <div className="relative aspect-square w-56 mx-auto rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 shadow-inner flex items-center justify-center group">
                 {rawPhoto ? (
                   <>
                     <img 
-                      key={isFaceRevealed ? 'unmasked' : 'masked'}
+                      key={`${selectedPhotoIndex}-${isFaceRevealed ? 'unmasked' : 'masked'}`}
                       src={rawPhoto} 
                       alt={displayName}
                       className="w-full h-full object-contain object-center absolute inset-0 transition-opacity duration-150"
@@ -162,6 +174,25 @@ export default function CompanionModal({ companion, onClose, onSavePrice, onAppr
                   </div>
                 )}
               </div>
+
+              {/* Thumbnails Row for Admin Gallery Inspection */}
+              {photosArray.length > 1 && (
+                <div className="space-y-1.5 pt-1">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block text-center">Select photo to inspect:</span>
+                  <div className="flex justify-center gap-2 overflow-x-auto pb-1">
+                    {photosArray.map((pUrl, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setSelectedPhotoIndex(idx)}
+                        className={`relative w-16 h-16 rounded-xl overflow-hidden border-2 shrink-0 transition cursor-pointer bg-slate-950 ${selectedPhotoIndex === idx ? 'border-pink-500 scale-105 shadow-md' : 'border-slate-800 opacity-60 hover:opacity-100'}`}
+                      >
+                        <img src={pUrl} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Comprehensive Submission Details */}
@@ -299,7 +330,7 @@ export default function CompanionModal({ companion, onClose, onSavePrice, onAppr
           <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-6 py-4 bg-black/60 backdrop-blur-md z-10 border-b border-white/10">
             <div className="text-white text-xs font-bold flex items-center gap-2">
               <span>{displayName}</span>
-              <span className="text-slate-400 font-normal">({isFaceRevealed ? 'Unmasked' : 'Masked'})</span>
+              <span className="text-slate-400 font-normal">(Photo {selectedPhotoIndex + 1} of {photosArray.length} - {isFaceRevealed ? 'Unmasked' : 'Masked'})</span>
             </div>
             
             <div className="flex items-center gap-2 bg-slate-900/80 border border-slate-700 px-3 py-1.5 rounded-2xl">
