@@ -103,7 +103,7 @@ const companionSchema = new mongoose.Schema({
   specificLocation: { type: String, default: '' },
   phone: { type: String, required: true },
   photo: { type: String, default: '' },
-  photos: [{ type: String }], // Multi-photo gallery array
+  photos: [{ type: String }],
   originalPhoto: { type: String, default: '' },
   unmaskedPhoto: { type: String, default: '' },
   age: { type: String, default: '23' },
@@ -135,6 +135,7 @@ const messageSchema = new mongoose.Schema({
 const announcementSchema = new mongoose.Schema({
   title: { type: String, required: true },
   text: { type: String, required: true },
+  visibility: { type: String, default: 'all' },
   date: { type: String, default: () => new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) },
   createdAt: { type: Date, default: Date.now }
 }, { bufferCommands: false });
@@ -172,8 +173,8 @@ async function seedDefaultData() {
     const annCount = await Announcement.countDocuments();
     if (annCount === 0) {
       await Announcement.create([
-        { title: 'New Privacy Tool Update', text: 'Automatic watermarking is now active for all uploaded source photographs in Step 1.' },
-        { title: 'Weekend Verification Bonus', text: 'Listings verified before Friday midnight receive priority placement on the main catalog.' }
+        { title: 'New Privacy Tool Update', text: 'Automatic watermarking is now active for all uploaded source photographs in Step 1.', visibility: 'all' },
+        { title: 'Weekend Verification Bonus', text: 'Listings verified before Friday midnight receive priority placement on the main catalog.', visibility: 'female' }
       ]);
       console.log('[Database] Seeded default announcements into MongoDB.');
     }
@@ -375,7 +376,6 @@ app.post('/api/ladies', async (req, res) => {
     profileData.unmaskedPhoto = await uploadBase64ToS3(profileData.unmaskedPhoto, 'unmasked');
     profileData.verificationVideoUrl = await uploadBase64ToS3(profileData.verificationVideoUrl, 'videos');
 
-    // Process and upload all images in the multi-photo gallery array
     if (Array.isArray(profileData.photos) && profileData.photos.length > 0) {
       profileData.photos = await Promise.all(
         profileData.photos.map(p => uploadBase64ToS3(p, 'photos'))
@@ -483,7 +483,7 @@ app.delete('/api/ladies/:identifier', async (req, res) => {
 // Announcements Endpoints
 app.get('/api/announcements', async (req, res) => {
   try {
-    const announcements = await Announcement.find({}).sort({ createdAt: -1 }).limit(10).lean();
+    const announcements = await Announcement.find({}).sort({ createdAt: -1 }).limit(50).lean();
     res.json({ success: true, announcements });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -492,13 +492,26 @@ app.get('/api/announcements', async (req, res) => {
 
 app.post('/api/announcements', async (req, res) => {
   try {
-    const { title, text } = req.body;
+    const { title, text, visibility } = req.body;
     if (!title || !text) {
       return res.status(400).json({ success: false, error: "Title and text are required." });
     }
-    const newAnnouncement = new Announcement({ title, text });
+    const newAnnouncement = new Announcement({ 
+      title, 
+      text, 
+      visibility: visibility || 'all' 
+    });
     await newAnnouncement.save();
     res.json({ success: true, announcement: newAnnouncement });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/announcements/:id', async (req, res) => {
+  try {
+    await Announcement.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

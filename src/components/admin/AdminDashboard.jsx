@@ -366,10 +366,121 @@ export default function AdminDashboard({
         )}
 
         {activeSubTab === 'announcements' && (
-          <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-2xl text-center py-16 text-slate-400">
-            <Bell size={32} className="mx-auto mb-2 text-pink-500 opacity-60" />
-            <h3 className="text-sm font-bold text-white">Announcements Management</h3>
-            <p className="text-xs text-slate-500 mt-1">Broadcast system alerts and updates to active users.</p>
+          <div className="space-y-6 animate-fadeIn">
+            <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
+              <div>
+                <h3 className="text-base font-extrabold text-white">Broadcast System Announcements</h3>
+                <p className="text-xs text-slate-400">Create alerts and notices visible to all clients and companions.</p>
+              </div>
+
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                const titleInput = e.target.elements.title.value.trim();
+                const textInput = e.target.elements.text.value.trim();
+                const visibilityInput = e.target.elements.visibility.value;
+
+                if (!titleInput || !textInput) {
+                  alert("Please fill in both title and content.");
+                  return;
+                }
+
+                try {
+                  const res = await fetch(`${BACKEND_URL}/api/announcements`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: titleInput, text: textInput, visibility: visibilityInput })
+                  });
+                  const data = await res.json();
+                  if (data.success) {
+                    e.target.reset();
+                    loadBackendData();
+                    alert("Announcement published successfully!");
+                  } else {
+                    alert(data.error || "Failed to publish announcement.");
+                  }
+                } catch (err) {
+                  console.error("Error posting announcement:", err);
+                }
+              }} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">Announcement Title</label>
+                  <input 
+                    type="text" 
+                    name="title" 
+                    placeholder="e.g. Platform Update & Maintenance" 
+                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-pink-500 transition" 
+                    required 
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">Target Visibility</label>
+                  <select 
+                    name="visibility" 
+                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-pink-500 transition font-bold"
+                  >
+                    <option value="all">All Users (Clients & Companions)</option>
+                    <option value="female">Companions Only</option>
+                    <option value="male">Clients Only</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">Announcement Content</label>
+                  <textarea 
+                    name="text" 
+                    rows="3" 
+                    placeholder="Write announcement details here..." 
+                    className="w-full p-4 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-pink-500 transition resize-none" 
+                    required 
+                  />
+                </div>
+
+                <button type="submit" className="py-3 px-6 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded-xl text-xs shadow-lg transition cursor-pointer">
+                  Publish Announcement
+                </button>
+              </form>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-sm font-extrabold text-white px-2">Active Broadcasts ({announcements.length})</h3>
+              {announcements.length === 0 ? (
+                <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-8 text-center text-slate-500 text-xs">
+                  No announcements found.
+                </div>
+              ) : (
+                announcements.map(item => (
+                  <div key={item._id || item.id} className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 shadow-xl flex items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-extrabold text-white">{item.title}</h4>
+                        <span className="text-[10px] bg-pink-600/20 text-pink-400 border border-pink-500/30 px-2 py-0.5 rounded-full font-bold uppercase">
+                          {item.visibility || 'all'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-300 leading-relaxed">{item.text || item.content}</p>
+                      <span className="text-[10px] text-slate-500 block">{item.date || new Date(item.createdAt).toLocaleDateString()}</span>
+                    </div>
+
+                    <button 
+                      onClick={async () => {
+                        if (!confirm("Are you sure you want to delete this announcement?")) return;
+                        try {
+                          const res = await fetch(`${BACKEND_URL}/api/announcements/${item._id || item.id}`, { method: 'DELETE' });
+                          const data = await res.json();
+                          if (data.success) loadBackendData();
+                        } catch (err) {
+                          console.error("Error deleting announcement:", err);
+                        }
+                      }}
+                      className="p-2.5 bg-rose-950/60 hover:bg-rose-900 text-rose-400 border border-rose-800/50 rounded-xl transition cursor-pointer shrink-0"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         )}
 
@@ -394,7 +505,6 @@ export default function AdminDashboard({
           <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 overflow-y-auto">
             <div className="bg-[#0b101d] border border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl space-y-5 relative my-8">
               
-              {/* Header */}
               <div className="flex items-center justify-between pb-4 border-b border-slate-800">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-pink-600/30 to-purple-600/30 border border-pink-500/30 flex items-center justify-center text-pink-400 font-bold">
@@ -413,7 +523,6 @@ export default function AdminDashboard({
                 </button>
               </div>
 
-              {/* Report Monitoring Section */}
               <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex items-center justify-between shadow-inner">
                 <div className="flex items-center gap-3">
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${userReportData.count > 0 ? 'bg-rose-950/80 text-rose-400 border border-rose-800/50' : 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/50'}`}>
@@ -429,7 +538,6 @@ export default function AdminDashboard({
                 </span>
               </div>
 
-              {/* Editable Fields Form */}
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -474,7 +582,6 @@ export default function AdminDashboard({
                   />
                 </div>
 
-                {/* Secure Password Reset Section */}
                 <div className="pt-3 border-t border-slate-800/80">
                   <label className="flex items-center gap-1.5 text-[10px] font-extrabold text-amber-400 mb-1 uppercase tracking-wider">
                     <Key size={12} /> Reset Account Password
@@ -490,7 +597,6 @@ export default function AdminDashboard({
                 </div>
               </div>
 
-              {/* Action Buttons Footer */}
               <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-800">
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                   <button
@@ -528,7 +634,6 @@ export default function AdminDashboard({
           </div>
         )}
 
-        {/* Companion Inspection & Edit Modal */}
         {selectedCompanionModal && (
           <CompanionModal 
             companion={selectedCompanionModal}

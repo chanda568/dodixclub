@@ -8,10 +8,7 @@ import LogoLoader from '../common/LogoLoader';
 import { encryptStorageData, decryptStorageData } from '../../utils/storageEncryption';
 import HomeDashboard from './HomeDashboard';
 
-// Reference brand logo directly from the public folder
 const brandLogo = '/logo.jpg';
-
-// Sanitize BACKEND_URL by removing trailing slashes
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000').replace(/\/+$/, '');
 
 export default function ClientDirectory({ 
@@ -42,29 +39,22 @@ export default function ClientDirectory({
   const [allUsers, setAllUsers] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
 
-  const [newTitle, setNewTitle] = useState('');
-  const [newContent, setNewContent] = useState('');
-  const [newVisibility, setNewVisibility] = useState('all');
-
   // Multi-step Companion Form Wizard State ('photos_step' | 'masking_step' | 'details_step' | 'success_step')
   const [profileStep, setProfileStep] = useState('photos_step');
 
-  // Multi-photo state management (Min 2, Max 5 pictures)[cite: 13]
+  // Multi-photo state management (Min 2, Max 5 pictures)
   const [selectedFiles, setSelectedFiles] = useState([]); 
   const [maskedPhotos, setMaskedPhotos] = useState([]); 
   const [currentMaskIndex, setCurrentMaskIndex] = useState(0); 
 
-  // Advertisement Form State & Privacy Mask Studio States
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Privacy Mask Customization States
-  const [stickerType, setStickerType] = useState('logo'); // 'emoji' | 'logo'
+  const [stickerType, setStickerType] = useState('logo');
   const [selectedEmoji, setSelectedEmoji] = useState('🕶️');
   const [customLogo, setCustomLogo] = useState(brandLogo);
   
-  // Draggable Sticker Interaction States inside Photo Editor
   const [stickerPos, setStickerPos] = useState({ x: 120, y: 120 });
   const [stickerSize, setStickerSize] = useState(80);
   const [isDraggingSticker, setIsDraggingSticker] = useState(false);
@@ -101,16 +91,12 @@ export default function ClientDirectory({
     }
   });
 
-  // 1. Sync Live Listings from Backend
   const fetchBackendLadies = async (isManual = false) => {
     if (isManual) setIsRefreshingCatalog(true);
     try {
       const response = await fetch(`${BACKEND_URL}/api/ladies`);
       const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        console.error("Server returned non-JSON response from /api/ladies");
-        return;
-      }
+      if (!contentType || !contentType.includes("application/json")) return;
       const data = await response.json();
       if (data.success && data.ladies) {
         setLadies(data.ladies);
@@ -124,102 +110,22 @@ export default function ClientDirectory({
     }
   };
 
-  useEffect(() => {
-    fetchBackendLadies();
-  }, [setLadies]);
-
-  // 2. Heartbeat & Last Seen Tracker
-  useEffect(() => {
-    if (!currentUser?.username) return;
-
-    const updateLastSeen = () => {
-      try {
-        const usersDbKey = 'dodix_users_db';
-        const savedUsers = localStorage.getItem(usersDbKey);
-        let usersList = savedUsers ? (decryptStorageData(usersDbKey) || []) : [];
-
-        const nowIso = new Date().toISOString();
-        const userIndex = usersList.findIndex(u => u.username?.toLowerCase() === currentUser.username.toLowerCase());
-
-        if (userIndex !== -1) {
-          const lastTime = new Date(usersList[userIndex].lastSeen || 0).getTime();
-          if (Date.now() - lastTime > 5000) {
-            usersList[userIndex].lastSeen = nowIso;
-            localStorage.setItem(usersDbKey, encryptStorageData(usersList));
-            setAllUsers(usersList);
-          }
-        } else {
-          usersList.push({
-            username: currentUser.username,
-            gender: currentUser.gender || 'Client',
-            role: currentUser.role || 'client',
-            location: currentUser.location || 'Lusaka',
-            createdAt: currentUser.createdAt || nowIso,
-            activated: currentUser.activated ?? true,
-            lastSeen: nowIso
-          });
-          localStorage.setItem(usersDbKey, encryptStorageData(usersList));
-          setAllUsers(usersList);
-        }
-      } catch (err) {
-        console.error("Error updating last seen heartbeat:", err);
-      }
-    };
-
-    updateLastSeen();
-    const interval = setInterval(updateLastSeen, 15000);
-    return () => clearInterval(interval);
-  }, [currentUser?.username]);
-
-  // 3. Load Announcements
-  useEffect(() => {
+  const fetchBackendAnnouncements = async () => {
     try {
-      const savedAnnouncements = localStorage.getItem('dodix_announcements_db');
-      if (savedAnnouncements) {
-        const parsed = decryptStorageData(savedAnnouncements) || [];
-        setAnnouncements(parsed);
-      } else {
-        const defaultAnnouncements = [
-          {
-            id: 1,
-            title: 'General Platform Update',
-            content: 'Welcome to DodixClub! Please ensure your account details and locations are updated for seamless matching.',
-            visibility: 'all',
-            timestamp: new Date().toISOString()
-          }
-        ];
-        setAnnouncements(defaultAnnouncements);
-        localStorage.setItem('dodix_announcements_db', encryptStorageData(defaultAnnouncements));
+      const response = await fetch(`${BACKEND_URL}/api/announcements`);
+      const data = await response.json();
+      if (data.success && Array.isArray(data.announcements)) {
+        setAnnouncements(data.announcements);
       }
     } catch (err) {
-      console.error("Error loading announcements:", err);
+      console.error("Error fetching live announcements:", err);
     }
-  }, []);
-
-  const handleCreateAnnouncement = (e) => {
-    e.preventDefault();
-    if (!newTitle.trim() || !newContent.trim()) {
-      alert("Please provide both a title and content for the announcement.");
-      return;
-    }
-
-    const newAnnouncement = {
-      id: Date.now(),
-      title: newTitle.trim(),
-      content: newContent.trim(),
-      visibility: newVisibility,
-      timestamp: new Date().toISOString()
-    };
-
-    const updated = [newAnnouncement, ...announcements];
-    setAnnouncements(updated);
-    localStorage.setItem('dodix_announcements_db', encryptStorageData(updated));
-
-    setNewTitle('');
-    setNewContent('');
-    setNewVisibility('all');
-    alert("Announcement successfully published!");
   };
+
+  useEffect(() => {
+    fetchBackendLadies();
+    fetchBackendAnnouncements();
+  }, [setLadies]);
 
   const handleContactSupportWhatsApp = () => {
     const adminPhone = "260965039645";
@@ -227,7 +133,6 @@ export default function ClientDirectory({
     window.open(`https://wa.me/${adminPhone}?text=${supportMsg}`, '_blank');
   };
 
-  // 4. Handle Multi-Photo Upload & Validation (Min 2, Max 5)[cite: 13]
   const handleMultiPhotoUpload = (e) => {
     const files = Array.from(e.target.files);
     setErrorMessage('');
@@ -235,7 +140,7 @@ export default function ClientDirectory({
     const totalFiles = [...selectedFiles, ...files];
 
     if (totalFiles.length > 5) {
-      setErrorMessage('You can upload a maximum of 5 pictures per advert[cite: 13].');
+      setErrorMessage('You can upload a maximum of 5 pictures per advert.');
       return;
     }
 
@@ -270,7 +175,6 @@ export default function ClientDirectory({
     }
   };
 
-  // Mouse Drag Handlers for Sticker
   const handleStickerMouseDown = (e) => {
     e.preventDefault();
     setIsDraggingSticker(true);
@@ -313,7 +217,6 @@ export default function ClientDirectory({
     };
   }, [isDraggingSticker, dragOffset, stickerSize]);
 
-  // Flatten Sticker to Canvas for a Specific Image
   const flattenStickerForImage = (imageSrc) => {
     return new Promise((resolve) => {
       if (!imageSrc || !containerRef.current) {
@@ -365,11 +268,10 @@ export default function ClientDirectory({
     });
   };
 
-  // Move from Photo Selection to Masking Studio
   const handleStartMasking = (e) => {
     e.preventDefault();
     if (selectedFiles.length < 2) {
-      setErrorMessage('Please upload a minimum of 2 pictures per advert[cite: 13].');
+      setErrorMessage('Please upload a minimum of 2 pictures per advert.');
       return;
     }
     setErrorMessage('');
@@ -378,7 +280,6 @@ export default function ClientDirectory({
     setProfileStep('masking_step');
   };
 
-  // Save mask for current photo and proceed to next or details
   const handleSaveMaskAndNext = async () => {
     setLoading(true);
     const file = selectedFiles[currentMaskIndex];
@@ -409,7 +310,6 @@ export default function ClientDirectory({
     setNewAdData(prev => ({ ...prev, [name]: value }));
   };
 
-  // Final Form Submission sending all masked photos individually[cite: 13]
   const handleFormSubmit = async (e) => {
     e.preventDefault();
     if (!newAdData.name.trim() || !newAdData.category || !newAdData.rate) {
@@ -432,8 +332,8 @@ export default function ClientDirectory({
         phone: newAdData.phone,
         price: newAdData.rate,
         extraServices: newAdData.bio,
-        photo: maskedPhotos[0], // Primary cover photo
-        photos: maskedPhotos // All individually masked photos[cite: 13]
+        photo: maskedPhotos[0],
+        photos: maskedPhotos
       };
 
       const response = await fetch(`${BACKEND_URL}/api/ladies`, {
@@ -442,21 +342,14 @@ export default function ClientDirectory({
         body: JSON.stringify(payload)
       });
 
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        const text = await response.text();
-        throw new Error(`Server error (${response.status}): ${text.substring(0, 120)}`);
-      }
-
       const data = await response.json();
-
       if (!response.ok || !data.success) {
         throw new Error(data.message || data.error || 'Failed to save profile configuration.');
       }
 
       fetchBackendLadies();
 
-      setSuccessMessage('Advert with all masked photos published successfully[cite: 13]!');
+      setSuccessMessage('Advert with all masked photos published successfully!');
       setProfileStep('success_step');
 
       const newHistoryItem = {
@@ -515,12 +408,6 @@ export default function ClientDirectory({
         })
       });
 
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        alert("Server returned a non-JSON response while submitting report.");
-        return;
-      }
-
       const data = await response.json();
       if (data.success) {
         setReportedUsername('');
@@ -543,7 +430,6 @@ export default function ClientDirectory({
     const message = `Hello ${lady.name}, I found your listing on DodixClub and would like to connect regarding booking availability in ${lady.location}.`;
     
     navigator.clipboard.writeText(message).catch(() => {});
-
     const encodedMessage = encodeURIComponent(message);
     window.open(`https://wa.me/${phoneNum}?text=${encodedMessage}`, '_blank');
   };
@@ -567,7 +453,7 @@ export default function ClientDirectory({
               {wasEverActivated ? 'Account Suspended' : 'Account Pending Activation'}
             </h2>
             <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-              Your account (<span className="text-pink-400 font-semibold">{currentUser.username}</span>) has been successfully created. {wasEverActivated ? 'Your account has been suspended by administration.' : 'Male user accounts require package activation and administrative approval before gaining full access.'}
+              Your account (<span className="text-pink-400 font-semibold">{currentUser.username}</span>) is awaiting activation.
             </p>
           </div>
 
@@ -603,16 +489,12 @@ export default function ClientDirectory({
     const matchesLoc = l.location === userLockedLocation;
     const matchesCat = selectedCategory === 'All' || l.category === selectedCategory;
     const matchesSearch = l.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          (l.neighborhood && l.neighborhood.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                          (l.specificLocation && l.specificLocation.toLowerCase().includes(searchQuery.toLowerCase()));
+                          (l.neighborhood && l.neighborhood.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesLoc && matchesCat && matchesSearch;
   });
 
   const visibleAnnouncements = announcements.filter(item => {
     if (isAdminUser) return true;
-    if (item.targetUsername) {
-      return item.targetUsername === currentUser.username?.toLowerCase();
-    }
     if (item.visibility === 'all') return true;
     if (item.visibility === 'female' && isFemaleUser) return true;
     if (item.visibility === 'male' && isMaleUser) return true;
@@ -659,7 +541,6 @@ export default function ClientDirectory({
                 </div>
               </div>
 
-              {/* Multi-photo gallery thumbnails in modal */}
               {selectedProfile.photos && selectedProfile.photos.length > 1 && (
                 <div className="space-y-1.5">
                   <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block">Gallery ({selectedProfile.photos.length} Photos)</span>
@@ -862,7 +743,7 @@ export default function ClientDirectory({
                     onClick={() => { setActiveTab('news'); setSidebarOpen(false); }}
                     className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'news' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
                   >
-                    <Bell size={16} /> {isAdminUser ? 'Manage Announcements' : 'News & Announcements'}
+                    <Bell size={16} /> News & Announcements
                   </button>
 
                   {!isFemaleUser && !isAdminUser && (
@@ -898,15 +779,6 @@ export default function ClientDirectory({
                   >
                     <MessageCircle size={16} className="text-pink-500" /> Contact Support
                   </button>
-
-                  {isFemaleUser && (
-                    <button 
-                      onClick={() => { setReportModalOpen(true); setSidebarOpen(false); }}
-                      className="w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 text-red-400 hover:bg-red-950/40 border border-red-900/30 transition mt-2 cursor-pointer"
-                    >
-                      <Flag size={16} /> Report Time Waster
-                    </button>
-                  )}
                 </div>
               </div>
 
@@ -921,7 +793,6 @@ export default function ClientDirectory({
         )}
       </AnimatePresence>
 
-      {/* MAIN LAYOUT CONTAINER */}
       <div className="flex-1 flex max-w-7xl mx-auto w-full px-4 sm:px-8 py-8 gap-8">
         <aside className="hidden md:flex flex-col w-64 shrink-0 space-y-4">
           <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-5 space-y-2 shadow-xl">
@@ -966,7 +837,7 @@ export default function ClientDirectory({
               onClick={() => setActiveTab('news')}
               className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'news' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
             >
-              <Bell size={16} /> {isAdminUser ? 'Manage Announcements' : 'News & Announcements'}
+              <Bell size={16} /> News & Announcements
             </button>
 
             {!isFemaleUser && !isAdminUser && (
@@ -1002,23 +873,12 @@ export default function ClientDirectory({
             >
               <MessageCircle size={16} className="text-pink-500" /> Contact Support
             </button>
-
-            {isFemaleUser && (
-              <button 
-                onClick={() => setReportModalOpen(true)}
-                className="w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 text-red-400 hover:bg-red-950/40 border border-red-900/30 transition mt-2 cursor-pointer"
-              >
-                <Flag size={16} /> Report Time Waster
-              </button>
-            )}
           </div>
         </aside>
 
-        {/* MAIN CONTENT AREA */}
         <main className="flex-1 space-y-6">
           {activeTab === 'home' && <HomeDashboard user={currentUser} onNavigate={setActiveTab} />}
 
-          {/* TAB 1: DIRECTORY (FOR MALE / CLIENT USERS) */}
           {activeTab === 'directory' && !isFemaleUser && !isAdminUser && (
             <div className="space-y-6 animate-fadeIn">
               <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
@@ -1041,7 +901,6 @@ export default function ClientDirectory({
                 </div>
               </div>
 
-              {/* Categories */}
               <div className="flex gap-2 overflow-x-auto pb-2">
                 {['All', 'VIP', 'Elite', 'Standard'].map(cat => (
                   <button
@@ -1054,13 +913,11 @@ export default function ClientDirectory({
                 ))}
               </div>
 
-              {/* Listings Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredLadies.length === 0 ? (
                   <div className="col-span-full py-16 text-center bg-[#0b101d] border border-slate-800/80 rounded-3xl space-y-3">
                     <AlertCircle size={32} className="mx-auto text-slate-500" />
                     <p className="text-sm font-bold text-slate-300">No active companions found in {userLockedLocation}.</p>
-                    <p className="text-xs text-slate-500">Try checking back later or refreshing the catalog.</p>
                   </div>
                 ) : (
                   filteredLadies.map((lady) => (
@@ -1078,9 +935,6 @@ export default function ClientDirectory({
                         <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-extrabold text-pink-400 uppercase tracking-wider border border-white/10">
                           {lady.category || 'VIP'}
                         </div>
-                        <div className="absolute bottom-3 left-3 bg-emerald-500/90 text-slate-950 px-2.5 py-0.5 rounded-full text-[9px] font-black flex items-center gap-1 shadow">
-                          <ShieldCheck size={11} /> VERIFIED
-                        </div>
                       </div>
 
                       <div className="p-5 space-y-4 flex-1 flex flex-col justify-between">
@@ -1093,19 +947,6 @@ export default function ClientDirectory({
                             <MapPin size={13} className="text-pink-500" /> {lady.neighborhood ? `${lady.neighborhood}, ` : ''}{lady.location}
                           </p>
                         </div>
-
-                        <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between">
-                          <span className="text-[10px] text-slate-500 font-bold uppercase">Click for details</span>
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenWhatsApp(lady);
-                            }}
-                            className="p-2 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white rounded-xl border border-emerald-500/30 transition cursor-pointer"
-                          >
-                            <MessageSquare size={16} />
-                          </button>
-                        </div>
                       </div>
                     </div>
                   ))
@@ -1114,10 +955,8 @@ export default function ClientDirectory({
             </div>
           )}
 
-          {/* TAB 2: POST ADVERTISEMENT & MULTI-PHOTO PRIVACY MASK STUDIO (FOR FEMALE USERS) */}
           {activeTab === 'myprofile' && isFemaleUser && (
             <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-8 animate-fadeIn">
-              {/* Wizard Progress Header */}
               <div className="border-b border-slate-800 pb-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center space-x-3">
@@ -1129,22 +968,6 @@ export default function ClientDirectory({
                       <p className="text-xs text-slate-400">Upload 2 to 5 photos, watermark each individually, and publish.</p>
                     </div>
                   </div>
-                  <div className="text-xs font-semibold px-3 py-1.5 bg-slate-900 rounded-full text-pink-300 border border-slate-800">
-                    {profileStep === 'photos_step' && 'Step 1: Upload Photos (Min 2, Max 5)'}
-                    {profileStep === 'masking_step' && `Step 2: Watermark Photo (${currentMaskIndex + 1} of ${selectedFiles.length})`}
-                    {profileStep === 'details_step' && 'Step 3: Profile Details'}
-                    {profileStep === 'success_step' && 'Step 4: Published Successfully'}
-                  </div>
-                </div>
-
-                {/* Progress Bar */}
-                <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-800">
-                  <div 
-                    className="bg-gradient-to-r from-pink-500 to-purple-500 h-full transition-all duration-500 ease-out"
-                    style={{ 
-                      width: profileStep === 'photos_step' ? '25%' : profileStep === 'masking_step' ? '50%' : profileStep === 'details_step' ? '75%' : '100%' 
-                    }}
-                  />
                 </div>
               </div>
 
@@ -1154,372 +977,97 @@ export default function ClientDirectory({
                 </div>
               )}
 
-              {successMessage && profileStep === 'success_step' && (
-                <div className="p-4 bg-emerald-950/50 border border-emerald-800/50 rounded-2xl text-xs text-emerald-300 font-semibold">
-                  {successMessage}
-                </div>
-              )}
-
-              {/* STEP 1: MULTI-PHOTO UPLOAD & PREVIEW */}
               {profileStep === 'photos_step' && (
                 <form onSubmit={handleStartMasking} className="space-y-6">
-                  {/* Private Listing Option Card */}
-                  <div className="bg-gradient-to-r from-purple-950/70 via-slate-900 to-slate-900 border border-purple-800/40 p-5 rounded-3xl space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-2xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-purple-400 font-bold text-lg">
-                        🔒
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-bold text-slate-100">Want Complete Discretion? Apply for a Private Listing</h3>
-                        <p className="text-xs text-purple-300/80">Your profile won't be published on the public site catalog.</p>
-                      </div>
-                    </div>
-                    <a 
-                      href="https://wa.me/260571613227?text=Hello%2C%20I%20would%20like%20to%20apply%20for%20a%20private%20listing." 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-lg shadow-emerald-600/20"
-                    >
-                      <span>💬 Chat on WhatsApp for Private Listing</span>
-                    </a>
-                  </div>
-
-                  <div className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 shadow-inner space-y-4">
+                  <div className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 space-y-4">
                     <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
                       Upload Advert Photographs <span className="text-pink-500">(Min 2 required, Max 5 allowed)</span>
                     </label>
-                    
-                    <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-slate-700 border-dashed rounded-xl cursor-pointer bg-slate-900 hover:bg-slate-800 hover:border-pink-500 transition-all">
+                    <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-slate-700 border-dashed rounded-xl cursor-pointer bg-slate-900 hover:bg-slate-800 transition-all">
                       <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4 text-center">
                         <Upload className="w-8 h-8 mb-2 text-pink-400" />
-                        <p className="text-xs text-slate-300 font-medium">Click to select photos (Hold Ctrl/Cmd to select multiple)</p>
-                        <p className="text-[10px] text-slate-500 mt-1">PNG, JPG or WEBP, Max 10MB each</p>
+                        <p className="text-xs text-slate-300 font-medium">Click to select photos (Min 2, Max 5)</p>
                       </div>
-                      <input 
-                        type="file" 
-                        multiple 
-                        accept="image/png, image/jpeg, image/webp" 
-                        onChange={handleMultiPhotoUpload} 
-                        className="hidden" 
-                      />
+                      <input type="file" multiple accept="image/*" onChange={handleMultiPhotoUpload} className="hidden" />
                     </label>
                   </div>
 
-                  {/* Selected Photos Preview Grid */}
                   {selectedFiles.length > 0 && (
-                    <div className="space-y-3">
-                      <h3 className="text-xs font-bold text-pink-300 uppercase tracking-wider">
-                        Selected Files ({selectedFiles.length}/5)
-                      </h3>
-                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-                        {selectedFiles.map((file, idx) => (
-                          <div key={idx} className="relative group rounded-xl overflow-hidden border border-slate-700 bg-slate-950 aspect-square shadow-lg">
-                            <img 
-                              src={URL.createObjectURL(file)} 
-                              alt={`Preview ${idx + 1}`} 
-                              className="w-full h-full object-cover"
-                            />
-                            <button 
-                              type="button"
-                              onClick={() => removeFileAtIndex(idx)}
-                              className="absolute top-1.5 right-1.5 bg-black/70 hover:bg-red-600 text-white p-1 rounded-full transition-colors cursor-pointer"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                      {selectedFiles.map((file, idx) => (
+                        <div key={idx} className="relative group rounded-xl overflow-hidden border border-slate-700 bg-slate-950 aspect-square shadow-lg">
+                          <img src={URL.createObjectURL(file)} alt={`Preview ${idx + 1}`} className="w-full h-full object-cover" />
+                          <button type="button" onClick={() => removeFileAtIndex(idx)} className="absolute top-1 right-1 bg-black/70 hover:bg-red-600 text-white p-1 rounded-full">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
                     </div>
                   )}
 
-                  <button
-                    type="submit"
-                    disabled={selectedFiles.length < 2 || selectedFiles.length > 5}
-                    className="w-full py-3 bg-pink-600 hover:bg-pink-500 disabled:opacity-50 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <span>Proceed to Watermark Studio ({selectedFiles.length}/5 photos)</span>
-                    <ArrowRight size={14} />
+                  <button type="submit" disabled={selectedFiles.length < 2 || selectedFiles.length > 5} className="w-full py-3 bg-pink-600 hover:bg-pink-500 disabled:opacity-50 text-white font-bold rounded-xl text-xs shadow-lg transition cursor-pointer">
+                    Proceed to Watermark Studio ({selectedFiles.length}/5 photos)
                   </button>
                 </form>
               )}
 
-              {/* STEP 2: INDIVIDUAL MASKING & WATERMARK STUDIO */}
               {profileStep === 'masking_step' && selectedFiles[currentMaskIndex] && (
                 <div className="space-y-6">
                   <div className="bg-pink-600/10 border border-pink-500/30 p-4 rounded-2xl flex items-center justify-between">
                     <div>
                       <h3 className="text-xs font-bold text-pink-300 uppercase">Watermarking Image {currentMaskIndex + 1} of {selectedFiles.length}</h3>
-                      <p className="text-[11px] text-slate-400">Position the watermark over sensitive areas for this picture, then click 'Save & Next'.</p>
                     </div>
-                    <span className="text-xs font-black bg-pink-600 text-white px-3 py-1 rounded-full">
-                      {Math.round(((currentMaskIndex + 1) / selectedFiles.length) * 100)}% Complete
-                    </span>
                   </div>
-
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-                    {/* Controls */}
-                    <div className="space-y-6">
-                      <div className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 space-y-4">
-                        <h3 className="text-xs font-bold text-pink-300 uppercase tracking-wider flex items-center gap-2">
-                          <Sparkles className="w-4 h-4" /> Privacy Mask Settings
-                        </h3>
-                        
-                        <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
-                          <button
-                            type="button"
-                            onClick={() => setStickerType('logo')}
-                            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${stickerType === 'logo' ? 'bg-pink-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
-                          >
-                            Brand Logo
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setStickerType('emoji')}
-                            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${stickerType === 'emoji' ? 'bg-pink-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
-                          >
-                            Emoji Mask
-                          </button>
-                        </div>
-
-                        {stickerType === 'emoji' ? (
-                          <div>
-                            <label className="block text-[10px] uppercase font-bold text-slate-400 mb-2">Select Emoji</label>
-                            <div className="flex gap-2">
-                              {['🕶️', '🐱', '🦊', '⭐', '🔒', '👻'].map(emoji => (
-                                <button
-                                  key={emoji}
-                                  type="button"
-                                  onClick={() => setSelectedEmoji(emoji)}
-                                  className={`p-2.5 text-xl rounded-xl border transition-all cursor-pointer ${selectedEmoji === emoji ? 'bg-pink-600/30 border-pink-500 scale-105' : 'bg-slate-950 border-slate-800 hover:border-slate-600'}`}
-                                >
-                                  {emoji}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        ) : (
-                          <div>
-                            <label className="block text-[10px] uppercase font-bold text-slate-400 mb-2">Custom Logo</label>
-                            <input type="file" accept="image/*" onChange={handleLogoUpload} className="text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-pink-600 file:text-white hover:file:bg-pink-700 cursor-pointer" />
-                          </div>
-                        )}
-
-                        <div>
-                          <div className="flex justify-between text-xs text-slate-400 mb-1 font-semibold">
-                            <span>Watermark Scale</span>
-                            <span>{stickerSize}px</span>
-                          </div>
-                          <input 
-                            type="range" 
-                            min="40" 
-                            max="180" 
-                            value={stickerSize} 
-                            onChange={(e) => setStickerSize(Number(e.target.value))}
-                            className="w-full accent-pink-500 bg-slate-950 rounded-lg cursor-pointer"
-                          />
-                        </div>
+                    <div className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 space-y-4">
+                      <h3 className="text-xs font-bold text-pink-300 uppercase">Watermark Settings</h3>
+                      <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
+                        <button type="button" onClick={() => setStickerType('logo')} className={`flex-1 py-2 text-xs font-bold rounded-lg ${stickerType === 'logo' ? 'bg-pink-600 text-white' : 'text-slate-400'}`}>Logo</button>
+                        <button type="button" onClick={() => setStickerType('emoji')} className={`flex-1 py-2 text-xs font-bold rounded-lg ${stickerType === 'emoji' ? 'bg-pink-600 text-white' : 'text-slate-400'}`}>Emoji</button>
                       </div>
                     </div>
-
-                    {/* Interactive Canvas Preview */}
-                    <div className="bg-slate-900/30 p-6 rounded-2xl border border-slate-800 flex flex-col items-center justify-center min-h-[380px]">
-                      <div className="space-y-3 w-full flex flex-col items-center">
-                        <p className="text-xs text-slate-400 flex items-center gap-1.5 font-medium">
-                          <Move className="w-3.5 h-3.5 text-pink-400" /> Drag watermark over face / sensitive regions
-                        </p>
-                        
-                        <div 
-                          ref={containerRef}
-                          className="relative inline-block overflow-hidden rounded-2xl border border-slate-800 shadow-xl select-none max-w-full"
-                        >
-                          <img 
-                            src={URL.createObjectURL(selectedFiles[currentMaskIndex])} 
-                            alt={`Masking ${currentMaskIndex + 1}`} 
-                            className="max-h-[300px] object-contain block pointer-events-none" 
-                          />
-                          
-                          <div
-                            onMouseDown={handleStickerMouseDown}
-                            style={{
-                              position: 'absolute',
-                              left: `${stickerPos.x}px`,
-                              top: `${stickerPos.y}px`,
-                              width: `${stickerSize}px`,
-                              height: `${stickerSize}px`,
-                              cursor: 'move',
-                              touchAction: 'none'
-                            }}
-                            className="flex items-center justify-center select-none z-20 group"
-                          >
-                            {stickerType === 'emoji' ? (
-                              <span className="text-4xl drop-shadow-md select-none">{selectedEmoji}</span>
-                            ) : (
-                              <img src={customLogo} alt="Watermark" className="w-full h-full object-contain drop-shadow-md pointer-events-none" />
-                            )}
-                          </div>
+                    <div className="bg-slate-900/30 p-6 rounded-2xl border border-slate-800 flex flex-col items-center justify-center">
+                      <div ref={containerRef} className="relative inline-block overflow-hidden rounded-2xl border border-slate-800 shadow-xl select-none">
+                        <img src={URL.createObjectURL(selectedFiles[currentMaskIndex])} alt="Mask" className="max-h-[300px] object-contain pointer-events-none" />
+                        <div onMouseDown={handleStickerMouseDown} style={{ position: 'absolute', left: `${stickerPos.x}px`, top: `${stickerPos.y}px`, width: `${stickerSize}px`, height: `${stickerSize}px`, cursor: 'move' }} className="flex items-center justify-center z-20">
+                          {stickerType === 'emoji' ? <span className="text-4xl">{selectedEmoji}</span> : <img src={customLogo} alt="Logo" className="w-full h-full object-contain" />}
                         </div>
-
-                        <button
-                          type="button"
-                          disabled={loading}
-                          onClick={handleSaveMaskAndNext}
-                          className="w-full mt-4 py-3 bg-pink-600 hover:bg-pink-500 disabled:opacity-50 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
-                        >
-                          {loading ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-                          <span>{currentMaskIndex + 1 < selectedFiles.length ? 'Save Watermark & Next Photo' : 'Save Watermark & Proceed to Details'}</span>
-                        </button>
                       </div>
+                      <button type="button" onClick={handleSaveMaskAndNext} className="w-full mt-4 py-3 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded-xl text-xs shadow-lg transition">
+                        {currentMaskIndex + 1 < selectedFiles.length ? 'Save Watermark & Next Photo' : 'Save & Proceed to Details'}
+                      </button>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* STEP 3: PROFILE DETAILS */}
               {profileStep === 'details_step' && (
                 <form onSubmit={handleFormSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-300">Companion Name / Alias</label>
-                      <input 
-                        type="text" 
-                        name="name" 
-                        value={newAdData.name} 
-                        onChange={handleInputChange} 
-                        placeholder="Enter name" 
-                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition" 
-                        required 
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-300">Category</label>
-                      <select 
-                        name="category" 
-                        value={newAdData.category} 
-                        onChange={handleInputChange} 
-                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition font-bold"
-                        required
-                      >
-                        <option value="" disabled>-- Select Category --</option>
-                        <option value="VIP">VIP Companion</option>
-                        <option value="Elite">Elite Hostess</option>
-                        <option value="Standard">Standard Companion</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-300">Location Hub (Locked)</label>
-                      <input 
-                        type="text" 
-                        name="location" 
-                        value={newAdData.location} 
-                        readOnly 
-                        disabled 
-                        className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800/80 rounded-xl text-xs text-slate-400 cursor-not-allowed font-bold" 
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-300">Neighborhood / Area</label>
-                      <input 
-                        type="text" 
-                        name="neighborhood" 
-                        value={newAdData.neighborhood} 
-                        onChange={handleInputChange} 
-                        placeholder="e.g. Kabulonga, Woodlands" 
-                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition" 
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-300">Hosting Availability</label>
-                      <select 
-                        name="hosting" 
-                        value={newAdData.hosting} 
-                        onChange={handleInputChange} 
-                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition font-bold"
-                      >
-                        <option value="Yes">Yes (Able to Host)</option>
-                        <option value="No">No (Outcall Only)</option>
-                        <option value="Both">Both (Hosting & Outcall)</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-300">WhatsApp Phone Number</label>
-                      <input 
-                        type="text" 
-                        name="phone" 
-                        value={newAdData.phone} 
-                        onChange={handleInputChange} 
-                        placeholder="+260 97..." 
-                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition" 
-                        required 
-                      />
-                    </div>
-
-                    <div className="space-y-1.5 sm:col-span-2">
-                      <label className="text-xs font-semibold text-slate-300">Rate / Price (ZMW)</label>
-                      <input 
-                        type="text" 
-                        name="rate" 
-                        value={newAdData.rate} 
-                        onChange={handleInputChange} 
-                        placeholder="e.g. 1500" 
-                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition" 
-                        required 
-                      />
-                    </div>
-
-                    <div className="space-y-1.5 sm:col-span-2">
-                      <label className="text-xs font-semibold text-slate-300">Biography & Services</label>
-                      <textarea 
-                        name="bio" 
-                        rows="4" 
-                        value={newAdData.bio} 
-                        onChange={handleInputChange} 
-                        placeholder="Describe your services, preferences, and availability..." 
-                        className="w-full p-4 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition resize-none" 
-                      />
-                    </div>
+                    <input type="text" name="name" value={newAdData.name} onChange={handleInputChange} placeholder="Name" className="px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white" required />
+                    <select name="category" value={newAdData.category} onChange={handleInputChange} className="px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white" required>
+                      <option value="" disabled>-- Select Category --</option>
+                      <option value="VIP">VIP</option>
+                      <option value="Elite">Elite</option>
+                      <option value="Standard">Standard</option>
+                    </select>
+                    <input type="text" name="rate" value={newAdData.rate} onChange={handleInputChange} placeholder="Rate (ZMW)" className="px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white" required />
+                    <input type="text" name="phone" value={newAdData.phone} onChange={handleInputChange} placeholder="WhatsApp Phone" className="px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white" required />
+                    <textarea name="bio" rows="3" value={newAdData.bio} onChange={handleInputChange} placeholder="Bio / Services..." className="sm:col-span-2 p-4 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white resize-none" />
                   </div>
-
-                  <div className="flex gap-3 pt-4">
-                    <button 
-                      type="button" 
-                      onClick={() => setProfileStep('masking_step')} 
-                      className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition cursor-pointer flex items-center gap-2"
-                    >
-                      <ArrowLeft size={14} /> Back to Watermarking
-                    </button>
-                    <button 
-                      type="submit" 
-                      disabled={loading} 
-                      className="flex-1 py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                    >
-                      {loading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                      {loading ? 'Publishing Advert...' : 'Publish Profile & All Photos'}
-                    </button>
-                  </div>
+                  <button type="submit" disabled={loading} className="w-full py-3 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded-xl text-xs shadow-lg transition">
+                    {loading ? 'Publishing...' : 'Publish Profile & All Photos'}
+                  </button>
                 </form>
               )}
 
-              {/* STEP 4: SUCCESS */}
               {profileStep === 'success_step' && (
                 <div className="text-center py-12 space-y-6">
-                  <div className="w-20 h-20 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-3xl flex items-center justify-center mx-auto shadow-inner">
+                  <div className="w-20 h-20 bg-emerald-500/10 text-emerald-400 rounded-3xl flex items-center justify-center mx-auto">
                     <CheckCircle2 size={40} />
                   </div>
-                  <div className="space-y-2 max-w-md mx-auto">
-                    <h3 className="text-xl font-extrabold text-white">Advert Successfully Published!</h3>
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                      Your verified profile with all masked photographs has been submitted to the catalog and is pending final administrator review.
-                    </p>
-                  </div>
-                  <button 
-                    onClick={resetDirectoryForm}
-                    className="px-6 py-3 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded-xl text-xs shadow-lg transition cursor-pointer"
-                  >
+                  <h3 className="text-xl font-extrabold text-white">Advert Successfully Published!</h3>
+                  <button onClick={resetDirectoryForm} className="px-6 py-3 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded-xl text-xs">
                     Post Another Advert
                   </button>
                 </div>
@@ -1527,58 +1075,12 @@ export default function ClientDirectory({
             </div>
           )}
 
-          {/* TAB 3: NEWS & ANNOUNCEMENTS */}
           {activeTab === 'news' && (
             <div className="space-y-6 animate-fadeIn">
               <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-4">
                 <h2 className="text-xl font-extrabold text-white">Platform News & Announcements</h2>
                 <p className="text-xs text-slate-400">Important notices, updates, and directives from administration.</p>
               </div>
-
-              {isAdminUser && (
-                <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-4">
-                  <h3 className="text-sm font-extrabold text-pink-400">Publish New Announcement</h3>
-                  <form onSubmit={handleCreateAnnouncement} className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-300">Title</label>
-                      <input 
-                        type="text" 
-                        value={newTitle} 
-                        onChange={(e) => setNewTitle(e.target.value)} 
-                        placeholder="Announcement title" 
-                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition" 
-                        required 
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-300">Target Visibility</label>
-                      <select 
-                        value={newVisibility} 
-                        onChange={(e) => setNewVisibility(e.target.value)} 
-                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition font-bold"
-                      >
-                        <option value="all">All Users</option>
-                        <option value="female">Companions Only</option>
-                        <option value="male">Clients Only</option>
-                      </select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-300">Content</label>
-                      <textarea 
-                        rows="3" 
-                        value={newContent} 
-                        onChange={(e) => setNewContent(e.target.value)} 
-                        placeholder="Announcement content..." 
-                        className="w-full p-4 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-pink-500 transition resize-none" 
-                        required 
-                      />
-                    </div>
-                    <button type="submit" className="py-3 px-6 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded-xl text-xs shadow-lg transition cursor-pointer">
-                      Publish Announcement
-                    </button>
-                  </form>
-                </div>
-              )}
 
               <div className="space-y-4">
                 {visibleAnnouncements.length === 0 ? (
@@ -1587,12 +1089,12 @@ export default function ClientDirectory({
                   </div>
                 ) : (
                   visibleAnnouncements.map(item => (
-                    <div key={item.id} className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 shadow-xl space-y-2">
+                    <div key={item._id || item.id} className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 shadow-xl space-y-2">
                       <div className="flex items-center justify-between">
                         <h3 className="text-base font-extrabold text-white">{item.title}</h3>
-                        <span className="text-[10px] text-slate-500 font-bold">{new Date(item.timestamp).toLocaleDateString()}</span>
+                        <span className="text-[10px] text-slate-500 font-bold">{item.date || new Date(item.createdAt).toLocaleDateString()}</span>
                       </div>
-                      <p className="text-xs text-slate-300 leading-relaxed">{item.content}</p>
+                      <p className="text-xs text-slate-300 leading-relaxed">{item.text || item.content}</p>
                     </div>
                   ))
                 )}
@@ -1600,141 +1102,44 @@ export default function ClientDirectory({
             </div>
           )}
 
-          {/* TAB 4: FAVORITES (FOR CLIENTS) */}
           {activeTab === 'favorites' && !isFemaleUser && !isAdminUser && (
             <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6 animate-fadeIn">
               <div>
                 <h2 className="text-xl font-extrabold text-white">Favorite Companions</h2>
                 <p className="text-xs text-slate-400">Your saved bookmarks and preferred profiles.</p>
               </div>
-              <div className="py-12 text-center text-slate-500 text-xs">
-                No favorites saved yet. Click the heart icon on any profile to bookmark them.
-              </div>
             </div>
           )}
 
-          {/* TAB 5: SUBSCRIPTION (FOR CLIENTS) */}
           {activeTab === 'subscription' && !isFemaleUser && !isAdminUser && (
             <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6 animate-fadeIn">
               <div>
                 <h2 className="text-xl font-extrabold text-white">Subscription Status</h2>
                 <p className="text-xs text-slate-400">Review your active tier and access package privileges.</p>
               </div>
-              <div className="p-6 bg-slate-900/60 border border-slate-800 rounded-2xl space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs font-bold text-slate-400 uppercase">Current Tier</span>
-                  <span className="text-xs font-extrabold text-emerald-400 px-3 py-1 bg-emerald-500/10 rounded-full border border-emerald-500/20">Active VIP Member</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs font-bold text-slate-400 uppercase">Hub Access</span>
-                  <span className="text-xs font-extrabold text-white">{currentUser.location || 'Lusaka'} Region</span>
-                </div>
-              </div>
             </div>
           )}
 
-          {/* TAB 6: HISTORY (FOR FEMALES - WITH FULL AD DETAILS) */}
           {activeTab === 'history' && isFemaleUser && (
             <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6 animate-fadeIn">
               <div>
                 <h2 className="text-xl font-extrabold text-white">Submission History</h2>
                 <p className="text-xs text-slate-400">Track your past profile updates, prices, and verification status.</p>
               </div>
-
-              <div className="space-y-4">
-                {profileHistory.length === 0 ? (
-                  <div className="py-12 text-center text-slate-500 text-xs">No submission history found.</div>
-                ) : (
-                  profileHistory.map(h => (
-                    <div key={h.id} className="p-5 bg-slate-900/60 border border-slate-800 rounded-2xl space-y-4">
-                      <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-pink-500 animate-pulse"></span>
-                          <span className="text-xs font-extrabold text-white">{h.action}</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-[10px] text-slate-400 font-medium">{new Date(h.timestamp).toLocaleString()}</span>
-                          <span className="px-3 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full text-[10px] font-bold">
-                            {h.status}
-                          </span>
-                        </div>
-                      </div>
-
-                      {h.details ? (
-                        <div className="flex flex-col sm:flex-row gap-4 items-start">
-                          {h.details.photo && (
-                            <div className="w-20 h-20 rounded-xl overflow-hidden border border-slate-700 shrink-0 bg-slate-950">
-                              <img src={h.details.photo} alt="Preview" className="w-full h-full object-cover" />
-                            </div>
-                          )}
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 flex-1 w-full text-xs">
-                            <div className="p-2.5 bg-slate-950/60 rounded-xl border border-slate-800">
-                              <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold block">Alias / Name</span>
-                              <span className="font-extrabold text-white">{h.details.name || 'N/A'}</span>
-                            </div>
-                            <div className="p-2.5 bg-slate-950/60 rounded-xl border border-slate-800">
-                              <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold block">Category</span>
-                              <span className="font-extrabold text-pink-400">{h.details.category || 'VIP'}</span>
-                            </div>
-                            <div className="p-2.5 bg-slate-950/60 rounded-xl border border-slate-800">
-                              <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold block">Rate</span>
-                              <span className="font-extrabold text-emerald-400">ZMW {h.details.rate || '0'}</span>
-                            </div>
-                            <div className="p-2.5 bg-slate-950/60 rounded-xl border border-slate-800">
-                              <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold block">Location</span>
-                              <span className="font-extrabold text-white">{h.details.location || 'Lusaka'}</span>
-                            </div>
-                            {h.details.photosCount && (
-                              <div className="p-2.5 bg-slate-950/60 rounded-xl border border-slate-800">
-                                <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold block">Total Photos</span>
-                                <span className="font-extrabold text-pink-400">{h.details.photosCount} files</span>
-                              </div>
-                            )}
-                            {h.details.bio && (
-                              <div className="col-span-full p-2.5 bg-slate-950/60 rounded-xl border border-slate-800">
-                                <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold block">Bio / Services</span>
-                                <p className="text-slate-300 text-xs mt-0.5">{h.details.bio}</p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="text-xs text-slate-400">Initial system setup / legacy record.</p>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
             </div>
           )}
 
-          {/* TAB 7: ACCOUNT DETAILS / SETTINGS */}
           {activeTab === 'settings' && !isAdminUser && (
             <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6 animate-fadeIn">
               <div>
                 <h2 className="text-xl font-extrabold text-white">Account Details</h2>
                 <p className="text-xs text-slate-400">Review your profile credentials and account settings.</p>
               </div>
-              <div className="space-y-4 p-5 bg-slate-900/50 border border-slate-800 rounded-2xl">
-                <div className="flex justify-between items-center py-2 border-b border-slate-800">
-                  <span className="text-xs font-bold text-slate-400 uppercase">Username</span>
-                  <span className="text-xs font-extrabold text-white">{currentUser.username}</span>
-                </div>
-                <div className="flex justify-between items-center py-2 border-b border-slate-800">
-                  <span className="text-xs font-bold text-slate-400 uppercase">Role / Gender</span>
-                  <span className="text-xs font-extrabold text-pink-400">{currentUser.gender || currentUser.role || 'Client'}</span>
-                </div>
-                <div className="flex justify-between items-center py-2">
-                  <span className="text-xs font-bold text-slate-400 uppercase">Location Hub</span>
-                  <span className="text-xs font-extrabold text-white">{currentUser.location || 'Lusaka'}</span>
-                </div>
-              </div>
             </div>
           )}
         </main>
       </div>
 
-      {/* Footer */}
       <footer className="border-t border-slate-800/80 py-6 text-center text-xs text-slate-500 mt-auto">
         DODIXCLUB Portal &copy; 2026. All rights reserved.
       </footer>
