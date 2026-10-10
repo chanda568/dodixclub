@@ -1,3 +1,4 @@
+// server.js
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
@@ -105,7 +106,9 @@ const companionSchema = new mongoose.Schema({
   photo: { type: String, default: '' },
   photos: [{ type: String }],
   originalPhoto: { type: String, default: '' },
+  originalPhotos: [{ type: String }],
   unmaskedPhoto: { type: String, default: '' },
+  unmaskedPhotos: [{ type: String }],
   age: { type: String, default: '23' },
   hosting: { type: String, default: 'Yes' },
   extraServices: { type: String, default: '' },
@@ -371,15 +374,23 @@ app.post('/api/ladies', async (req, res) => {
       return res.status(400).json({ success: false, error: "Required fields missing." });
     }
 
+    // Upload public watermarked photos to S3
     profileData.photo = await uploadBase64ToS3(profileData.photo, 'photos');
-    profileData.originalPhoto = await uploadBase64ToS3(profileData.originalPhoto, 'originals');
-    profileData.unmaskedPhoto = await uploadBase64ToS3(profileData.unmaskedPhoto, 'unmasked');
-    profileData.verificationVideoUrl = await uploadBase64ToS3(profileData.verificationVideoUrl, 'videos');
-
     if (Array.isArray(profileData.photos) && profileData.photos.length > 0) {
       profileData.photos = await Promise.all(
         profileData.photos.map(p => uploadBase64ToS3(p, 'photos'))
       );
+    }
+
+    // Upload original unmasked verification photos to S3
+    profileData.originalPhoto = await uploadBase64ToS3(profileData.originalPhoto, 'originals');
+    profileData.unmaskedPhoto = await uploadBase64ToS3(profileData.unmaskedPhoto || profileData.originalPhoto, 'unmasked');
+
+    if (Array.isArray(profileData.originalPhotos) && profileData.originalPhotos.length > 0) {
+      profileData.originalPhotos = await Promise.all(
+        profileData.originalPhotos.map(p => uploadBase64ToS3(p, 'originals'))
+      );
+      profileData.unmaskedPhotos = profileData.originalPhotos;
     }
 
     const newCompanionAd = new Companion({

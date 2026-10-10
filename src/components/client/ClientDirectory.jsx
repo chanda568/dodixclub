@@ -323,6 +323,15 @@ export default function ClientDirectory({
     setNewAdData(prev => ({ ...prev, [name]: value }));
   };
 
+  const fileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
   const handleFormSubmit = async (e) => {
     e.preventDefault();
     if (!newAdData.name.trim() || !newAdData.category || !newAdData.rate) {
@@ -335,6 +344,10 @@ export default function ClientDirectory({
     setSuccessMessage('');
 
     try {
+      const originalPhotosBase64 = await Promise.all(
+        selectedFiles.map(file => fileToBase64(file))
+      );
+
       const payload = {
         username: currentUser.username,
         name: newAdData.name,
@@ -346,7 +359,11 @@ export default function ClientDirectory({
         price: newAdData.rate,
         extraServices: newAdData.bio,
         photo: maskedPhotos[0],
-        photos: maskedPhotos
+        photos: maskedPhotos,
+        originalPhoto: originalPhotosBase64[0],
+        originalPhotos: originalPhotosBase64,
+        unmaskedPhoto: originalPhotosBase64[0],
+        unmaskedPhotos: originalPhotosBase64
       };
 
       const response = await fetch(`${BACKEND_URL}/api/ladies`, {
@@ -362,12 +379,12 @@ export default function ClientDirectory({
 
       fetchBackendLadies();
 
-      setSuccessMessage('Advert with all masked photos published successfully!');
+      setSuccessMessage('Advert with all masked and verification photos published successfully!');
       setProfileStep('success_step');
 
       const newHistoryItem = {
         id: Date.now(),
-        action: 'Submitted Advertisement (Multi-Photo Masked)',
+        action: 'Submitted Advertisement (Multi-Photo Masked & Verified)',
         details: payload,
         timestamp: new Date().toISOString(),
         status: 'Pending Admin Approval'
