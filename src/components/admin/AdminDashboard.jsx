@@ -286,7 +286,7 @@ export default function AdminDashboard({
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col font-sans selection:bg-pink-500 selection:text-white">
       <header className="px-6 py-4 bg-slate-950/85 backdrop-blur-md border-b border-slate-800/80 sticky top-0 z-40 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <img src={LOGO_URL} alt="Dodix Logo" className="w-10 h-10 rounded-2xl object-cover shadow-lg border border-pink-500/30" />
+          <img src={LOGO_URL} alt="Dodix Logo" className="w-10 h-10 rounded-2xl object-cover shadow-lg border border-pink-500/35" />
           <div>
             <h1 className="text-base font-black tracking-wider text-white">DODIX<span className="text-pink-500">ADMIN</span></h1>
             <p className="text-[10px] text-slate-400 flex items-center gap-1">
