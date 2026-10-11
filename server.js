@@ -101,7 +101,7 @@ const companionSchema = new mongoose.Schema({
   category: { type: String, default: 'VIP' },
   price: { type: String, required: true },
   location: { type: String, required: true },
-  specificLocation: { type: String, default: '' },
+  neighborhood: { type: String, required: true },
   phone: { type: String, required: true },
   photo: { type: String, default: '' },
   photos: [{ type: String }],
@@ -109,8 +109,9 @@ const companionSchema = new mongoose.Schema({
   originalPhotos: [{ type: String }],
   unmaskedPhoto: { type: String, default: '' },
   unmaskedPhotos: [{ type: String }],
-  age: { type: String, default: '23' },
-  hosting: { type: String, default: 'Yes' },
+  age: { type: String, required: true },
+  hosting: { type: String, required: true },
+  agreedToTerms: { type: Boolean, required: true, default: false },
   extraServices: { type: String, default: '' },
   verificationVideoUrl: { type: String, default: '' },
   verificationVideoName: { type: String, default: '' },
@@ -370,8 +371,12 @@ app.get('/api/ladies', async (req, res) => {
 app.post('/api/ladies', async (req, res) => {
   try {
     const profileData = req.body;
-    if (!profileData.username || !profileData.phone || !profileData.price) {
-      return res.status(400).json({ success: false, error: "Required fields missing." });
+    if (!profileData.username || !profileData.phone || !profileData.price || !profileData.neighborhood || !profileData.age || !profileData.hosting) {
+      return res.status(400).json({ success: false, error: "Required compulsory fields missing." });
+    }
+
+    if (!profileData.agreedToTerms) {
+      return res.status(400).json({ success: false, error: "Companion consent rules and 18+ age verification agreement are required." });
     }
 
     // Upload public watermarked photos to S3
@@ -587,7 +592,7 @@ io.on('connection', (socket) => {
 
 // ==========================================
 // 6. Server Initialization
-// ==========================================
+-- ==========================================
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/dodixclub';
 

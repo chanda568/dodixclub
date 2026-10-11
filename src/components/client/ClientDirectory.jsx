@@ -76,7 +76,8 @@ export default function ClientDirectory({
     phone: currentUser.phone || '',
     age: currentUser.age || '',
     rate: currentUser.rate || '',
-    bio: currentUser.bio || ''
+    bio: currentUser.bio || '',
+    agreedToTerms: false
   });
 
   const [profileHistory, setProfileHistory] = useState(() => {
@@ -317,8 +318,11 @@ export default function ClientDirectory({
   };
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setNewAdData(prev => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    setNewAdData(prev => ({ 
+      ...prev, 
+      [name]: type === 'checkbox' ? checked : value 
+    }));
   };
 
   const fileToBase64 = (file) => {
@@ -334,6 +338,11 @@ export default function ClientDirectory({
     e.preventDefault();
     if (!newAdData.name.trim() || !newAdData.category || !newAdData.rate || !newAdData.neighborhood.trim() || !newAdData.age || !newAdData.phone.trim() || !newAdData.hosting) {
       alert("Please fill in all compulsory fields: Name, Category, Rate, Neighborhood, Age, WhatsApp Phone, and Hosting.");
+      return;
+    }
+
+    if (!newAdData.agreedToTerms) {
+      alert("You must agree to the mandatory companion consent rules and 18+ age verification terms before publishing.");
       return;
     }
 
@@ -357,6 +366,7 @@ export default function ClientDirectory({
         age: newAdData.age,
         price: newAdData.rate,
         extraServices: newAdData.bio,
+        agreedToTerms: newAdData.agreedToTerms,
         photo: maskedPhotos[0],
         photos: maskedPhotos,
         originalPhoto: originalPhotosBase64[0],
@@ -383,7 +393,7 @@ export default function ClientDirectory({
 
       const newHistoryItem = {
         id: Date.now(),
-        action: 'Submitted Advertisement (Multi-Photo Masked & Verified)',
+        action: 'Submitted Advertisement (Consent Verified)',
         details: payload,
         timestamp: new Date().toISOString(),
         status: 'Pending Admin Approval'
@@ -1164,6 +1174,24 @@ export default function ClientDirectory({
                     <div className="sm:col-span-2 space-y-1">
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Bio / Services</label>
                       <textarea name="bio" rows="3" value={newAdData.bio} onChange={handleInputChange} placeholder="Bio / Services..." className="w-full p-4 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white resize-none" />
+                    </div>
+
+                    {/* Role-Differentiated Companion Consent Rules */}
+                    <div className="sm:col-span-2 p-4 bg-slate-900/80 border border-slate-800 rounded-2xl space-y-3">
+                      <h4 className="text-xs font-bold text-pink-400 uppercase tracking-wider">Mandatory Companion Consent & Age Verification Rules</h4>
+                      <label className="flex items-start gap-3 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          name="agreedToTerms" 
+                          checked={newAdData.agreedToTerms} 
+                          onChange={handleInputChange} 
+                          className="mt-0.5 rounded border-slate-700 text-pink-600 focus:ring-pink-500 bg-slate-950" 
+                          required 
+                        />
+                        <span className="text-[11px] text-slate-300 leading-relaxed">
+                          I confirm that I am 18 years of age or older, that all submitted details and photographs are authentic, and that I consent to DodixClub's companion privacy policies, terms of service, and listing guidelines.
+                        </span>
+                      </label>
                     </div>
                   </div>
                   <button type="submit" disabled={loading} className="w-full py-3 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded-xl text-xs shadow-lg transition">
