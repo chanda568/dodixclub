@@ -24,6 +24,27 @@ app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
 // ==========================================
+// 0. System Maintenance Mode Middleware
+// ==========================================
+// Set to TRUE to temporarily block non-admin user traffic during updates
+const MAINTENANCE_MODE = false; 
+
+app.use((req, res, next) => {
+  if (MAINTENANCE_MODE) {
+    const userRole = req.headers['x-user-role'];
+    if (req.path === '/api/health' || userRole === 'admin') {
+      return next();
+    }
+    return res.status(503).json({
+      success: false,
+      maintenance: true,
+      error: "DodixClub is currently undergoing scheduled system updates. Access will be restored shortly!"
+    });
+  }
+  next();
+});
+
+// ==========================================
 // 1. AWS S3 Client Configuration
 // ==========================================
 const s3Client = new S3Client({

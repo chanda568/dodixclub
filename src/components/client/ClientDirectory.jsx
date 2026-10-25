@@ -94,10 +94,14 @@ export default function ClientDirectory({
   const fetchBackendLadies = async (isManual = false) => {
     if (isManual) setIsRefreshingCatalog(true);
     try {
-      const response = await fetch(`${BACKEND_URL}/api/ladies`);
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) return;
+      const response = await fetch(`${BACKEND_URL}/api/ladies`, {
+        headers: { 'x-user-role': currentUser?.role || 'client' }
+      });
       const data = await response.json();
+      if (data.maintenance) {
+        alert(data.error);
+        return;
+      }
       if (data.success && data.ladies) {
         setLadies(data.ladies);
       }
@@ -112,8 +116,11 @@ export default function ClientDirectory({
 
   const fetchBackendAnnouncements = async () => {
     try {
-      const response = await fetch(`${BACKEND_URL}/api/announcements`);
+      const response = await fetch(`${BACKEND_URL}/api/announcements`, {
+        headers: { 'x-user-role': currentUser?.role || 'client' }
+      });
       const data = await response.json();
+      if (data.maintenance) return;
       if (data.success && Array.isArray(data.announcements)) {
         setAnnouncements(data.announcements);
       }
@@ -377,11 +384,17 @@ export default function ClientDirectory({
 
       const response = await fetch(`${BACKEND_URL}/api/ladies`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-user-role': currentUser?.role || 'client'
+        },
         body: JSON.stringify(payload)
       });
 
       const data = await response.json();
+      if (data.maintenance) {
+        throw new Error(data.error);
+      }
       if (!response.ok || !data.success) {
         throw new Error(data.message || data.error || 'Failed to save profile configuration.');
       }
@@ -428,7 +441,10 @@ export default function ClientDirectory({
     try {
       const response = await fetch(`${BACKEND_URL}/api/reports`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-user-role': currentUser?.role || 'client'
+        },
         body: JSON.stringify({
           reporter: currentUser.username,
           targetUser: reportedUsername.trim(),
@@ -437,6 +453,10 @@ export default function ClientDirectory({
       });
 
       const data = await response.json();
+      if (data.maintenance) {
+        alert(data.error);
+        return;
+      }
       if (data.success) {
         setReportedUsername('');
         setReportReason('');
