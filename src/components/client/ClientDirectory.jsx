@@ -22,6 +22,36 @@ export default function ClientDirectory({
   const isFemaleUser = currentUser?.gender?.toLowerCase() === 'female' || currentUser?.gender?.toLowerCase() === 'lady';
   const isAdminUser = currentUser?.role === 'admin' || currentUser?.username?.toLowerCase() === 'admin';
   
+  // ==========================================
+  // MAINTENANCE MODE UI SWITCH
+  // ==========================================
+  const IS_MAINTENANCE_ACTIVE = true; // Set to false when updates are complete
+
+  if (IS_MAINTENANCE_ACTIVE && !isAdminUser) {
+    return (
+      <div className="min-h-screen bg-[#090d16] text-slate-100 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-[#0b101d] border border-slate-800 rounded-3xl p-8 text-center shadow-2xl space-y-6">
+          <div className="w-16 h-16 bg-pink-500/10 border border-pink-500/20 text-pink-400 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+            <Clock size={32} className="animate-spin" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-black text-white">DODIX CLUB</h2>
+            <p className="text-lg font-extrabold text-pink-500 tracking-wider">DODIX CLUB IS UNDER MAINTAINACE</p>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              We are currently running system updates and improvements. Please check back shortly.
+            </p>
+          </div>
+          <button
+            onClick={() => setCurrentUser(null)}
+            className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold rounded-xl text-xs border border-slate-800 transition cursor-pointer"
+          >
+            Log Out / Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const [activeTab, setActiveTab] = useState('home'); 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   
