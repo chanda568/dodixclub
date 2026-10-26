@@ -27,7 +27,7 @@ app.use(express.urlencoded({ limit: '100mb', extended: true }));
 // 0. System Maintenance Mode Middleware
 // ==========================================
 // Set to TRUE to temporarily block non-admin user traffic during updates
-const MAINTENANCE_MODE = false;[cite: 10]
+const MAINTENANCE_MODE = false;
 
 app.use((req, res, next) => {
   if (MAINTENANCE_MODE) {
