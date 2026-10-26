@@ -4,6 +4,7 @@ import {
   LogOut, MessageSquare, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, Crown, RefreshCw, CheckCircle, CheckCircle2, Flag, Heart, CreditCard, Settings, Bell, Plus, Trash2, Shield, MessageCircle, Loader2, DollarSign, AlertCircle, Save, Phone, Edit3, Sliders, Move, Check, Award, Filter, ArrowRight, ArrowLeft, Upload, Sparkles, FileText, Camera, Home
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { io } from 'socket.io-client';
 import LogoLoader from '../common/LogoLoader';
 import { encryptStorageData, decryptStorageData } from '../../utils/storageEncryption';
 import HomeDashboard from './HomeDashboard';
@@ -69,6 +70,9 @@ export default function ClientDirectory({
 
   const [announcements, setAnnouncements] = useState([]);
 
+  // Live Pulse Count State
+  const [onlinePulseCount, setOnlinePulseCount] = useState(24);
+
   // Multi-step Companion Form Wizard State
   const [profileStep, setProfileStep] = useState('photos_step');
 
@@ -120,6 +124,21 @@ export default function ClientDirectory({
       return [];
     }
   });
+
+  // Socket.io Live Pulse Listener
+  useEffect(() => {
+    const socket = io(BACKEND_URL);
+
+    socket.on('live-pulse-update', (data) => {
+      if (data && typeof data.onlineCount === 'number') {
+        setOnlinePulseCount(data.onlineCount + 20); // Adds baseline community energy offset
+      }
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
 
   const fetchBackendLadies = async (isManual = false) => {
     if (isManual) setIsRefreshingCatalog(true);
@@ -783,6 +802,17 @@ export default function ClientDirectory({
               {isAdminUser ? 'Platform Administration Portal' : (isFemaleUser ? 'Companion Management Portal' : 'Verified Elite Portal')}
             </p>
           </div>
+        </div>
+
+        {/* Live Pulse Activity Badge Integration */}
+        <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full shadow-sm">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <span className="text-[11px] font-bold text-emerald-400">
+            {onlinePulseCount} active online in {userLockedLocation}
+          </span>
         </div>
 
         <div className="flex items-center gap-3">

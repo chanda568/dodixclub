@@ -590,9 +590,19 @@ app.get('/api/messages', async (req, res) => {
 });
 
 // ==========================================
-// 5. Socket.io
+// 5. Socket.io Live Pulse Tracking
 // ==========================================
+let activeOnlineUsers = 0;
+
 io.on('connection', (socket) => {
+  activeOnlineUsers++;
+  io.emit('live-pulse-update', { onlineCount: activeOnlineUsers });
+
+  socket.on('disconnect', () => {
+    activeOnlineUsers = Math.max(0, activeOnlineUsers - 1);
+    io.emit('live-pulse-update', { onlineCount: activeOnlineUsers });
+  });
+
   socket.on('send-message', async (data) => {
     try {
       const { sender, recipient, content } = data;
