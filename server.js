@@ -185,23 +185,25 @@ const Message = mongoose.model('Message', messageSchema);
 const Announcement = mongoose.model('Announcement', announcementSchema);
 
 // ==========================================
-// 3. Helper Functions & Seeding (Pulling from .env)
+// 3. Robust Upsert Seeding (Direct Account Verification)
 // ==========================================
 async function seedDefaultData() {
   try {
-    const userCount = await User.countDocuments();
-    if (userCount === 0) {
-      // 1. Admin Account from .env
-      const adminUsername = process.env.ADMIN_USERNAME || 'admin';
-      const adminPlainPassword = process.env.ADMIN_PASSWORD || 'password123';
-      const adminSecurityAnswer = process.env.ADMIN_SECURITY_ANSWER || 'admin';
+    const adminUsername = (process.env.ADMIN_USERNAME || 'admin').toLowerCase().trim();
+    const maleUsername = (process.env.TEST_MALE_USERNAME || 'testmale').toLowerCase().trim();
+    const femaleUsername = (process.env.TEST_FEMALE_USERNAME || 'testfemale').toLowerCase().trim();
 
-      const hashedAdminPassword = await bcrypt.hash(adminPlainPassword, 10);
-      const defaultAnswerHash = await bcrypt.hash(adminSecurityAnswer.toLowerCase().trim(), 10);
+    const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'password123', 10);
+    const maleHashedPassword = await bcrypt.hash(process.env.TEST_MALE_PASSWORD || 'password123', 10);
+    const femaleHashedPassword = await bcrypt.hash(process.env.TEST_FEMALE_PASSWORD || 'password123', 10);
+    const defaultAnswerHash = await bcrypt.hash((process.env.ADMIN_SECURITY_ANSWER || 'admin').toLowerCase().trim(), 10);
 
+    // 1. Ensure Admin exists
+    const adminUser = await User.findOne({ username: adminUsername });
+    if (!adminUser) {
       await User.create({
-        username: adminUsername.toLowerCase().trim(),
-        password: hashedAdminPassword,
+        username: adminUsername,
+        password: hashedPassword,
         gender: 'Male',
         location: 'Lusaka',
         role: 'admin',
@@ -211,15 +213,15 @@ async function seedDefaultData() {
         securityQuestion: 'What was your first pet’s name?',
         securityAnswerHash: defaultAnswerHash
       });
+      console.log(`[Database] Created missing admin account (${adminUsername})`);
+    }
 
-      // 2. Male Test Account from .env
-      const maleUsername = process.env.TEST_MALE_USERNAME || 'testmale';
-      const malePlainPassword = process.env.TEST_MALE_PASSWORD || 'password123';
-      const hashedMalePassword = await bcrypt.hash(malePlainPassword, 10);
-
+    // 2. Ensure Male Test Account exists & is activated
+    const maleUser = await User.findOne({ username: maleUsername });
+    if (!maleUser) {
       await User.create({
-        username: maleUsername.toLowerCase().trim(),
-        password: hashedMalePassword,
+        username: maleUsername,
+        password: maleHashedPassword,
         gender: 'Male',
         location: 'Lusaka',
         role: 'client',
@@ -229,15 +231,20 @@ async function seedDefaultData() {
         securityQuestion: 'What was your first pet’s name?',
         securityAnswerHash: defaultAnswerHash
       });
+      console.log(`[Database] Created missing test account (${maleUsername})`);
+    } else if (!maleUser.activated) {
+      maleUser.activated = true;
+      maleUser.wasActivatedBefore = true;
+      await maleUser.save();
+      console.log(`[Database] Activated existing male test account (${maleUsername})`);
+    }
 
-      // 3. Female Test Account from .env
-      const femaleUsername = process.env.TEST_FEMALE_USERNAME || 'testfemale';
-      const femalePlainPassword = process.env.TEST_FEMALE_PASSWORD || 'password123';
-      const hashedFemalePassword = await bcrypt.hash(femalePlainPassword, 10);
-
+    // 3. Ensure Female Test Account exists & is activated
+    const femaleUser = await User.findOne({ username: femaleUsername });
+    if (!femaleUser) {
       await User.create({
-        username: femaleUsername.toLowerCase().trim(),
-        password: hashedFemalePassword,
+        username: femaleUsername,
+        password: femaleHashedPassword,
         gender: 'Female',
         location: 'Lusaka',
         role: 'client',
@@ -247,10 +254,15 @@ async function seedDefaultData() {
         securityQuestion: 'What was your first pet’s name?',
         securityAnswerHash: defaultAnswerHash
       });
-
-      console.log('[Database] Default admin, testmale, and testfemale accounts securely seeded using .env configurations.');
+      console.log(`[Database] Created missing test account (${femaleUsername})`);
+    } else if (!femaleUser.activated) {
+      femaleUser.activated = true;
+      femaleUser.wasActivatedBefore = true;
+      await femaleUser.save();
+      console.log(`[Database] Activated existing female test account (${femaleUsername})`);
     }
 
+    // 4. Ensure default announcements exist
     const annCount = await Announcement.countDocuments();
     if (annCount === 0) {
       await Announcement.create([
