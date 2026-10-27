@@ -20,42 +20,9 @@ export default function ClientDirectory({
   isLoading = false, 
   loadingText = '' 
 }) {
-  const isFemaleUser = currentUser?.gender?.toLowerCase() === 'female' || currentUser?.gender?.toLowerCase() === 'lady';
-  const isAdminUser = currentUser?.role === 'admin' || currentUser?.username?.toLowerCase() === 'admin';
-  
   // ==========================================
-  // MAINTENANCE MODE UI SWITCH (VIP Test Bypass)
+  // 1. ALL HOOKS MUST BE DECLARED FIRST AT THE TOP
   // ==========================================
-  const IS_MAINTENANCE_ACTIVE = true; // Set to false when updates are complete
-
-  const allowedTestUsers = ['admin', 'testmale', 'testfemale'];
-  const isTestAccount = allowedTestUsers.includes(currentUser?.username?.toLowerCase()?.trim());
-
-  if (IS_MAINTENANCE_ACTIVE && !isAdminUser && !isTestAccount) {
-    return (
-      <div className="min-h-screen bg-[#090d16] text-slate-100 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-[#0b101d] border border-slate-800 rounded-3xl p-8 text-center shadow-2xl space-y-6">
-          <div className="w-16 h-16 bg-pink-500/10 border border-pink-500/20 text-pink-400 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
-            <Clock size={32} className="animate-spin" />
-          </div>
-          <div className="space-y-2">
-            <h2 className="text-xl font-black text-white">DODIX CLUB</h2>
-            <p className="text-lg font-extrabold text-pink-500 tracking-wider">DODIX CLUB IS UNDER MAINTENANCE</p>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              We are currently running system updates and improvements. Please check back shortly.
-            </p>
-          </div>
-          <button
-            onClick={() => setCurrentUser(null)}
-            className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold rounded-xl text-xs border border-slate-800 transition cursor-pointer"
-          >
-            Log Out / Back
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   const [activeTab, setActiveTab] = useState('home'); 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   
@@ -115,15 +82,15 @@ export default function ClientDirectory({
     : '';
 
   const [newAdData, setNewAdData] = useState({
-    name: currentUser.name || initialName,
-    category: currentUser.category || '', 
-    location: currentUser.location || userLockedLocation, 
-    neighborhood: currentUser.neighborhood || '', 
-    hosting: currentUser.hosting || 'Yes', 
-    phone: currentUser.phone || '',
-    age: currentUser.age || '',
-    rate: currentUser.rate || '',
-    bio: currentUser.bio || '',
+    name: currentUser?.name || initialName,
+    category: currentUser?.category || '', 
+    location: currentUser?.location || userLockedLocation, 
+    neighborhood: currentUser?.neighborhood || '', 
+    hosting: currentUser?.hosting || 'Yes', 
+    phone: currentUser?.phone || '',
+    age: currentUser?.age || '',
+    rate: currentUser?.rate || '',
+    bio: currentUser?.bio || '',
     agreedToTerms: false
   });
 
@@ -601,7 +568,42 @@ export default function ClientDirectory({
     window.open(`https://wa.me/${phoneNum}?text=${encodedMessage}`, '_blank');
   };
 
+  // ==========================================
+  // 2. SAFE CONDITIONAL RETURNS (After Hooks)
+  // ==========================================
   if (!currentUser) return null;
+
+  const isFemaleUser = currentUser?.gender?.toLowerCase() === 'female' || currentUser?.gender?.toLowerCase() === 'lady';
+  const isAdminUser = currentUser?.role === 'admin' || currentUser?.username?.toLowerCase() === 'admin';
+  
+  const IS_MAINTENANCE_ACTIVE = true; 
+  const allowedTestUsers = ['admin', 'testmale', 'testfemale'];
+  const isTestAccount = allowedTestUsers.includes(currentUser?.username?.toLowerCase()?.trim());
+
+  if (IS_MAINTENANCE_ACTIVE && !isAdminUser && !isTestAccount) {
+    return (
+      <div className="min-h-screen bg-[#090d16] text-slate-100 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-[#0b101d] border border-slate-800 rounded-3xl p-8 text-center shadow-2xl space-y-6">
+          <div className="w-16 h-16 bg-pink-500/10 border border-pink-500/20 text-pink-400 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+            <Clock size={32} className="animate-spin" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-black text-white">DODIX CLUB</h2>
+            <p className="text-lg font-extrabold text-pink-500 tracking-wider">DODIX CLUB IS UNDER MAINTENANCE</p>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              We are currently running system updates and improvements. Please check back shortly.
+            </p>
+          </div>
+          <button
+            onClick={() => setCurrentUser(null)}
+            className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold rounded-xl text-xs border border-slate-800 transition cursor-pointer"
+          >
+            Log Out / Back
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const isMaleUser = !isFemaleUser && !isAdminUser;
   const isPendingActivation = isMaleUser && currentUser?.activated === false;
