@@ -1,7 +1,7 @@
 // src/components/client/ClientDirectory.jsx
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-  LogOut, MessageSquare, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, Crown, RefreshCw, CheckCircle, CheckCircle2, Flag, Heart, CreditCard, Settings, Bell, Plus, Trash2, Shield, MessageCircle, Loader2, DollarSign, AlertCircle, Save, Phone, Edit3, Sliders, Move, Check, Award, Filter, ArrowRight, ArrowLeft, Upload, Sparkles, FileText, Camera, Home
+  LogOut, MessageSquare, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, Crown, RefreshCw, CheckCircle, CheckCircle2, Flag, Heart, CreditCard, Settings, Bell, Plus, Trash2, Shield, MessageCircle, Loader2, DollarSign, AlertCircle, Save, Phone, Edit3, Sliders, Move, Check, Award, Filter, ArrowRight, ArrowLeft, Upload, Sparkles, FileText, Camera, Home, Lock, Key, CheckCircle2Icon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { io } from 'socket.io-client';
@@ -87,6 +87,16 @@ export default function ClientDirectory({
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+
+  // Account Details / Settings Form State
+  const [accountPhone, setAccountPhone] = useState(currentUser?.phone || '');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [secQuestion, setSecQuestion] = useState(currentUser?.securityQuestion || 'What was your first pet’s name?');
+  const [secAnswer, setSecAnswer] = useState('');
+  const [settingsStatus, setSettingsStatus] = useState({ type: '', message: '' });
+  const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
 
   const [stickerType, setStickerType] = useState('logo');
   const [selectedEmoji, setSelectedEmoji] = useState('🕶️');
@@ -196,6 +206,55 @@ export default function ClientDirectory({
     const adminPhone = "260965039645";
     const supportMsg = encodeURIComponent("Hello Dodix Support, I need assistance with my account/subscription.");
     window.open(`https://wa.me/${adminPhone}?text=${supportMsg}`, '_blank');
+  };
+
+  const handleUpdateAccountDetails = async (e) => {
+    e.preventDefault();
+    setSettingsStatus({ type: '', message: '' });
+
+    if (newPassword && newPassword !== confirmPassword) {
+      setSettingsStatus({ type: 'error', message: 'New password and confirm password do not match.' });
+      return;
+    }
+
+    setIsUpdatingSettings(true);
+    try {
+      const payload = {
+        phone: accountPhone,
+        securityQuestion: secQuestion
+      };
+
+      if (newPassword && newPassword.trim() !== '') {
+        payload.newPassword = newPassword.trim();
+      }
+
+      const response = await fetch(`${BACKEND_URL}/api/users/${currentUser.username}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-user-role': currentUser?.role || 'client',
+          'x-username': currentUser?.username || ''
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+      if (data.success && data.user) {
+        setCurrentUser(prev => ({ ...prev, ...data.user }));
+        setSettingsStatus({ type: 'success', message: 'Account details and security credentials updated successfully!' });
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        setSecAnswer('');
+      } else {
+        setSettingsStatus({ type: 'error', message: data.error || 'Failed to update account details.' });
+      }
+    } catch (err) {
+      console.error("Account update error:", err);
+      setSettingsStatus({ type: 'error', message: 'Network error. Failed to save account updates.' });
+    } finally {
+      setIsUpdatingSettings(false);
+    }
   };
 
   const handleMultiPhotoUpload = (e) => {
@@ -1359,12 +1418,164 @@ export default function ClientDirectory({
             </div>
           )}
 
+          {/* FULL INJECTED ACCOUNT DETAILS & SECURITY TAB */}
           {activeTab === 'settings' && !isAdminUser && (
-            <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6 animate-fadeIn">
-              <div>
-                <h2 className="text-xl font-extrabold text-white">Account Details</h2>
-                <p className="text-xs text-slate-400">Review your profile credentials and account settings.</p>
+            <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-8 animate-fadeIn">
+              <div className="border-b border-slate-800 pb-4 flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-extrabold text-white">Account Details & Settings</h2>
+                  <p className="text-xs text-slate-400">Manage your profile credentials, account standing, and security parameters.</p>
+                </div>
+                <div className="px-3 py-1 bg-pink-500/10 border border-pink-500/20 text-pink-400 rounded-full text-[10px] font-black uppercase tracking-wider">
+                  Verified Member
+                </div>
               </div>
+
+              {settingsStatus.message && (
+                <div className={`p-4 rounded-2xl text-xs font-semibold border flex items-center gap-2 ${
+                  settingsStatus.type === 'success' ? 'bg-emerald-950/50 border-emerald-800/50 text-emerald-300' : 'bg-red-950/50 border-red-800/50 text-red-300'
+                }`}>
+                  {settingsStatus.type === 'success' ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+                  {settingsStatus.message}
+                </div>
+              )}
+
+              {/* MODULE 3: SUBSCRIPTION & ACCOUNT STATUS INDICATOR */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-5 bg-slate-900/60 border border-slate-800 rounded-2xl space-y-2">
+                  <span className="text-[10px] uppercase font-extrabold text-slate-500 tracking-wider">Account Standing</span>
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 rounded-full ${currentUser?.activated !== false ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                    <span className="text-sm font-extrabold text-white">
+                      {currentUser?.activated !== false ? 'Active & Healthy' : 'Pending Activation'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-5 bg-slate-900/60 border border-slate-800 rounded-2xl space-y-2">
+                  <span className="text-[10px] uppercase font-extrabold text-slate-500 tracking-wider">Access Plan / Tier</span>
+                  <div className="flex items-center gap-2 text-pink-400 font-extrabold text-sm">
+                    <Crown size={16} />
+                    {isFemaleUser ? 'Verified Companion' : (currentUser?.plan || '7 Days Pass')}
+                  </div>
+                </div>
+
+                <div className="p-5 bg-slate-900/60 border border-slate-800 rounded-2xl space-y-2">
+                  <span className="text-[10px] uppercase font-extrabold text-slate-500 tracking-wider">Registered Base</span>
+                  <div className="flex items-center gap-2 text-slate-200 font-bold text-sm">
+                    <MapPin size={16} className="text-pink-500" />
+                    {currentUser?.location || 'Lusaka'}
+                  </div>
+                </div>
+              </div>
+
+              <form onSubmit={handleUpdateAccountDetails} className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* MODULE 1: CORE PROFILE CREDENTIALS CARD */}
+                <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 space-y-4">
+                  <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+                    <User size={18} className="text-pink-500" />
+                    <h3 className="text-xs font-extrabold text-white uppercase tracking-wider">Profile Information</h3>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-bold text-slate-400">Username (Unique ID)</label>
+                    <div className="relative">
+                      <input 
+                        type="text" 
+                        value={currentUser?.username || ''} 
+                        disabled 
+                        className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800/80 rounded-xl text-xs text-slate-400 cursor-not-allowed font-mono"
+                      />
+                      <Lock size={14} className="absolute right-3.5 top-3 text-slate-600" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-bold text-slate-400">Account Type & Gender</label>
+                    <input 
+                      type="text" 
+                      value={isFemaleUser ? 'Female Companion Account' : 'Male Client Access'} 
+                      disabled 
+                      className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800/80 rounded-xl text-xs text-slate-400 cursor-not-allowed"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-bold text-slate-400">Locked Base City</label>
+                    <input 
+                      type="text" 
+                      value={currentUser?.location || 'Lusaka'} 
+                      disabled 
+                      className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800/80 rounded-xl text-xs text-slate-400 cursor-not-allowed"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-bold text-slate-300">WhatsApp / Contact Phone</label>
+                    <input 
+                      type="text" 
+                      value={accountPhone} 
+                      onChange={(e) => setAccountPhone(e.target.value)} 
+                      placeholder="e.g. +260970000000" 
+                      className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-pink-500 transition"
+                    />
+                  </div>
+                </div>
+
+                {/* MODULE 2: SECURITY & PASSWORD MANAGEMENT */}
+                <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 space-y-4 flex flex-col justify-between">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+                      <Key size={18} className="text-pink-500" />
+                      <h3 className="text-xs font-extrabold text-white uppercase tracking-wider">Security Credentials</h3>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase font-bold text-slate-300">New Password</label>
+                      <input 
+                        type="password" 
+                        placeholder="Leave blank to keep current password" 
+                        value={newPassword} 
+                        onChange={(e) => setNewPassword(e.target.value)} 
+                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-pink-500 transition"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase font-bold text-slate-300">Confirm New Password</label>
+                      <input 
+                        type="password" 
+                        placeholder="Confirm new password" 
+                        value={confirmPassword} 
+                        onChange={(e) => setConfirmPassword(e.target.value)} 
+                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-pink-500 transition"
+                      />
+                    </div>
+
+                    <div className="space-y-1 pt-2">
+                      <label className="text-[10px] uppercase font-bold text-slate-300">Security Recovery Question</label>
+                      <select 
+                        value={secQuestion} 
+                        onChange={(e) => setSecQuestion(e.target.value)} 
+                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-pink-500 transition"
+                      >
+                        <option value="What was your first pet’s name?">What was your first pet’s name?</option>
+                        <option value="What is your mother’s maiden name?">What is your mother’s maiden name?</option>
+                        <option value="What city were you born in?">What city were you born in?</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <button 
+                    type="submit" 
+                    disabled={isUpdatingSettings}
+                    className="w-full mt-6 py-3.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {isUpdatingSettings ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                    {isUpdatingSettings ? 'Saving Updates...' : 'Save Account Updates'}
+                  </button>
+                </div>
+              </form>
             </div>
           )}
         </main>
