@@ -26,19 +26,32 @@ app.use(express.urlencoded({ limit: '100mb', extended: true }));
 // ==========================================
 // 0. System Maintenance Mode Middleware
 // ==========================================
-// Set to TRUE to temporarily block non-admin user traffic during updates
-const MAINTENANCE_MODE = true;
+// Toggle via .env or keep true; test accounts & admins will automatically bypass it
+const MAINTENANCE_MODE = process.env.MAINTENANCE_MODE === 'true' || true;
 
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
   if (MAINTENANCE_MODE) {
     const userRole = req.headers['x-user-role'];
     if (req.path === '/api/health' || userRole === 'admin') {
       return next();
     }
+
+    // Allow login/register bypass for test accounts and admin during maintenance
+    if (req.path === '/api/login' || req.path === '/api/register') {
+      const username = req.body?.username?.toLowerCase()?.trim();
+      const adminUser = process.env.ADMIN_USERNAME || 'admin';
+      const testMale = process.env.TEST_MALE_USERNAME || 'testmale';
+      const testFemale = process.env.TEST_FEMALE_USERNAME || 'testfemale';
+
+      if ([adminUser.toLowerCase(), testMale.toLowerCase(), testFemale.toLowerCase()].includes(username)) {
+        return next();
+      }
+    }
+
     return res.status(503).json({
       success: false,
       maintenance: true,
-      error: "DODIX CLUB IS UNDER MAINTAINACE"
+      error: "DODIX CLUB IS UNDER MAINTENANCE"
     });
   }
   next();
@@ -172,19 +185,23 @@ const Message = mongoose.model('Message', messageSchema);
 const Announcement = mongoose.model('Announcement', announcementSchema);
 
 // ==========================================
-// 3. Helper Functions & Seeding (Including Test Accounts)
+// 3. Helper Functions & Seeding (Pulling from .env)
 // ==========================================
 async function seedDefaultData() {
   try {
     const userCount = await User.countDocuments();
     if (userCount === 0) {
-      const hashedPassword = await bcrypt.hash('password123', 10);
-      const defaultAnswerHash = await bcrypt.hash('admin', 10);
+      // 1. Admin Account from .env
+      const adminUsername = process.env.ADMIN_USERNAME || 'admin';
+      const adminPlainPassword = process.env.ADMIN_PASSWORD || 'password123';
+      const adminSecurityAnswer = process.env.ADMIN_SECURITY_ANSWER || 'admin';
 
-      // 1. Admin Account
+      const hashedAdminPassword = await bcrypt.hash(adminPlainPassword, 10);
+      const defaultAnswerHash = await bcrypt.hash(adminSecurityAnswer.toLowerCase().trim(), 10);
+
       await User.create({
-        username: 'admin',
-        password: hashedPassword,
+        username: adminUsername.toLowerCase().trim(),
+        password: hashedAdminPassword,
         gender: 'Male',
         location: 'Lusaka',
         role: 'admin',
@@ -195,10 +212,14 @@ async function seedDefaultData() {
         securityAnswerHash: defaultAnswerHash
       });
 
-      // 2. Male Test Account (Pre-activated for directory testing)
+      // 2. Male Test Account from .env
+      const maleUsername = process.env.TEST_MALE_USERNAME || 'testmale';
+      const malePlainPassword = process.env.TEST_MALE_PASSWORD || 'password123';
+      const hashedMalePassword = await bcrypt.hash(malePlainPassword, 10);
+
       await User.create({
-        username: 'testmale',
-        password: hashedPassword,
+        username: maleUsername.toLowerCase().trim(),
+        password: hashedMalePassword,
         gender: 'Male',
         location: 'Lusaka',
         role: 'client',
@@ -209,10 +230,14 @@ async function seedDefaultData() {
         securityAnswerHash: defaultAnswerHash
       });
 
-      // 3. Female Test Account (For companion wizard & watermarking studio testing)
+      // 3. Female Test Account from .env
+      const femaleUsername = process.env.TEST_FEMALE_USERNAME || 'testfemale';
+      const femalePlainPassword = process.env.TEST_FEMALE_PASSWORD || 'password123';
+      const hashedFemalePassword = await bcrypt.hash(femalePlainPassword, 10);
+
       await User.create({
-        username: 'testfemale',
-        password: hashedPassword,
+        username: femaleUsername.toLowerCase().trim(),
+        password: hashedFemalePassword,
         gender: 'Female',
         location: 'Lusaka',
         role: 'client',
@@ -223,7 +248,7 @@ async function seedDefaultData() {
         securityAnswerHash: defaultAnswerHash
       });
 
-      console.log('[Database] Default admin, testmale, and testfemale accounts seeded into MongoDB.');
+      console.log('[Database] Default admin, testmale, and testfemale accounts securely seeded using .env configurations.');
     }
 
     const annCount = await Announcement.countDocuments();
