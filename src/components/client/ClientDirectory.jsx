@@ -10,6 +10,7 @@ import { encryptStorageData, decryptStorageData } from '../../utils/storageEncry
 import HomeDashboard from './HomeDashboard';
 
 const brandLogo = '/logo.jpg';
+const homeDashboardLogo = '/home dashboard.png';
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000').replace(/\/+$/, '');
 
 export default function ClientDirectory({ 
@@ -954,7 +955,7 @@ export default function ClientDirectory({
                     onClick={() => { setActiveTab('home'); setSidebarOpen(false); }}
                     className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'home' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
                   >
-                    <Home size={16} /> Home Dashboard
+                    <img src={homeDashboardLogo} alt="Home" className="w-4 h-4 object-contain" /> Home Dashboard
                   </button>
 
                   {!isFemaleUser && !isAdminUser && (
@@ -1044,11 +1045,11 @@ export default function ClientDirectory({
             
             <button 
               onClick={() => setActiveTab('home')}
-              className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all cursor-pointer w-full ${
                 activeTab === 'home' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               }`}
             >
-              <Home className="w-4 h-4" /> Home Dashboard
+              <img src={homeDashboardLogo} alt="Home" className="w-4 h-4 object-contain" /> Home Dashboard
             </button>
 
             {!isFemaleUser && !isAdminUser && (
@@ -1670,7 +1671,7 @@ export default function ClientDirectory({
       </div>
 
       <footer className="border-t border-slate-800/80 py-6 text-center text-xs text-slate-500 mt-auto">
-        DODIXCLUB Portal &copy; 2026. All rights reserved.
+        DODIXCLUB &copy; 2026. All rights reserved.
       </footer>
     </div>
   );
