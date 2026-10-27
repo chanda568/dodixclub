@@ -24,26 +24,33 @@ app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
 // ==========================================
-// 0. System Maintenance Mode Middleware
+// 0. System Maintenance Mode Middleware (VIP Test Bypass)
 // ==========================================
-// Toggle via .env or keep true; test accounts & admins will automatically bypass it
 const MAINTENANCE_MODE = process.env.MAINTENANCE_MODE === 'true' || true;
 
 app.use(async (req, res, next) => {
   if (MAINTENANCE_MODE) {
-    const userRole = req.headers['x-user-role'];
-    if (req.path === '/api/health' || userRole === 'admin') {
+    if (req.path === '/api/health') {
       return next();
     }
 
-    // Allow login/register bypass for test accounts and admin during maintenance
-    if (req.path === '/api/login' || req.path === '/api/register') {
-      const username = req.body?.username?.toLowerCase()?.trim();
-      const adminUser = process.env.ADMIN_USERNAME || 'admin';
-      const testMale = process.env.TEST_MALE_USERNAME || 'testmale';
-      const testFemale = process.env.TEST_FEMALE_USERNAME || 'testfemale';
+    const adminUser = (process.env.ADMIN_USERNAME || 'admin').toLowerCase().trim();
+    const testMale = (process.env.TEST_MALE_USERNAME || 'testmale').toLowerCase().trim();
+    const testFemale = (process.env.TEST_FEMALE_USERNAME || 'testfemale').toLowerCase().trim();
+    const allowedTestUsers = [adminUser, testMale, testFemale];
 
-      if ([adminUser.toLowerCase(), testMale.toLowerCase(), testFemale.toLowerCase()].includes(username)) {
+    // Check headers, body, or query for active test account/admin identification
+    const clientUser = (req.headers['x-username'] || req.body?.username || req.query?.username || '').toLowerCase().trim();
+    const userRole = req.headers['x-user-role'];
+
+    if (userRole === 'admin' || allowedTestUsers.includes(clientUser)) {
+      return next();
+    }
+
+    // Also allow login/register attempts for test accounts
+    if (req.path === '/api/login' || req.path === '/api/register') {
+      const loginUsername = (req.body?.username || '').toLowerCase().trim();
+      if (allowedTestUsers.includes(loginUsername)) {
         return next();
       }
     }
