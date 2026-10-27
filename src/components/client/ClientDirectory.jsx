@@ -955,7 +955,10 @@ export default function ClientDirectory({
                     onClick={() => { setActiveTab('home'); setSidebarOpen(false); }}
                     className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'home' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
                   >
-                    <img src={homeDashboardLogo} alt="Home" className="w-4 h-4 object-contain" /> Home Dashboard
+                    <span className="w-6 h-6 rounded-lg bg-white/95 flex items-center justify-center p-0.5 shadow-sm shrink-0">
+                      <img src={homeDashboardLogo} alt="Home" className="w-full h-full object-contain" />
+                    </span>
+                    <span>Home Dashboard</span>
                   </button>
 
                   {!isFemaleUser && !isAdminUser && (
@@ -1049,13 +1052,16 @@ export default function ClientDirectory({
                 activeTab === 'home' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               }`}
             >
-              <img src={homeDashboardLogo} alt="Home" className="w-4 h-4 object-contain" /> Home Dashboard
+              <span className="w-6 h-6 rounded-lg bg-white/95 flex items-center justify-center p-0.5 shadow-sm shrink-0">
+                <img src={homeDashboardLogo} alt="Home" className="w-full h-full object-contain" />
+              </span>
+              <span>Home Dashboard</span>
             </button>
 
             {!isFemaleUser && !isAdminUser && (
               <button 
                 onClick={() => setActiveTab('directory')}
-                className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'directory' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+                className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'directory' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
               >
                 <Compass size={16} /> Elite Directory
               </button>
@@ -1065,13 +1071,13 @@ export default function ClientDirectory({
               <>
                 <button 
                   onClick={() => setActiveTab('myprofile')}
-                  className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'myprofile' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+                  className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'myprofile' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
                 >
                   <User size={16} /> Post Advertisement
                 </button>
                 <button 
                   onClick={() => setActiveTab('history')}
-                  className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'history' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+                  className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'history' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
                 >
                   <Bell size={16} /> History
                 </button>
@@ -1080,7 +1086,7 @@ export default function ClientDirectory({
 
             <button 
               onClick={() => setActiveTab('news')}
-              className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'news' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+              className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'news' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
             >
               <Bell size={16} /> News & Announcements
             </button>
@@ -1088,7 +1094,7 @@ export default function ClientDirectory({
             {!isFemaleUser && !isAdminUser && (
               <button 
                 onClick={() => setActiveTab('favorites')}
-                className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'favorites' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+                className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'favorites' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
               >
                 <Heart size={16} /> Favorites
               </button>
@@ -1097,7 +1103,7 @@ export default function ClientDirectory({
             {!isFemaleUser && !isAdminUser && (
               <button 
                 onClick={() => setActiveTab('subscription')}
-                className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'subscription' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+                className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'subscription' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
               >
                 <CreditCard size={16} /> Subscription Status
               </button>
@@ -1106,7 +1112,7 @@ export default function ClientDirectory({
             {!isAdminUser && (
               <button 
                 onClick={() => setActiveTab('settings')}
-                className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'settings' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+                className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'settings' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
               >
                 <Settings size={16} /> Account Details
               </button>
