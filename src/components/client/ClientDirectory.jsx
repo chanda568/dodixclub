@@ -955,8 +955,8 @@ export default function ClientDirectory({
                     onClick={() => { setActiveTab('home'); setSidebarOpen(false); }}
                     className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'home' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
                   >
-                    <span className="w-6 h-6 rounded-lg bg-white/95 flex items-center justify-center p-0.5 shadow-sm shrink-0">
-                      <img src={homeDashboardLogo} alt="Home" className="w-full h-full object-contain" />
+                    <span className="w-7 h-7 rounded-xl bg-white/95 flex items-center justify-center p-0.5 shadow-md shrink-0 overflow-hidden">
+                      <img src={homeDashboardLogo} alt="Home" className="w-full h-full object-contain scale-150" />
                     </span>
                     <span>Home Dashboard</span>
                   </button>
@@ -1052,8 +1052,8 @@ export default function ClientDirectory({
                 activeTab === 'home' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               }`}
             >
-              <span className="w-6 h-6 rounded-lg bg-white/95 flex items-center justify-center p-0.5 shadow-sm shrink-0">
-                <img src={homeDashboardLogo} alt="Home" className="w-full h-full object-contain" />
+              <span className="w-7 h-7 rounded-xl bg-white/95 flex items-center justify-center p-0.5 shadow-md shrink-0 overflow-hidden">
+                <img src={homeDashboardLogo} alt="Home" className="w-full h-full object-contain scale-150" />
               </span>
               <span>Home Dashboard</span>
             </button>
