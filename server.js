@@ -288,7 +288,16 @@ async function seedDefaultData() {
 // ==========================================
 
 app.get('/api/health', (req, res) => {
-  res.status(200).json({ status: 'success', message: 'Server is up and running!', maintenance: MAINTENANCE_MODE });
+  const clientUser = (req.headers['x-username'] || req.query?.username || '').toLowerCase().trim();
+  const userRole = req.headers['x-user-role'];
+  const allowedTestUsers = ['admin', 'testmale', 'testfemale'];
+  const isTestOrAdmin = userRole === 'admin' || allowedTestUsers.includes(clientUser);
+
+  res.status(200).json({ 
+    status: 'success', 
+    message: 'Server is up and running!', 
+    maintenance: isTestOrAdmin ? false : MAINTENANCE_MODE 
+  });
 });
 
 app.get('/api/check-username/:username', async (req, res) => {
@@ -313,7 +322,12 @@ app.post('/api/login', async (req, res) => {
     
     user.lastSeen = new Date();
     await user.save();
-    res.json({ success: true, user });
+    
+    res.json({ 
+      success: true, 
+      user, 
+      bypassMaintenance: ['admin', 'testmale', 'testfemale'].includes(user.username) 
+    });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
