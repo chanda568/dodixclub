@@ -1,6 +1,6 @@
 // src/components/client/HomeDashboard.jsx
 import React from 'react';
-import { Sparkles, Megaphone, Compass, ArrowRight, Bell, Calendar, Heart, CreditCard, ShieldCheck } from 'lucide-react';
+import { Sparkles, Megaphone, Compass, ArrowRight, Bell, Calendar, Heart, CreditCard, ShieldCheck, User, Settings, Lock } from 'lucide-react';
 
 export default function HomeDashboard({ user, isFemaleUser, announcements = [], onNavigate }) {
   const defaultAnnouncements = [
@@ -13,17 +13,17 @@ export default function HomeDashboard({ user, isFemaleUser, announcements = [], 
     },
     {
       id: 2,
-      title: 'ZMW Currency & Instant Subscription Updates',
-      date: 'Oct 7, 2026',
-      category: 'Billing',
-      content: 'All tier subscriptions and payments are now seamlessly processed in Zambian Kwacha (ZMW).'
+      title: 'Live Subscription Expiration Tracker Active',
+      date: 'Oct 27, 2026',
+      category: 'Billing & Access',
+      content: 'Check your real-time pass expiration countdown directly in the Subscription Status tab.'
     }
   ];
 
   const activeAnnouncements = announcements.length > 0 ? announcements : defaultAnnouncements;
 
   return (
-    <div className="space-y-6 text-slate-100">
+    <div className="space-y-6 text-slate-100 animate-fadeIn">
       
       {/* Welcome Banner Card */}
       <div className="relative overflow-hidden bg-gradient-to-r from-pink-950/40 via-slate-900 to-purple-950/60 border border-pink-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl">
@@ -39,7 +39,7 @@ export default function HomeDashboard({ user, isFemaleUser, announcements = [], 
             <p className="text-slate-300 text-xs sm:text-sm max-w-xl leading-relaxed">
               {isFemaleUser 
                 ? "Manage your verified listings, monitor announcement updates, and keep track of your active companion status securely in one place."
-                : "Explore verified elite companions in your area, manage your active subscription tier, and connect securely."}
+                : "Explore verified elite companions in your area, monitor your active subscription tier countdown, and update your security settings."}
             </p>
           </div>
           
@@ -66,7 +66,10 @@ export default function HomeDashboard({ user, isFemaleUser, announcements = [], 
       {/* Quick Feature Highlights Grid (Dynamically Swapped for Clients vs Companions) */}
       {isFemaleUser ? (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-5 space-y-2">
+          <div 
+            onClick={() => onNavigate && onNavigate('myprofile')}
+            className="bg-slate-950/60 border border-slate-800/80 hover:border-pink-500/40 rounded-2xl p-5 space-y-2 cursor-pointer transition"
+          >
             <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
               <ShieldCheck className="w-5 h-5" />
             </div>
@@ -74,25 +77,34 @@ export default function HomeDashboard({ user, isFemaleUser, announcements = [], 
             <p className="text-xs text-slate-400">Built-in masking filters and watermarking keep your private photos secure until unmasked.</p>
           </div>
 
-          <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-5 space-y-2">
+          <div 
+            onClick={() => onNavigate && onNavigate('news')}
+            className="bg-slate-950/60 border border-slate-800/80 hover:border-pink-500/40 rounded-2xl p-5 space-y-2 cursor-pointer transition"
+          >
             <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
               <Sparkles className="w-5 h-5" />
             </div>
-            <h3 className="text-sm font-bold text-white">Tier Management</h3>
-            <p className="text-xs text-slate-400">Seamlessly categorize listings into Standard, VIP, or custom tiers with ZMW pricing.</p>
+            <h3 className="text-sm font-bold text-white">News & Directives</h3>
+            <p className="text-xs text-slate-400">Stay updated with latest policy changes, verification rules, and administrative updates.</p>
           </div>
 
-          <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-5 space-y-2">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
-              <Bell className="w-5 h-5" />
+          <div 
+            onClick={() => onNavigate && onNavigate('settings')}
+            className="bg-slate-950/60 border border-slate-800/80 hover:border-pink-500/40 rounded-2xl p-5 space-y-2 cursor-pointer transition"
+          >
+            <div className="w-10 h-10 rounded-xl bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-pink-400">
+              <Settings className="w-5 h-5" />
             </div>
-            <h3 className="text-sm font-bold text-white">Real-Time Support</h3>
-            <p className="text-xs text-slate-400">Direct connection to administrators for prompt post review and moderation assistance.</p>
+            <h3 className="text-sm font-bold text-white">Account Settings</h3>
+            <p className="text-xs text-slate-400">Update your WhatsApp contact info and manage your account security credentials.</p>
           </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-5 space-y-2">
+          <div 
+            onClick={() => onNavigate && onNavigate('directory')}
+            className="bg-slate-950/60 border border-slate-800/80 hover:border-pink-500/40 rounded-2xl p-5 space-y-2 cursor-pointer transition"
+          >
             <div className="w-10 h-10 rounded-xl bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-pink-400">
               <Compass className="w-5 h-5" />
             </div>
@@ -100,26 +112,32 @@ export default function HomeDashboard({ user, isFemaleUser, announcements = [], 
             <p className="text-xs text-slate-400">Explore verified profiles with active location filters, categories, and direct contact options.</p>
           </div>
 
-          <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-5 space-y-2">
-            <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
-              <Heart className="w-5 h-5" />
-            </div>
-            <h3 className="text-sm font-bold text-white">Saved Favorites</h3>
-            <p className="text-xs text-slate-400">Keep track of your preferred listings and access them quickly anytime.</p>
-          </div>
-
-          <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-5 space-y-2">
+          <div 
+            onClick={() => onNavigate && onNavigate('subscription')}
+            className="bg-slate-950/60 border border-slate-800/80 hover:border-pink-500/40 rounded-2xl p-5 space-y-2 cursor-pointer transition"
+          >
             <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
               <CreditCard className="w-5 h-5" />
             </div>
             <h3 className="text-sm font-bold text-white">Active Subscription</h3>
-            <p className="text-xs text-slate-400">Monitor your current membership plan status, expiry, and renewal options securely.</p>
+            <p className="text-xs text-slate-400">View your live pass countdown timer, plan privileges, and extension options.</p>
+          </div>
+
+          <div 
+            onClick={() => onNavigate && onNavigate('settings')}
+            className="bg-slate-950/60 border border-slate-800/80 hover:border-pink-500/40 rounded-2xl p-5 space-y-2 cursor-pointer transition"
+          >
+            <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+              <Settings className="w-5 h-5" />
+            </div>
+            <h3 className="text-sm font-bold text-white">Account Details</h3>
+            <p className="text-xs text-slate-400">Manage your password, account security question, and personal contact info.</p>
           </div>
         </div>
       )}
 
       {/* Important Announcements Section */}
-      <div className="bg-slate-950 border border-slate-800 rounded-3xl p-6 space-y-4">
+      <div className="bg-slate-950 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">
         <div className="flex items-center justify-between border-b border-slate-800 pb-4">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-pink-500/10 border border-pink-500/20 text-pink-400">
