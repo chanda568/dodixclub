@@ -172,7 +172,7 @@ const Message = mongoose.model('Message', messageSchema);
 const Announcement = mongoose.model('Announcement', announcementSchema);
 
 // ==========================================
-// 3. Helper Functions & Seeding
+// 3. Helper Functions & Seeding (Including Test Accounts)
 // ==========================================
 async function seedDefaultData() {
   try {
@@ -180,6 +180,8 @@ async function seedDefaultData() {
     if (userCount === 0) {
       const hashedPassword = await bcrypt.hash('password123', 10);
       const defaultAnswerHash = await bcrypt.hash('admin', 10);
+
+      // 1. Admin Account
       await User.create({
         username: 'admin',
         password: hashedPassword,
@@ -192,7 +194,36 @@ async function seedDefaultData() {
         securityQuestion: 'What was your first pet’s name?',
         securityAnswerHash: defaultAnswerHash
       });
-      console.log('[Database] Seeded default admin into MongoDB.');
+
+      // 2. Male Test Account (Pre-activated for directory testing)
+      await User.create({
+        username: 'testmale',
+        password: hashedPassword,
+        gender: 'Male',
+        location: 'Lusaka',
+        role: 'client',
+        activated: true,
+        wasActivatedBefore: true,
+        isEmailVerified: true,
+        securityQuestion: 'What was your first pet’s name?',
+        securityAnswerHash: defaultAnswerHash
+      });
+
+      // 3. Female Test Account (For companion wizard & watermarking studio testing)
+      await User.create({
+        username: 'testfemale',
+        password: hashedPassword,
+        gender: 'Female',
+        location: 'Lusaka',
+        role: 'client',
+        activated: true,
+        wasActivatedBefore: true,
+        isEmailVerified: true,
+        securityQuestion: 'What was your first pet’s name?',
+        securityAnswerHash: defaultAnswerHash
+      });
+
+      console.log('[Database] Default admin, testmale, and testfemale accounts seeded into MongoDB.');
     }
 
     const annCount = await Announcement.countDocuments();
@@ -213,7 +244,7 @@ async function seedDefaultData() {
 // ==========================================
 
 app.get('/api/health', (req, res) => {
-  res.status(200).json({ status: 'success', message: 'Server is up and running!' });
+  res.status(200).json({ status: 'success', message: 'Server is up and running!', maintenance: MAINTENANCE_MODE });
 });
 
 app.get('/api/check-username/:username', async (req, res) => {
@@ -400,7 +431,6 @@ app.post('/api/ladies', async (req, res) => {
       return res.status(400).json({ success: false, error: "Companion consent rules and 18+ age verification agreement are required." });
     }
 
-    // Upload public watermarked photos to S3
     profileData.photo = await uploadBase64ToS3(profileData.photo, 'photos');
     if (Array.isArray(profileData.photos) && profileData.photos.length > 0) {
       profileData.photos = await Promise.all(
@@ -408,7 +438,6 @@ app.post('/api/ladies', async (req, res) => {
       );
     }
 
-    // Upload original unmasked verification photos to S3
     profileData.originalPhoto = await uploadBase64ToS3(profileData.originalPhoto, 'originals');
     profileData.unmaskedPhoto = await uploadBase64ToS3(profileData.unmaskedPhoto || profileData.originalPhoto, 'unmasked');
 
