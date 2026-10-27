@@ -24,11 +24,14 @@ export default function ClientDirectory({
   const isAdminUser = currentUser?.role === 'admin' || currentUser?.username?.toLowerCase() === 'admin';
   
   // ==========================================
-  // MAINTENANCE MODE UI SWITCH
+  // MAINTENANCE MODE UI SWITCH (VIP Test Bypass)
   // ==========================================
   const IS_MAINTENANCE_ACTIVE = true; // Set to false when updates are complete
 
-  if (IS_MAINTENANCE_ACTIVE && !isAdminUser) {
+  const allowedTestUsers = ['admin', 'testmale', 'testfemale'];
+  const isTestAccount = allowedTestUsers.includes(currentUser?.username?.toLowerCase()?.trim());
+
+  if (IS_MAINTENANCE_ACTIVE && !isAdminUser && !isTestAccount) {
     return (
       <div className="min-h-screen bg-[#090d16] text-slate-100 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-[#0b101d] border border-slate-800 rounded-3xl p-8 text-center shadow-2xl space-y-6">
@@ -37,7 +40,7 @@ export default function ClientDirectory({
           </div>
           <div className="space-y-2">
             <h2 className="text-xl font-black text-white">DODIX CLUB</h2>
-            <p className="text-lg font-extrabold text-pink-500 tracking-wider">DODIX CLUB IS UNDER MAINTAINACE</p>
+            <p className="text-lg font-extrabold text-pink-500 tracking-wider">DODIX CLUB IS UNDER MAINTENANCE</p>
             <p className="text-xs text-slate-400 leading-relaxed">
               We are currently running system updates and improvements. Please check back shortly.
             </p>
@@ -144,7 +147,10 @@ export default function ClientDirectory({
     if (isManual) setIsRefreshingCatalog(true);
     try {
       const response = await fetch(`${BACKEND_URL}/api/ladies`, {
-        headers: { 'x-user-role': currentUser?.role || 'client' }
+        headers: { 
+          'x-user-role': currentUser?.role || 'client',
+          'x-username': currentUser?.username || ''
+        }
       });
       const data = await response.json();
       if (data.maintenance) {
@@ -166,7 +172,10 @@ export default function ClientDirectory({
   const fetchBackendAnnouncements = async () => {
     try {
       const response = await fetch(`${BACKEND_URL}/api/announcements`, {
-        headers: { 'x-user-role': currentUser?.role || 'client' }
+        headers: { 
+          'x-user-role': currentUser?.role || 'client',
+          'x-username': currentUser?.username || ''
+        }
       });
       const data = await response.json();
       if (data.maintenance) return;
@@ -435,7 +444,8 @@ export default function ClientDirectory({
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'x-user-role': currentUser?.role || 'client'
+          'x-user-role': currentUser?.role || 'client',
+          'x-username': currentUser?.username || ''
         },
         body: JSON.stringify(payload)
       });
@@ -492,7 +502,8 @@ export default function ClientDirectory({
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'x-user-role': currentUser?.role || 'client'
+          'x-user-role': currentUser?.role || 'client',
+          'x-username': currentUser?.username || ''
         },
         body: JSON.stringify({
           reporter: currentUser.username,
