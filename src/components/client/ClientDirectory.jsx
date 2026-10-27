@@ -10,7 +10,6 @@ import { encryptStorageData, decryptStorageData } from '../../utils/storageEncry
 import HomeDashboard from './HomeDashboard';
 
 const brandLogo = '/logo.jpg';
-const homeDashboardLogo = '/home dashboard.png';
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000').replace(/\/+$/, '');
 
 export default function ClientDirectory({ 
@@ -893,14 +892,11 @@ export default function ClientDirectory({
           <button onClick={() => setSidebarOpen(true)} className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-900 border border-slate-800 transition cursor-pointer">
             <Menu size={20} />
           </button>
-          <div className="flex items-center gap-2.5">
-            <img src={homeDashboardLogo} alt="Home Dashboard Logo" className="w-8 h-8 object-contain rounded-xl shadow-md border border-slate-800 bg-slate-950" />
-            <div>
-              <h1 className="text-base font-black tracking-wider bg-gradient-to-r from-pink-500 to-purple-400 bg-clip-text text-transparent">DODIXCLUB</h1>
-              <p className="text-[10px] uppercase font-bold tracking-widest text-slate-500">
-                {isAdminUser ? 'Platform Administration Portal' : (isFemaleUser ? 'Companion Management Portal' : 'Verified Elite Portal')}
-              </p>
-            </div>
+          <div>
+            <h1 className="text-base font-black tracking-wider bg-gradient-to-r from-pink-500 to-purple-400 bg-clip-text text-transparent">DODIXCLUB</h1>
+            <p className="text-[10px] uppercase font-bold tracking-widest text-slate-500">
+              {isAdminUser ? 'Platform Administration Portal' : (isFemaleUser ? 'Companion Management Portal' : 'Verified Elite Portal')}
+            </p>
           </div>
         </div>
 
@@ -947,10 +943,7 @@ export default function ClientDirectory({
             >
               <div className="space-y-6">
                 <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-                  <div className="flex items-center gap-2">
-                    <img src={homeDashboardLogo} alt="Home Dashboard Logo" className="w-6 h-6 object-contain rounded-lg bg-slate-950" />
-                    <span className="font-black text-sm text-white">DODIXCLUB</span>
-                  </div>
+                  <span className="font-black text-sm text-white">DODIXCLUB</span>
                   <button onClick={() => setSidebarOpen(false)} className="p-2 text-slate-400 hover:text-white rounded-lg cursor-pointer">
                     <X size={18} />
                   </button>
