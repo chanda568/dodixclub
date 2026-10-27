@@ -23,7 +23,7 @@ export default function HomeDashboard({ user, isFemaleUser, announcements = [], 
   const activeAnnouncements = announcements.length > 0 ? announcements : defaultAnnouncements;
 
   return (
-    <div className="space-y-6 text-slate-100 animate-fadeIn">
+    <div className="space-y-6 text-slate-100">
       
       {/* Welcome Banner Card */}
       <div className="relative overflow-hidden bg-gradient-to-r from-pink-950/40 via-slate-900 to-purple-950/60 border border-pink-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl">
@@ -63,7 +63,7 @@ export default function HomeDashboard({ user, isFemaleUser, announcements = [], 
         </div>
       </div>
 
-      {/* Quick Feature Highlights Grid (Dynamically Swapped for Clients vs Companions) */}
+      {/* Quick Feature Highlights Grid */}
       {isFemaleUser ? (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div 
