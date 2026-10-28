@@ -443,17 +443,32 @@ app.delete('/api/users/:username', async (req, res) => {
     const cleanUsername = req.params.username.toLowerCase().trim();
     const requestingRole = req.headers['x-user-role'];
     const requestingUser = (req.headers['x-username'] || '').toLowerCase().trim();
+    const { password } = req.body;
 
     // Ensure users can only delete their own account unless they are admin
     if (requestingRole !== 'admin' && requestingUser !== cleanUsername) {
       return res.status(403).json({ success: false, error: 'Unauthorized account deletion request.' });
     }
 
-    // 1. Delete user document
-    const userResult = await User.findOneAndDelete({ username: cleanUsername });
-    if (!userResult) {
+    // Find the user first to verify credentials
+    const user = await User.findOne({ username: cleanUsername });
+    if (!user) {
       return res.status(404).json({ success: false, error: 'User account not found.' });
     }
+
+    // Require and check password for standard users (admin action bypasses password check)
+    if (requestingRole !== 'admin') {
+      if (!password) {
+        return res.status(400).json({ success: false, error: 'Password is required to confirm account deletion.' });
+      }
+      const isPasswordMatch = await bcrypt.compare(password, user.password);
+      if (!isPasswordMatch) {
+        return res.status(401).json({ success: false, error: 'Incorrect password. Deletion aborted.' });
+      }
+    }
+
+    // 1. Delete user document
+    await User.findOneAndDelete({ username: cleanUsername });
     
     // 2. Delete any companion adverts posted by this user
     await Companion.deleteMany({ username: cleanUsername });
