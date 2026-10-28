@@ -76,6 +76,7 @@ export default function ClientDirectory({
   const [secAnswer, setSecAnswer] = useState('');
   const [settingsStatus, setSettingsStatus] = useState({ type: '', message: '' });
   const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   const [stickerType, setStickerType] = useState('logo');
   const [selectedEmoji, setSelectedEmoji] = useState('🕶️');
@@ -300,6 +301,40 @@ export default function ClientDirectory({
       setSettingsStatus({ type: 'error', message: 'Network error. Failed to save account updates.' });
     } finally {
       setIsUpdatingSettings(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    const confirmed = window.confirm(
+      "⚠️ DANGER ZONE: Are you sure you want to permanently delete your DodixClub account? This will wipe all your profile data, ads, and local bookmarks forever."
+    );
+    if (!confirmed) return;
+
+    setIsDeletingAccount(true);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/users/${currentUser.username}`, {
+        method: 'DELETE',
+        headers: {
+          'x-user-role': currentUser?.role || 'client',
+          'x-username': currentUser?.username || ''
+        }
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        localStorage.removeItem(`dodix_favorites_${currentUser.username}`);
+        localStorage.removeItem(`dodix_history_${currentUser.username}`);
+        
+        alert("Your account and data have been successfully deleted.");
+        setCurrentUser(null);
+      } else {
+        alert(data.error || "Failed to delete account.");
+      }
+    } catch (err) {
+      console.error("Deletion network error:", err);
+      alert("Network error. Failed to complete account deletion.");
+    } finally {
+      setIsDeletingAccount(false);
     }
   };
 
@@ -1955,6 +1990,32 @@ export default function ClientDirectory({
                   </button>
                 </div>
               </form>
+
+              {/* DANGER ZONE: ACCOUNT & DATA DELETION */}
+              <div className="bg-red-950/20 border border-red-900/40 rounded-3xl p-6 sm:p-8 space-y-4 shadow-xl mt-6">
+                <div className="flex items-center gap-3 border-b border-red-900/40 pb-4">
+                  <div className="p-2.5 bg-red-900/40 text-red-400 rounded-xl">
+                    <Trash2 size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-extrabold text-white uppercase tracking-wider">Danger Zone</h3>
+                    <p className="text-xs text-slate-400">Permanently remove your account and erase all associated data.</p>
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Once you delete your account, there is no going back. All your active passes, favorites bookmarks, uploaded photographs, and advertisements will be permanently erased from our servers and local storage.
+                </p>
+
+                <button 
+                  onClick={handleDeleteAccount}
+                  disabled={isDeletingAccount}
+                  className="py-3 px-6 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {isDeletingAccount ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                  {isDeletingAccount ? 'Deleting Account & Data...' : 'Permanently Delete My Account & Data'}
+                </button>
+              </div>
             </div>
           )}
         </main>
