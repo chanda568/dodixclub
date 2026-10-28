@@ -309,10 +309,31 @@ export default function App() {
     );
   }
 
+  // If user is a female companion, render ClientDirectory cleanly without the top switcher bar
+  if (currentUser.gender?.toLowerCase() === 'female' || currentUser.role === 'companion') {
+    return (
+      <PageTransition>
+        <ClientDirectory 
+          currentUser={currentUser}
+          setCurrentUser={handleLogout}
+          ladies={ladies}
+          setLadies={setLadies}
+          messages={messages}
+          setMessages={setMessages}
+          sendChatMessage={sendChatMessage}
+          isLoading={isLoading}
+          loadingText={loadingText}
+          triggerLoadingAction={triggerLoadingAction}
+          backendUrl={BACKEND_URL}
+        />
+      </PageTransition>
+    );
+  }
+
+  // Standard Client Portal Switcher Bar
   return (
     <PageTransition>
       <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col">
-        {/* Navigation Switcher Bar for Directory vs Secure Inbox */}
         <div className="bg-slate-950 border-b border-slate-800 px-6 py-3 flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <span className="font-extrabold tracking-wider text-amber-400">DODIXCLUB</span>
@@ -322,7 +343,7 @@ export default function App() {
           <div className="flex items-center space-x-3">
             <button
               onClick={() => setCurrentView('directory')}
-              className={`px-4 py-2 rounded-xl text-xs font-semibold transition ${
+              className={`px-4 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
                 currentView === 'directory'
                   ? 'bg-amber-500 text-slate-950'
                   : 'bg-slate-900 text-slate-300 hover:bg-slate-800'
@@ -332,7 +353,7 @@ export default function App() {
             </button>
             <button
               onClick={() => setCurrentView('inbox')}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-semibold transition ${
+              className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
                 currentView === 'inbox'
                   ? 'bg-amber-500 text-slate-950'
                   : 'bg-slate-900 text-slate-300 hover:bg-slate-800'
@@ -343,7 +364,7 @@ export default function App() {
             </button>
             <button
               onClick={handleLogout}
-              className="flex items-center space-x-1 px-3 py-2 bg-slate-900 hover:bg-red-950/40 text-red-400 border border-slate-800 hover:border-red-900/40 rounded-xl text-xs font-semibold transition"
+              className="flex items-center space-x-1 px-3 py-2 bg-slate-900 hover:bg-red-950/40 text-red-400 border border-slate-800 hover:border-red-900/40 rounded-xl text-xs font-semibold transition cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
               <span>Logout</span>
@@ -351,7 +372,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* View Switcher Container */}
         <div className="flex-1">
           {currentView === 'inbox' ? (
             <div className="p-6 max-w-5xl mx-auto">
