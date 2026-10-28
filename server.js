@@ -90,7 +90,7 @@ app.use(async (req, res, next) => {
 });
 
 // ==========================================
-// 1. AWS S3 Client Configuration
+// 1. AWS S3 Client Configuration & Strict Upload Security
 // ==========================================
 const s3Client = new S3Client({
   region: process.env.AWS_REGION || 'eu-north-1',
@@ -114,7 +114,19 @@ async function uploadBase64ToS3(base64String, folder = 'uploads') {
     }
 
     const mimeType = matches[1];
+    
+    // Strict MIME-type whitelist validation
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4'];
+    if (!allowedMimeTypes.includes(mimeType)) {
+      throw new Error('Unauthorized file type. Only JPEG, PNG, WEBP, and MP4 files are permitted.');
+    }
+
     const buffer = Buffer.from(matches[2], 'base64');
+    
+    // Enforce 10MB individual file size cap
+    if (buffer.length > 10 * 1024 * 1024) {
+      throw new Error('File size exceeds the 10MB limit.');
+    }
     
     let extension = 'jpg';
     if (mimeType === 'image/png') extension = 'png';
