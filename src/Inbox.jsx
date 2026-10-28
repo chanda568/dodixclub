@@ -13,6 +13,20 @@ export default function Inbox({ currentUser, API_URL }) {
 
   const cleanApi = (API_URL || 'https://dodixclub-backend.onrender.com').replace(/\/api\/?$/, '').replace(/\/$/, '');
 
+  const fetchMessages = async () => {
+    try {
+      const res = await fetch(`${cleanApi}/api/messages`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.messages)) {
+        setMessages(data.messages);
+      }
+    } catch (err) {
+      console.error('Failed to fetch messages:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     console.log('[Socket] Connecting to server:', cleanApi);
     
@@ -39,8 +53,8 @@ export default function Inbox({ currentUser, API_URL }) {
 
     fetchMessages();
 
-    // Poll messages every 4 seconds as a reliable backup sync
-    const pollInterval = setInterval(fetchMessages, 4000);
+    // Fast polling every 2 seconds to guarantee real-time sync across sessions
+    const pollInterval = setInterval(fetchMessages, 2000);
 
     return () => {
       if (socketRef.current) socketRef.current.disconnect();
@@ -50,28 +64,14 @@ export default function Inbox({ currentUser, API_URL }) {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  const fetchMessages = async () => {
-    try {
-      const res = await fetch(`${cleanApi}/api/messages`);
-      const data = await res.json();
-      if (data.success && Array.isArray(data.messages)) {
-        setMessages(data.messages);
-      }
-    } catch (err) {
-      console.error('Failed to fetch messages:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [messages, recipient]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!newMessage.trim() || !currentUser) return;
 
     const messagePayload = {
-      sender: currentUser.username,
+      sender: currentUser.username.toLowerCase().trim(),
       recipient: recipient.toLowerCase().trim(),
       content: newMessage.trim(),
       timestamp: new Date()
@@ -101,13 +101,14 @@ export default function Inbox({ currentUser, API_URL }) {
     }
 
     setNewMessage('');
+    fetchMessages();
   };
 
   const filteredMessages = messages.filter((msg) => {
-    const sender = msg.sender?.toLowerCase();
-    const rec = msg.recipient?.toLowerCase();
-    const myName = currentUser?.username?.toLowerCase();
-    const target = recipient.toLowerCase();
+    const sender = msg.sender?.toLowerCase().trim();
+    const rec = msg.recipient?.toLowerCase().trim();
+    const myName = currentUser?.username?.toLowerCase().trim();
+    const target = recipient.toLowerCase().trim();
 
     if (rec === 'public' || target === 'public') return rec === 'public';
     return (sender === myName && rec === target) || (sender === target && rec === myName);
@@ -167,7 +168,7 @@ export default function Inbox({ currentUser, API_URL }) {
               </div>
             ) : (
               filteredMessages.map((msg, index) => {
-                const isMe = msg.sender?.toLowerCase() === currentUser?.username?.toLowerCase();
+                const isMe = msg.sender?.toLowerCase().trim() === currentUser?.username?.toLowerCase().trim();
                 return (
                   <div key={msg._id || index} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                     <div className="flex items-center space-x-2 mb-1">
