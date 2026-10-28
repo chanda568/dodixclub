@@ -11,14 +11,12 @@ export default function Inbox({ currentUser, API_URL }) {
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
 
-  useEffect(() => {
-    // Clean base URL for Socket.io connection (remove trailing /api or slashes)
-    const rawUrl = API_URL || 'https://dodixclub-backend.onrender.com';
-    const socketServerUrl = rawUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+  const cleanApi = (API_URL || 'https://dodixclub-backend.onrender.com').replace(/\/api\/?$/, '').replace(/\/$/, '');
 
-    console.log('[Socket] Connecting to server:', socketServerUrl);
+  useEffect(() => {
+    console.log('[Socket] Connecting to server:', cleanApi);
     
-    socketRef.current = io(socketServerUrl, {
+    socketRef.current = io(cleanApi, {
       transports: ['websocket', 'polling'],
       secure: true,
       reconnection: true
@@ -28,17 +26,12 @@ export default function Inbox({ currentUser, API_URL }) {
       console.log('[Socket] Connected successfully with ID:', socketRef.current.id);
     });
 
-    socketRef.current.on('connect_error', (err) => {
-      console.error('[Socket Connection Error]:', err);
-    });
-
     socketRef.current.on('live-pulse-update', (data) => {
       setOnlineCount(data.onlineCount);
     });
 
     socketRef.current.on('receive-message', (msg) => {
       setMessages((prev) => {
-        // Prevent duplicate entries
         if (prev.some((m) => m._id && m._id === msg._id)) return prev;
         return [...prev, msg];
       });
@@ -46,10 +39,14 @@ export default function Inbox({ currentUser, API_URL }) {
 
     fetchMessages();
 
+    // Poll messages every 4 seconds as a reliable backup sync
+    const pollInterval = setInterval(fetchMessages, 4000);
+
     return () => {
       if (socketRef.current) socketRef.current.disconnect();
+      clearInterval(pollInterval);
     };
-  }, [API_URL]);
+  }, [cleanApi]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -57,7 +54,6 @@ export default function Inbox({ currentUser, API_URL }) {
 
   const fetchMessages = async () => {
     try {
-      const cleanApi = (API_URL || 'https://dodixclub-backend.onrender.com').replace(/\/$/, '');
       const res = await fetch(`${cleanApi}/api/messages`);
       const data = await res.json();
       if (data.success && Array.isArray(data.messages)) {
@@ -70,7 +66,7 @@ export default function Inbox({ currentUser, API_URL }) {
     }
   };
 
-  const handleSendMessage = (e) => {
+  const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!newMessage.trim() || !currentUser) return;
 
@@ -81,10 +77,27 @@ export default function Inbox({ currentUser, API_URL }) {
       timestamp: new Date()
     };
 
+    // 1. Emit via socket for instant broadcast
     if (socketRef.current && socketRef.current.connected) {
       socketRef.current.emit('send-message', messagePayload);
-    } else {
-      console.error('[Socket] Cannot send message, socket not connected.');
+    }
+
+    // 2. Also send via REST API POST to guarantee database persistence & sync
+    try {
+      const res = await fetch(`${cleanApi}/api/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(messagePayload)
+      });
+      const data = await res.json();
+      if (data.success && data.message) {
+        setMessages((prev) => {
+          if (prev.some((m) => m._id === data.message._id)) return prev;
+          return [...prev, data.message];
+        });
+      }
+    } catch (err) {
+      console.error('Failed to post message via REST:', err);
     }
 
     setNewMessage('');
