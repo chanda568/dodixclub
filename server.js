@@ -437,17 +437,39 @@ app.post('/api/users/toggle', async (req, res) => {
   }
 });
 
-app.delete('/api/users/:identifier', async (req, res) => {
+// DELETE user account and all associated records (Companions, Reports, etc.)
+app.delete('/api/users/:username', async (req, res) => {
   try {
-    const cleanId = req.params.identifier.toLowerCase().trim();
-    let result = mongoose.Types.ObjectId.isValid(cleanId) ? await User.findByIdAndDelete(cleanId) : null;
-    if (!result) {
-      result = await User.findOneAndDelete({ username: cleanId });
+    const cleanUsername = req.params.username.toLowerCase().trim();
+    const requestingRole = req.headers['x-user-role'];
+    const requestingUser = (req.headers['x-username'] || '').toLowerCase().trim();
+
+    // Ensure users can only delete their own account unless they are admin
+    if (requestingRole !== 'admin' && requestingUser !== cleanUsername) {
+      return res.status(403).json({ success: false, error: 'Unauthorized account deletion request.' });
     }
-    if (!result) return res.status(404).json({ success: false, error: "User not found." });
-    res.json({ success: true, message: "User permanently deleted." });
+
+    // 1. Delete user document
+    const userResult = await User.findOneAndDelete({ username: cleanUsername });
+    if (!userResult) {
+      return res.status(404).json({ success: false, error: 'User account not found.' });
+    }
+    
+    // 2. Delete any companion adverts posted by this user
+    await Companion.deleteMany({ username: cleanUsername });
+
+    // 3. Delete any reports filed by or against this user
+    await Report.deleteMany({ 
+      $or: [{ reporter: cleanUsername }, { targetUser: cleanUsername }] 
+    });
+
+    res.json({ 
+      success: true, 
+      message: 'Account and all associated records permanently deleted.' 
+    });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error("Account deletion error:", err);
+    res.status(500).json({ success: false, error: 'Internal server error during account deletion.' });
   }
 });
 
