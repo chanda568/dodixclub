@@ -12,11 +12,24 @@ export default function Inbox({ currentUser, API_URL }) {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
-    const socketServerUrl = (API_URL || 'http://localhost:5000').replace('/api', '').replace(/\/$/, '');
-    socketRef.current = io(socketServerUrl);
+    // Clean base URL for Socket.io connection (remove trailing /api or slashes)
+    const rawUrl = API_URL || 'https://dodixclub-backend.onrender.com';
+    const socketServerUrl = rawUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+
+    console.log('[Socket] Connecting to server:', socketServerUrl);
+    
+    socketRef.current = io(socketServerUrl, {
+      transports: ['websocket', 'polling'],
+      secure: true,
+      reconnection: true
+    });
 
     socketRef.current.on('connect', () => {
-      console.log('[Socket] Connected to Inbox pulse');
+      console.log('[Socket] Connected successfully with ID:', socketRef.current.id);
+    });
+
+    socketRef.current.on('connect_error', (err) => {
+      console.error('[Socket Connection Error]:', err);
     });
 
     socketRef.current.on('live-pulse-update', (data) => {
@@ -24,7 +37,11 @@ export default function Inbox({ currentUser, API_URL }) {
     });
 
     socketRef.current.on('receive-message', (msg) => {
-      setMessages((prev) => [...prev, msg]);
+      setMessages((prev) => {
+        // Prevent duplicate entries
+        if (prev.some((m) => m._id && m._id === msg._id)) return prev;
+        return [...prev, msg];
+      });
     });
 
     fetchMessages();
@@ -40,9 +57,10 @@ export default function Inbox({ currentUser, API_URL }) {
 
   const fetchMessages = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/messages`);
+      const cleanApi = (API_URL || 'https://dodixclub-backend.onrender.com').replace(/\/$/, '');
+      const res = await fetch(`${cleanApi}/api/messages`);
       const data = await res.json();
-      if (data.success) {
+      if (data.success && Array.isArray(data.messages)) {
         setMessages(data.messages);
       }
     } catch (err) {
@@ -63,7 +81,12 @@ export default function Inbox({ currentUser, API_URL }) {
       timestamp: new Date()
     };
 
-    socketRef.current.emit('send-message', messagePayload);
+    if (socketRef.current && socketRef.current.connected) {
+      socketRef.current.emit('send-message', messagePayload);
+    } else {
+      console.error('[Socket] Cannot send message, socket not connected.');
+    }
+
     setNewMessage('');
   };
 
@@ -73,7 +96,7 @@ export default function Inbox({ currentUser, API_URL }) {
     const myName = currentUser?.username?.toLowerCase();
     const target = recipient.toLowerCase();
 
-    if (rec === 'public') return true;
+    if (rec === 'public' || target === 'public') return rec === 'public';
     return (sender === myName && rec === target) || (sender === target && rec === myName);
   });
 
@@ -87,7 +110,7 @@ export default function Inbox({ currentUser, API_URL }) {
           </div>
           <div>
             <h2 className="font-bold text-amber-400">DodixClub Secure Inbox</h2>
-            <p className="text-xs text-gray-400">Encrypted direct messaging</p>
+            <p className="text-xs text-gray-400">Logged in as @{currentUser?.username}</p>
           </div>
         </div>
 
@@ -106,7 +129,7 @@ export default function Inbox({ currentUser, API_URL }) {
               <button
                 key={target}
                 onClick={() => setRecipient(target)}
-                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${
+                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm font-medium transition cursor-pointer ${
                   recipient === target
                     ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
                     : 'text-gray-400 hover:bg-slate-900 hover:text-white'
@@ -133,7 +156,7 @@ export default function Inbox({ currentUser, API_URL }) {
               filteredMessages.map((msg, index) => {
                 const isMe = msg.sender?.toLowerCase() === currentUser?.username?.toLowerCase();
                 return (
-                  <div key={index} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                  <div key={msg._id || index} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                     <div className="flex items-center space-x-2 mb-1">
                       <span className="text-xs font-semibold text-gray-400 capitalize">{msg.sender}</span>
                       <span className="text-[10px] text-gray-500">
@@ -167,7 +190,7 @@ export default function Inbox({ currentUser, API_URL }) {
             />
             <button
               type="submit"
-              className="bg-amber-500 hover:bg-amber-600 text-slate-950 p-2.5 rounded-xl transition font-bold flex items-center justify-center"
+              className="bg-amber-500 hover:bg-amber-600 text-slate-950 p-2.5 rounded-xl transition font-bold flex items-center justify-center cursor-pointer"
             >
               <Send className="w-5 h-5" />
             </button>
