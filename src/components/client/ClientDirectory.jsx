@@ -143,6 +143,31 @@ export default function ClientDirectory({
     }
   }, [favoriteIds, currentUser?.username]);
 
+  // Keyboard navigation for photo gallery modal
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (!selectedProfile) return;
+      const allProfilePhotos = [
+        selectedProfile.photo,
+        selectedProfile.photoUrl,
+        ...(Array.isArray(selectedProfile.photos) ? selectedProfile.photos : [])
+      ].filter(Boolean).filter((img, idx, arr) => arr.indexOf(img) === idx);
+
+      if (allProfilePhotos.length <= 1) return;
+
+      if (e.key === 'ArrowLeft') {
+        setActivePhotoIdx(prev => (prev === 0 ? allProfilePhotos.length - 1 : prev - 1));
+      } else if (e.key === 'ArrowRight') {
+        setActivePhotoIdx(prev => (prev === allProfilePhotos.length - 1 ? 0 : prev + 1));
+      } else if (e.key === 'Escape') {
+        setSelectedProfile(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedProfile]);
+
   // Subscription Countdown Timer Effect
   useEffect(() => {
     const timer = setInterval(() => {
@@ -731,7 +756,7 @@ export default function ClientDirectory({
       <canvas ref={canvasRef} className="hidden" />
       {isLoading && <LogoLoader text={loadingText} />}
 
-      {/* PROFILE DETAIL MODAL WITH IMAGE VIEWER */}
+      {/* ENHANCED PREMIUM MEDIA VIEWER & PROFILE MODAL */}
       <AnimatePresence>
         {selectedProfile && !isFemaleUser && !isAdminUser && (() => {
           const allProfilePhotos = [
@@ -744,57 +769,70 @@ export default function ClientDirectory({
           const isFav = favoriteIds.includes(selectedProfile._id || selectedProfile.id);
 
           return (
-            <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
+            <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
               <motion.div 
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.9, opacity: 0 }}
-                className="max-w-xl w-full bg-[#0b101d] border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 relative overflow-hidden my-auto"
+                initial={{ scale: 0.95, opacity: 0, y: 10 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.95, opacity: 0, y: 10 }}
+                className="max-w-xl w-full bg-[#0b101d] border border-slate-800/80 rounded-3xl p-5 sm:p-7 shadow-2xl space-y-5 relative overflow-hidden my-auto"
               >
                 <button 
                   onClick={() => setSelectedProfile(null)}
-                  className="absolute top-6 right-6 p-2 text-slate-400 hover:text-white rounded-xl bg-slate-900 border border-slate-800 transition cursor-pointer z-20"
+                  className="absolute top-5 right-5 p-2.5 text-slate-400 hover:text-white rounded-2xl bg-slate-900/90 border border-slate-800/80 transition cursor-pointer z-30 shadow-lg"
                 >
-                  <X size={20} />
+                  <X size={18} />
                 </button>
 
-                {/* Main Photo Viewer Display */}
-                <div className="relative w-full h-72 sm:h-80 rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 shadow-inner flex items-center justify-center">
-                  <img 
+                {/* Upgraded Modern Media Viewer Stage */}
+                <div className="relative w-full h-80 sm:h-96 rounded-2xl overflow-hidden border border-slate-800/90 bg-gradient-to-b from-slate-950 via-black to-slate-950 shadow-2xl flex items-center justify-center group">
+                  <div className="absolute inset-0 bg-pink-500/5 blur-3xl pointer-events-none" />
+                  
+                  <motion.img 
+                    key={activePhotoIdx}
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.2 }}
                     src={currentDisplayPhoto} 
                     alt={selectedProfile.name} 
-                    className="w-full h-full object-contain" 
+                    className="w-full h-full object-contain relative z-10" 
                   />
                   
                   {allProfilePhotos.length > 1 && (
                     <>
                       <button 
                         onClick={() => setActivePhotoIdx(prev => (prev === 0 ? allProfilePhotos.length - 1 : prev - 1))}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 p-2 bg-black/60 hover:bg-black/90 text-white rounded-full border border-white/10 transition cursor-pointer"
+                        className="absolute left-3 top-1/2 -translate-y-1/2 p-3 bg-black/60 hover:bg-pink-600 text-white rounded-2xl border border-white/10 transition-all cursor-pointer z-20 shadow-xl opacity-80 group-hover:opacity-100"
+                        title="Previous Photo (Left Arrow)"
                       >
-                        <ArrowLeft size={16} />
+                        <ArrowLeft size={18} />
                       </button>
                       <button 
                         onClick={() => setActivePhotoIdx(prev => (prev === allProfilePhotos.length - 1 ? 0 : prev + 1))}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-black/60 hover:bg-black/90 text-white rounded-full border border-white/10 transition cursor-pointer"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 p-3 bg-black/60 hover:bg-pink-600 text-white rounded-2xl border border-white/10 transition-all cursor-pointer z-20 shadow-xl opacity-80 group-hover:opacity-100"
+                        title="Next Photo (Right Arrow)"
                       >
-                        <ArrowRight size={16} />
+                        <ArrowRight size={18} />
                       </button>
-                      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/70 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold text-slate-200 border border-white/10">
+
+                      <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-black tracking-wider text-pink-400 border border-white/10 z-20 shadow-md">
                         Photo {activePhotoIdx + 1} of {allProfilePhotos.length}
                       </div>
                     </>
                   )}
                 </div>
 
-                {/* Thumbnail Selector Strip */}
+                {/* Upgraded Thumbnail Selector Strip */}
                 {allProfilePhotos.length > 1 && (
-                  <div className="flex gap-2 overflow-x-auto pb-1">
+                  <div className="flex gap-2.5 overflow-x-auto pb-1.5 scrollbar-thin">
                     {allProfilePhotos.map((p, idx) => (
                       <button
                         key={idx}
                         onClick={() => setActivePhotoIdx(idx)}
-                        className={`w-14 h-14 rounded-xl overflow-hidden border-2 shrink-0 bg-slate-950 transition cursor-pointer ${activePhotoIdx === idx ? 'border-pink-500 scale-105' : 'border-slate-800 opacity-60 hover:opacity-100'}`}
+                        className={`w-16 h-16 rounded-2xl overflow-hidden border-2 shrink-0 bg-slate-950 transition-all cursor-pointer shadow-md ${
+                          activePhotoIdx === idx 
+                            ? 'border-pink-500 scale-105 shadow-pink-500/20 ring-2 ring-pink-500/30' 
+                            : 'border-slate-800 opacity-50 hover:opacity-100'
+                        }`}
                       >
                         <img src={p} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
                       </button>
@@ -803,35 +841,35 @@ export default function ClientDirectory({
                 )}
 
                 {/* Profile Details Header */}
-                <div className="space-y-2">
+                <div className="space-y-1.5 pt-1">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-xl font-extrabold text-white">{selectedProfile.name} {selectedProfile.age ? `, ${selectedProfile.age}` : ''}</h3>
+                    <div className="flex items-center gap-2.5">
+                      <h3 className="text-xl font-black text-white">{selectedProfile.name} {selectedProfile.age ? `, ${selectedProfile.age}` : ''}</h3>
                       <span className="bg-emerald-500/90 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
                         <ShieldCheck size={11} /> VERIFIED
                       </span>
                     </div>
-                    <span className="text-sm font-extrabold text-emerald-400">ZMW {selectedProfile.price || selectedProfile.rate}</span>
+                    <span className="text-base font-black text-emerald-400">ZMW {selectedProfile.price || selectedProfile.rate}</span>
                   </div>
-                  <p className="text-xs text-pink-400 font-semibold uppercase tracking-wider">{selectedProfile.category || 'VIP'} Companion</p>
-                  <p className="text-xs text-slate-400 flex items-center gap-1">
-                    <MapPin size={14} className="text-pink-500" /> {selectedProfile.neighborhood ? `${selectedProfile.neighborhood}, ` : ''}{selectedProfile.location}
+                  <p className="text-xs text-pink-400 font-bold uppercase tracking-wider">{selectedProfile.category || 'VIP'} Companion</p>
+                  <p className="text-xs text-slate-400 flex items-center gap-1.5">
+                    <MapPin size={14} className="text-pink-500 shrink-0" /> {selectedProfile.neighborhood ? `${selectedProfile.neighborhood}, ` : ''}{selectedProfile.location}
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800/80">
-                  <div className="p-3 bg-slate-900 border border-slate-800/80 rounded-2xl">
-                    <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block">Hosting Available</span>
+                <div className="grid grid-cols-2 gap-3 pt-1 border-t border-slate-800/80">
+                  <div className="p-3 bg-slate-900/60 border border-slate-800/80 rounded-2xl">
+                    <span className="text-[10px] uppercase tracking-wider text-slate-500 font-extrabold block">Hosting Available</span>
                     <span className="text-sm font-extrabold text-slate-200">{selectedProfile.hosting || 'Yes'}</span>
                   </div>
-                  <div className="p-3 bg-slate-900 border border-slate-800/80 rounded-2xl">
-                    <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block">Total Photos</span>
+                  <div className="p-3 bg-slate-900/60 border border-slate-800/80 rounded-2xl">
+                    <span className="text-[10px] uppercase tracking-wider text-slate-500 font-extrabold block">Total Photos</span>
                     <span className="text-sm font-extrabold text-pink-400">{allProfilePhotos.length} Pictures</span>
                   </div>
                 </div>
 
                 {(selectedProfile.extraServices || selectedProfile.bio) && (
-                  <div className="space-y-1.5 p-4 bg-slate-900/60 border border-slate-800 rounded-2xl">
+                  <div className="space-y-1 p-3.5 bg-slate-900/40 border border-slate-800 rounded-2xl">
                     <span className="text-xs font-bold text-slate-300">Services & Preferences</span>
                     <p className="text-xs text-slate-400 leading-relaxed">{selectedProfile.extraServices || selectedProfile.bio}</p>
                   </div>
@@ -1583,7 +1621,7 @@ export default function ClientDirectory({
             </div>
           )}
 
-          {/* FULLY FUNCTIONAL FAVORITES TAB */}
+          {/* FAVORITES TAB */}
           {activeTab === 'favorites' && !isFemaleUser && !isAdminUser && (
             <div className="space-y-6 animate-fadeIn">
               <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl flex items-center justify-between">
