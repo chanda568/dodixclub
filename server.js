@@ -6,6 +6,8 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import mongoSanitize from 'express-mongo-sanitize';
+import rateLimit from 'express-rate-limit';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import dotenv from 'dotenv';
 dotenv.config();
@@ -22,6 +24,20 @@ const io = new Server(server, {
 app.use(cors());
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
+
+// ==========================================
+// Security Hardening Middleware
+// ==========================================
+// 1. Sanitize incoming request data against NoSQL operator injection ($ and .)
+app.use(mongoSanitize());
+
+// 2. Rate limiting to guard against brute-force attacks and abuse
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 300, // Limit each IP to 300 requests per windowMs
+  message: { success: false, error: 'Too many requests from this IP, please try again later.' }
+});
+app.use('/api/', apiLimiter);
 
 // ==========================================
 // 0. System Maintenance Mode Middleware (VIP Test Bypass)
