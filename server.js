@@ -8,6 +8,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import mongoSanitize from 'express-mongo-sanitize';
 import rateLimit from 'express-rate-limit';
+import helmet from 'helmet';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import dotenv from 'dotenv';
 dotenv.config();
@@ -28,10 +29,18 @@ app.use(express.urlencoded({ limit: '100mb', extended: true }));
 // ==========================================
 // Security Hardening Middleware
 // ==========================================
-// 1. Sanitize incoming request data against NoSQL operator injection ($ and .)
+// 1. Helmet for secure HTTP headers (configured for S3 cross-origin image loading)
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginEmbedderPolicy: false,
+  })
+);
+
+// 2. Sanitize incoming request data against NoSQL query operator injection ($ and .)
 app.use(mongoSanitize());
 
-// 2. Rate limiting to guard against brute-force attacks and abuse
+// 3. Rate limiting to guard against brute-force attacks and abuse
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 300, // Limit each IP to 300 requests per windowMs
