@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { DEFAULT_LADIES_DB, DEFAULT_MESSAGES_DB } from './data/constants';
 import { decryptStorageData, encryptStorageData } from './utils/storageEncryption';
-import { Clock, RefreshCw, LogOut, MessageCircle } from 'lucide-react';
+import { Clock, RefreshCw, LogOut, MessageCircle, MessageSquare } from 'lucide-react';
 
 import AgeGate from './components/common/AgeGate';
 import AuthScreen from './components/auth/AuthScreen';
 import AdminDashboard from './components/admin/AdminDashboard';
 import ClientDirectory from './components/client/ClientDirectory';
 import PageTransition from './components/common/PageTransition';
+import Inbox from './Inbox';
 
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000').replace(/\/+$/, '');
 
@@ -21,6 +22,7 @@ export default function App() {
     return saved ? JSON.parse(saved) : null;
   });
 
+  const [currentView, setCurrentView] = useState('directory'); // 'directory' or 'inbox'
   const [usersDb, setUsersDb] = useState([]);
   const [ladies, setLadies] = useState(() => {
     const saved = localStorage.getItem('dodix_ladies_db');
@@ -150,43 +152,8 @@ export default function App() {
           }
         })
         .catch(err => console.error("Failed to fetch messages from server:", err));
-
-      const safeBackendUrl = BACKEND_URL.replace(/\/+$/, '');
-      const wsProtocol = safeBackendUrl.startsWith('https') ? 'wss://' : 'ws://';
-      const cleanHost = safeBackendUrl.replace(/^https?:\/\//, '');
-      const ws = new WebSocket(`${wsProtocol}${cleanHost}`);
-      socketRef.current = ws;
-
-      ws.onopen = () => {
-        ws.send(JSON.stringify({ type: 'auth', username: currentUser.username }));
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'chat_message') {
-            setMessages((prevMessages) => {
-              const exists = prevMessages.some(m => m.id === data.message.id);
-              if (exists) return prevMessages;
-              return [...prevMessages, data.message];
-            });
-          }
-        } catch (err) {
-          console.error('[WS] Error parsing incoming message:', err);
-        }
-      };
-
-      return () => {
-        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-          ws.close();
-        }
-      };
     } else {
       sessionStorage.removeItem('dodix_current_user');
-      if (socketRef.current) {
-        socketRef.current.close();
-        socketRef.current = null;
-      }
     }
   }, [currentUser?.username]);
 
@@ -204,14 +171,7 @@ export default function App() {
   };
 
   const sendChatMessage = (recipient, text) => {
-    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-      socketRef.current.send(JSON.stringify({
-        type: 'chat_message',
-        sender: currentUser.username,
-        recipient: recipient,
-        text: text
-      }));
-    }
+    // Legacy support wrapper
   };
 
   if (!isAgeVerified) {
@@ -351,19 +311,69 @@ export default function App() {
 
   return (
     <PageTransition>
-      <ClientDirectory 
-        currentUser={currentUser}
-        setCurrentUser={handleLogout}
-        ladies={ladies}
-        setLadies={setLadies}
-        messages={messages}
-        setMessages={setMessages}
-        sendChatMessage={sendChatMessage}
-        isLoading={isLoading}
-        loadingText={loadingText}
-        triggerLoadingAction={triggerLoadingAction}
-        backendUrl={BACKEND_URL}
-      />
+      <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col">
+        {/* Navigation Switcher Bar for Directory vs Secure Inbox */}
+        <div className="bg-slate-950 border-b border-slate-800 px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <span className="font-extrabold tracking-wider text-amber-400">DODIXCLUB</span>
+            <span className="text-xs bg-slate-800 text-slate-300 px-2.5 py-0.5 rounded-full">Secure Portal</span>
+          </div>
+
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={() => setCurrentView('directory')}
+              className={`px-4 py-2 rounded-xl text-xs font-semibold transition ${
+                currentView === 'directory'
+                  ? 'bg-amber-500 text-slate-950'
+                  : 'bg-slate-900 text-slate-300 hover:bg-slate-800'
+              }`}
+            >
+              Catalog Directory
+            </button>
+            <button
+              onClick={() => setCurrentView('inbox')}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-semibold transition ${
+                currentView === 'inbox'
+                  ? 'bg-amber-500 text-slate-950'
+                  : 'bg-slate-900 text-slate-300 hover:bg-slate-800'
+              }`}
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span>Secure Inbox</span>
+            </button>
+            <button
+              onClick={handleLogout}
+              className="flex items-center space-x-1 px-3 py-2 bg-slate-900 hover:bg-red-950/40 text-red-400 border border-slate-800 hover:border-red-900/40 rounded-xl text-xs font-semibold transition"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Logout</span>
+            </button>
+          </div>
+        </div>
+
+        {/* View Switcher Container */}
+        <div className="flex-1">
+          {currentView === 'inbox' ? (
+            <div className="p-6 max-w-5xl mx-auto">
+              <Inbox currentUser={currentUser} API_URL={BACKEND_URL} />
+            </div>
+          ) : (
+            <ClientDirectory 
+              currentUser={currentUser}
+              setCurrentUser={handleLogout}
+              ladies={ladies}
+              setLadies={setLadies}
+              messages={messages}
+              setMessages={setMessages}
+              sendChatMessage={sendChatMessage}
+              isLoading={isLoading}
+              loadingText={loadingText}
+              triggerLoadingAction={triggerLoadingAction}
+              backendUrl={BACKEND_URL}
+            />
+          )}
+        </div>
+      </div>
     </PageTransition>
   );
 }
