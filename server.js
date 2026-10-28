@@ -28,7 +28,6 @@ app.use(express.urlencoded({ limit: '100mb', extended: true }));
 // ==========================================
 // Security Hardening Middleware
 // ==========================================
-// 1. Helmet for secure HTTP headers (configured for S3 cross-origin image loading)
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
@@ -36,7 +35,6 @@ app.use(
   })
 );
 
-// 2. Safe Lightweight NoSQL Injection Prevention for Express v5
 app.use((req, res, next) => {
   if (req.body) {
     for (const key of Object.keys(req.body)) {
@@ -48,10 +46,9 @@ app.use((req, res, next) => {
   next();
 });
 
-// 3. Rate limiting to guard against brute-force attacks and abuse
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 300, // Limit each IP to 300 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 300,
   message: { success: false, error: 'Too many requests from this IP, please try again later.' }
 });
 app.use('/api/', apiLimiter);
@@ -72,7 +69,6 @@ app.use(async (req, res, next) => {
     const testFemale = (process.env.TEST_FEMALE_USERNAME || 'testfemale').toLowerCase().trim();
     const allowedTestUsers = [adminUser, testMale, testFemale];
 
-    // Check headers, body, or query for active test account/admin identification
     const clientUser = (req.headers['x-username'] || req.body?.username || req.query?.username || '').toLowerCase().trim();
     const userRole = req.headers['x-user-role'];
 
@@ -80,7 +76,6 @@ app.use(async (req, res, next) => {
       return next();
     }
 
-    // Also allow login/register attempts for test accounts
     if (req.path === '/api/login' || req.path === '/api/register') {
       const loginUsername = (req.body?.username || '').toLowerCase().trim();
       if (allowedTestUsers.includes(loginUsername)) {
@@ -122,16 +117,12 @@ async function uploadBase64ToS3(base64String, folder = 'uploads') {
     }
 
     const mimeType = matches[1];
-    
-    // Strict MIME-type whitelist validation
     const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4'];
     if (!allowedMimeTypes.includes(mimeType)) {
       throw new Error('Unauthorized file type. Only JPEG, PNG, WEBP, and MP4 files are permitted.');
     }
 
     const buffer = Buffer.from(matches[2], 'base64');
-    
-    // Enforce 10MB individual file size cap
     if (buffer.length > 10 * 1024 * 1024) {
       throw new Error('File size exceeds the 10MB limit.');
     }
@@ -237,7 +228,7 @@ const Message = mongoose.model('Message', messageSchema);
 const Announcement = mongoose.model('Announcement', announcementSchema);
 
 // ==========================================
-// 3. Robust Upsert Seeding (Direct Account Verification)
+// 3. Robust Upsert Seeding
 // ==========================================
 async function seedDefaultData() {
   try {
@@ -250,7 +241,6 @@ async function seedDefaultData() {
     const femaleHashedPassword = await bcrypt.hash(process.env.TEST_FEMALE_PASSWORD || 'password123', 10);
     const defaultAnswerHash = await bcrypt.hash((process.env.ADMIN_SECURITY_ANSWER || 'admin').toLowerCase().trim(), 10);
 
-    // 1. Ensure Admin exists
     const adminUser = await User.findOne({ username: adminUsername });
     if (!adminUser) {
       await User.create({
@@ -265,10 +255,8 @@ async function seedDefaultData() {
         securityQuestion: 'What was your first pet’s name?',
         securityAnswerHash: defaultAnswerHash
       });
-      console.log(`[Database] Created missing admin account (${adminUsername})`);
     }
 
-    // 2. Ensure Male Test Account exists & is activated
     const maleUser = await User.findOne({ username: maleUsername });
     if (!maleUser) {
       await User.create({
@@ -283,15 +271,12 @@ async function seedDefaultData() {
         securityQuestion: 'What was your first pet’s name?',
         securityAnswerHash: defaultAnswerHash
       });
-      console.log(`[Database] Created missing test account (${maleUsername})`);
     } else if (!maleUser.activated) {
       maleUser.activated = true;
       maleUser.wasActivatedBefore = true;
       await maleUser.save();
-      console.log(`[Database] Activated existing male test account (${maleUsername})`);
     }
 
-    // 3. Ensure Female Test Account exists & is activated
     const femaleUser = await User.findOne({ username: femaleUsername });
     if (!femaleUser) {
       await User.create({
@@ -306,22 +291,18 @@ async function seedDefaultData() {
         securityQuestion: 'What was your first pet’s name?',
         securityAnswerHash: defaultAnswerHash
       });
-      console.log(`[Database] Created missing test account (${femaleUsername})`);
     } else if (!femaleUser.activated) {
       femaleUser.activated = true;
       femaleUser.wasActivatedBefore = true;
       await femaleUser.save();
-      console.log(`[Database] Activated existing female test account (${femaleUsername})`);
     }
 
-    // 4. Ensure default announcements exist
     const annCount = await Announcement.countDocuments();
     if (annCount === 0) {
       await Announcement.create([
         { title: 'New Privacy Tool Update', text: 'Automatic watermarking is now active for all uploaded source photographs in Step 1.', visibility: 'all' },
         { title: 'Weekend Verification Bonus', text: 'Listings verified before Friday midnight receive priority placement on the main catalog.', visibility: 'female' }
       ]);
-      console.log('[Database] Seeded default announcements into MongoDB.');
     }
   } catch (err) {
     console.error('[Database] Seeding error:', err);
@@ -482,7 +463,6 @@ app.post('/api/users/toggle', async (req, res) => {
   }
 });
 
-// DELETE user account and all associated records (Companions, Reports, etc.)
 app.delete('/api/users/:username', async (req, res) => {
   try {
     const cleanUsername = req.params.username.toLowerCase().trim();
@@ -490,18 +470,15 @@ app.delete('/api/users/:username', async (req, res) => {
     const requestingUser = (req.headers['x-username'] || '').toLowerCase().trim();
     const { password } = req.body;
 
-    // Ensure users can only delete their own account unless they are admin
     if (requestingRole !== 'admin' && requestingUser !== cleanUsername) {
       return res.status(403).json({ success: false, error: 'Unauthorized account deletion request.' });
     }
 
-    // Find the user first to verify credentials
     const user = await User.findOne({ username: cleanUsername });
     if (!user) {
       return res.status(404).json({ success: false, error: 'User account not found.' });
     }
 
-    // Require and check password for standard users (admin action bypasses password check)
     if (requestingRole !== 'admin') {
       if (!password) {
         return res.status(400).json({ success: false, error: 'Password is required to confirm account deletion.' });
@@ -512,23 +489,14 @@ app.delete('/api/users/:username', async (req, res) => {
       }
     }
 
-    // 1. Delete user document
     await User.findOneAndDelete({ username: cleanUsername });
-    
-    // 2. Delete any companion adverts posted by this user
     await Companion.deleteMany({ username: cleanUsername });
-
-    // 3. Delete any reports filed by or against this user
     await Report.deleteMany({ 
       $or: [{ reporter: cleanUsername }, { targetUser: cleanUsername }] 
     });
 
-    res.json({ 
-      success: true, 
-      message: 'Account and all associated records permanently deleted.' 
-    });
+    res.json({ success: true, message: 'Account and all associated records permanently deleted.' });
   } catch (err) {
-    console.error("Account deletion error:", err);
     res.status(500).json({ success: false, error: 'Internal server error during account deletion.' });
   }
 });
@@ -555,7 +523,6 @@ app.get('/api/ladies', async (req, res) => {
     const ladies = await Companion.find(query).sort({ createdAt: -1 }).limit(100).lean();
     res.json({ success: true, ladies });
   } catch (err) {
-    console.error("[API Ladies Error]:", err);
     res.status(500).json({ success: false, ladies: [], error: err.message });
   }
 });
@@ -600,7 +567,6 @@ app.post('/api/ladies', async (req, res) => {
     await newCompanionAd.save();
     res.json({ success: true, companion: newCompanionAd });
   } catch (err) {
-    console.error('[API Ladies Create Error]:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -702,11 +668,7 @@ app.post('/api/announcements', async (req, res) => {
     if (!title || !text) {
       return res.status(400).json({ success: false, error: "Title and text are required." });
     }
-    const newAnnouncement = new Announcement({ 
-      title, 
-      text, 
-      visibility: visibility || 'all' 
-    });
+    const newAnnouncement = new Announcement({ title, text, visibility: visibility || 'all' });
     await newAnnouncement.save();
     res.json({ success: true, announcement: newAnnouncement });
   } catch (err) {
@@ -723,7 +685,7 @@ app.delete('/api/announcements/:id', async (req, res) => {
   }
 });
 
-// Messages & Reports
+// Reports Endpoints
 app.get('/api/reports', async (req, res) => {
   try {
     const reports = await Report.find({}).sort({ timestamp: -1 }).limit(100).lean();
@@ -749,10 +711,34 @@ app.post('/api/reports', async (req, res) => {
   }
 });
 
+// Messages Endpoints (GET and POST REST Fallback)
 app.get('/api/messages', async (req, res) => {
   try {
     const messages = await Message.find({}).sort({ timestamp: 1 }).limit(200).lean();
     res.json({ success: true, messages });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/messages', async (req, res) => {
+  try {
+    const { sender, recipient, content, timestamp } = req.body;
+    if (!sender || !content) {
+      return res.status(400).json({ success: false, error: "Sender and content are required." });
+    }
+    const newMessage = new Message({
+      sender: sender.toLowerCase().trim(),
+      recipient: recipient ? recipient.toLowerCase().trim() : 'public',
+      content,
+      timestamp: timestamp || new Date()
+    });
+    await newMessage.save();
+
+    // Broadcast live to all connected socket listeners
+    io.emit('receive-message', newMessage);
+
+    res.json({ success: true, message: newMessage });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
