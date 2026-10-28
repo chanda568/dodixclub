@@ -1991,31 +1991,34 @@ export default function ClientDirectory({
                 </div>
               </form>
 
-              {/* DANGER ZONE: ACCOUNT & DATA DELETION */}
-              <div className="bg-red-950/20 border border-red-900/40 rounded-3xl p-6 sm:p-8 space-y-4 shadow-xl mt-6">
-                <div className="flex items-center gap-3 border-b border-red-900/40 pb-4">
-                  <div className="p-2.5 bg-red-900/40 text-red-400 rounded-xl">
-                    <Trash2 size={20} />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-extrabold text-white uppercase tracking-wider">Danger Zone</h3>
-                    <p className="text-xs text-slate-400">Permanently remove your account and erase all associated data.</p>
-                  </div>
-                </div>
+{/* DANGER ZONE: ACCOUNT & DATA DELETION */}
+<div className="bg-red-950/20 border border-red-900/40 rounded-3xl p-6 sm:p-8 space-y-4 shadow-xl mt-6">
+  <div className="flex items-center gap-3 border-b border-red-900/40 pb-4">
+    <div className="p-2.5 bg-red-900/40 text-red-400 rounded-xl">
+      <Trash2 size={20} />
+    </div>
+    <div>
+      <h3 className="text-sm font-extrabold text-white uppercase tracking-wider">Danger Zone</h3>
+      <p className="text-xs text-slate-400">Permanently remove your account and erase all associated data.</p>
+    </div>
+  </div>
 
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  Once you delete your account, there is no going back. All your active passes, favorites bookmarks, uploaded photographs, and advertisements will be permanently erased from our servers and local storage.
-                </p>
+  <p className="text-xs text-slate-300 leading-relaxed">
+    {isFemaleUser 
+      ? "Once you delete your account, there is no going back. All your active companion advertisements, uploaded photographs, and platform records will be permanently erased from our servers and local storage."
+      : "Once you delete your account, there is no going back. All your active passes, favorites bookmarks, and platform records will be permanently erased from our servers and local storage."
+    }
+  </p>
 
-                <button 
-                  onClick={handleDeleteAccount}
-                  disabled={isDeletingAccount}
-                  className="py-3 px-6 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                >
-                  {isDeletingAccount ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
-                  {isDeletingAccount ? 'Deleting Account & Data...' : 'Permanently Delete My Account & Data'}
-                </button>
-              </div>
+  <button 
+    onClick={handleDeleteAccount}
+    disabled={isDeletingAccount}
+    className="py-3 px-6 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+  >
+    {isDeletingAccount ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+    {isDeletingAccount ? 'Deleting Account & Data...' : 'Permanently Delete My Account & Data'}
+  </button>
+</div>
             </div>
           )}
         </main>
