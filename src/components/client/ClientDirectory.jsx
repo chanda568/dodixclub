@@ -9,6 +9,7 @@ import LogoLoader from '../common/LogoLoader';
 import { encryptStorageData, decryptStorageData } from '../../utils/storageEncryption';
 import HomeDashboard from './HomeDashboard';
 import AccountSettingsTab from './AccountSettingsTab';
+import DeleteAccountPage from './DeleteAccountPage';
 
 const brandLogo = '/logo.jpg';
 const homeDashboardLogo = '/home dashboard.png';
@@ -1799,7 +1800,7 @@ export default function ClientDirectory({
             </div>
           )}
 
-          {/* ACCOUNT DETAILS & SECURITY TAB (EXTRACTED) */}
+          {/* ACCOUNT DETAILS & SECURITY TAB */}
           {activeTab === 'settings' && !isAdminUser && (
             <AccountSettingsTab 
               currentUser={currentUser}
@@ -1815,7 +1816,17 @@ export default function ClientDirectory({
               settingsStatus={settingsStatus}
               isUpdatingSettings={isUpdatingSettings}
               handleUpdateAccountDetails={handleUpdateAccountDetails}
-              handleDeleteAccount={async (password, setDeleteModalOpen) => {
+              onOpenDeletePage={() => setActiveTab('delete_account_page')}
+            />
+          )}
+
+          {/* DEDICATED MULTI-STEP DELETE ACCOUNT PAGE */}
+          {activeTab === 'delete_account_page' && !isAdminUser && (
+            <DeleteAccountPage
+              currentUser={currentUser}
+              onBack={() => setActiveTab('settings')}
+              isDeletingAccount={isDeletingAccount}
+              onConfirmDelete={async (password, setError) => {
                 setIsDeletingAccount(true);
                 try {
                   const response = await fetch(`${BACKEND_URL}/api/users/${currentUser.username}`, {
@@ -1832,20 +1843,18 @@ export default function ClientDirectory({
                   if (data.success) {
                     localStorage.removeItem(`dodix_favorites_${currentUser.username}`);
                     localStorage.removeItem(`dodix_history_${currentUser.username}`);
-                    alert("Your account and data have been successfully deleted.");
+                    alert("Your account and data have been permanently deleted.");
                     setCurrentUser(null);
                   } else {
-                    alert(data.error || "Failed to delete account. Please check your password.");
+                    setError(data.error || "Failed to delete account. Please verify your password.");
                   }
                 } catch (err) {
-                  console.error("Deletion network error:", err);
-                  alert("Network error. Failed to complete account deletion.");
+                  console.error("Account deletion network error:", err);
+                  setError("Network error. Failed to complete account deletion.");
                 } finally {
                   setIsDeletingAccount(false);
-                  if (setDeleteModalOpen) setDeleteModalOpen(false);
                 }
               }}
-              isDeletingAccount={isDeletingAccount}
             />
           )}
         </main>
