@@ -1,7 +1,7 @@
 // src/components/client/ClientDirectory.jsx
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-  LogOut, MessageSquare, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, Crown, RefreshCw, CheckCircle, CheckCircle2, Flag, Heart, CreditCard, Settings, Bell, Plus, Trash2, Shield, MessageCircle, Loader2, DollarSign, AlertCircle, Save, Phone, Edit3, Sliders, Move, Check, Award, Filter, ArrowRight, ArrowLeft, Upload, Sparkles, FileText, Camera, Home, Lock, Key, CheckCircle2Icon, ChevronDown, ChevronUp, ExternalLink, Sparkle
+  LogOut, MessageSquare, MapPin, Search, User, Compass, Menu, X, ShieldCheck, Clock, Crown, RefreshCw, CheckCircle, CheckCircle2, Flag, Heart, CreditCard, Settings, Bell, Plus, Trash2, Shield, MessageCircle, Loader2, DollarSign, AlertCircle, Save, Phone, Edit3, Sliders, Move, Check, Award, Filter, ArrowRight, ArrowLeft, Upload, Sparkles, FileText, Camera, Home, Lock, Key, CheckCircle2Icon, ChevronDown, ChevronUp, ExternalLink
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { io } from 'socket.io-client';
@@ -41,6 +41,16 @@ export default function ClientDirectory({
 
   const [announcements, setAnnouncements] = useState([]);
   const [expandedAnnouncements, setExpandedAnnouncements] = useState({});
+
+  // Favorites State with LocalStorage Persistence
+  const [favoriteIds, setFavoriteIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`dodix_favorites_${currentUser?.username}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
   // Live Pulse Count State
   const [onlinePulseCount, setOnlinePulseCount] = useState(24);
@@ -126,6 +136,13 @@ export default function ClientDirectory({
     };
   }, []);
 
+  // Save Favorites to LocalStorage
+  useEffect(() => {
+    if (currentUser?.username) {
+      localStorage.setItem(`dodix_favorites_${currentUser.username}`, JSON.stringify(favoriteIds));
+    }
+  }, [favoriteIds, currentUser?.username]);
+
   // Subscription Countdown Timer Effect
   useEffect(() => {
     const timer = setInterval(() => {
@@ -145,6 +162,13 @@ export default function ClientDirectory({
 
     return () => clearInterval(timer);
   }, [expiryTime]);
+
+  const toggleFavorite = (e, ladyId) => {
+    e.stopPropagation();
+    setFavoriteIds(prev => 
+      prev.includes(ladyId) ? prev.filter(id => id !== ladyId) : [...prev, ladyId]
+    );
+  };
 
   const toggleAnnouncementExpand = (id) => {
     setExpandedAnnouncements(prev => ({ ...prev, [id]: !prev[id] }));
@@ -692,6 +716,8 @@ export default function ClientDirectory({
     return matchesLoc && matchesCat && matchesSearch;
   });
 
+  const favoriteLadies = approvedLadies.filter(l => favoriteIds.includes(l._id || l.id));
+
   const visibleAnnouncements = announcements.filter(item => {
     if (isAdminUser) return true;
     if (item.visibility === 'all') return true;
@@ -715,6 +741,7 @@ export default function ClientDirectory({
           ].filter(Boolean).filter((img, idx, arr) => arr.indexOf(img) === idx);
 
           const currentDisplayPhoto = allProfilePhotos[activePhotoIdx] || allProfilePhotos[0];
+          const isFav = favoriteIds.includes(selectedProfile._id || selectedProfile.id);
 
           return (
             <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
@@ -810,7 +837,19 @@ export default function ClientDirectory({
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 gap-3 pt-2">
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <button 
+                    onClick={(e) => toggleFavorite(e, selectedProfile._id || selectedProfile.id)}
+                    className={`py-3.5 border font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition cursor-pointer ${
+                      isFav 
+                        ? 'bg-pink-600/20 border-pink-500 text-pink-400' 
+                        : 'bg-slate-900 border-slate-800 text-slate-300 hover:text-white'
+                    }`}
+                  >
+                    <Heart size={16} className={isFav ? 'fill-pink-500 text-pink-500' : ''} />
+                    {isFav ? 'Saved in Favorites' : 'Add to Favorites'}
+                  </button>
+
                   <button 
                     onClick={() => {
                       setSelectedProfile(null);
@@ -818,7 +857,7 @@ export default function ClientDirectory({
                     }}
                     className="py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
                   >
-                    <MessageSquare size={16} /> Contact via WhatsApp
+                    <MessageSquare size={16} /> WhatsApp
                   </button>
                 </div>
               </motion.div>
@@ -1004,7 +1043,7 @@ export default function ClientDirectory({
                       onClick={() => { setActiveTab('favorites'); setSidebarOpen(false); }}
                       className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'favorites' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
                     >
-                      <Heart size={16} /> Favorites
+                      <Heart size={16} /> Favorites ({favoriteIds.length})
                     </button>
                   )}
 
@@ -1099,9 +1138,16 @@ export default function ClientDirectory({
             {!isFemaleUser && !isAdminUser && (
               <button 
                 onClick={() => setActiveTab('favorites')}
-                className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center gap-3 transition cursor-pointer ${activeTab === 'favorites' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+                className={`w-full py-3 px-4 rounded-2xl text-xs font-bold flex items-center justify-between transition cursor-pointer ${activeTab === 'favorites' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
               >
-                <Heart size={16} /> Favorites
+                <div className="flex items-center gap-3">
+                  <Heart size={16} /> Favorites
+                </div>
+                {favoriteIds.length > 0 && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-pink-500 text-white">
+                    {favoriteIds.length}
+                  </span>
+                )}
               </button>
             )}
 
@@ -1183,39 +1229,52 @@ export default function ClientDirectory({
                     <p className="text-sm font-bold text-slate-300">No active companions found in {userLockedLocation}.</p>
                   </div>
                 ) : (
-                  filteredLadies.map((lady) => (
-                    <div 
-                      key={lady._id || lady.id}
-                      onClick={() => {
-                        setActivePhotoIdx(0);
-                        setSelectedProfile(lady);
-                      }}
-                      className="bg-[#0b101d] border border-slate-800/80 rounded-3xl overflow-hidden shadow-xl hover:border-pink-500/50 transition cursor-pointer group flex flex-col justify-between"
-                    >
-                      <div className="relative h-56 bg-slate-950 overflow-hidden">
-                        <img 
-                          src={lady.photo || lady.photoUrl || (lady.photos && lady.photos[0])} 
-                          alt={lady.name} 
-                          className="w-full h-full object-cover group-hover:scale-105 transition duration-500" 
-                        />
-                        <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-extrabold text-pink-400 uppercase tracking-wider border border-white/10">
-                          {lady.category || 'VIP'}
-                        </div>
-                      </div>
+                  filteredLadies.map((lady) => {
+                    const ladyId = lady._id || lady.id;
+                    const isFav = favoriteIds.includes(ladyId);
 
-                      <div className="p-5 space-y-4 flex-1 flex flex-col justify-between">
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between">
-                            <h3 className="text-base font-extrabold text-white">{lady.name} {lady.age ? `, ${lady.age}` : ''}</h3>
-                            <span className="text-sm font-black text-emerald-400">ZMW {lady.price || lady.rate}</span>
+                    return (
+                      <div 
+                        key={ladyId}
+                        onClick={() => {
+                          setActivePhotoIdx(0);
+                          setSelectedProfile(lady);
+                        }}
+                        className="bg-[#0b101d] border border-slate-800/80 rounded-3xl overflow-hidden shadow-xl hover:border-pink-500/50 transition cursor-pointer group flex flex-col justify-between relative"
+                      >
+                        <div className="relative h-56 bg-slate-950 overflow-hidden">
+                          <img 
+                            src={lady.photo || lady.photoUrl || (lady.photos && lady.photos[0])} 
+                            alt={lady.name} 
+                            className="w-full h-full object-cover group-hover:scale-105 transition duration-500" 
+                          />
+                          <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-extrabold text-pink-400 uppercase tracking-wider border border-white/10">
+                            {lady.category || 'VIP'}
                           </div>
-                          <p className="text-xs text-slate-400 flex items-center gap-1">
-                            <MapPin size={13} className="text-pink-500" /> {lady.neighborhood ? `${lady.neighborhood}, ` : ''}{lady.location}
-                          </p>
+
+                          <button
+                            onClick={(e) => toggleFavorite(e, ladyId)}
+                            className="absolute top-3 right-3 p-2 bg-black/60 backdrop-blur-md hover:bg-black/80 rounded-full border border-white/10 transition cursor-pointer z-10"
+                            title={isFav ? "Remove from Favorites" : "Add to Favorites"}
+                          >
+                            <Heart size={16} className={isFav ? 'fill-pink-500 text-pink-500' : 'text-white'} />
+                          </button>
+                        </div>
+
+                        <div className="p-5 space-y-4 flex-1 flex flex-col justify-between">
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <h3 className="text-base font-extrabold text-white">{lady.name} {lady.age ? `, ${lady.age}` : ''}</h3>
+                              <span className="text-sm font-black text-emerald-400">ZMW {lady.price || lady.rate}</span>
+                            </div>
+                            <p className="text-xs text-slate-400 flex items-center gap-1">
+                              <MapPin size={13} className="text-pink-500" /> {lady.neighborhood ? `${lady.neighborhood}, ` : ''}{lady.location}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -1402,7 +1461,7 @@ export default function ClientDirectory({
             </div>
           )}
 
-          {/* UPGRADED NEWS & ANNOUNCEMENTS SECTION */}
+          {/* NEWS & ANNOUNCEMENTS SECTION */}
           {activeTab === 'news' && (
             <div className="space-y-6 animate-fadeIn">
               <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-2 relative overflow-hidden">
@@ -1423,9 +1482,8 @@ export default function ClientDirectory({
                   visibleAnnouncements.map(item => {
                     const itemId = item._id || item.id;
                     const itemDate = new Date(item.createdAt || item.date || Date.now());
-                    const isNew = (Date.now() - itemDate.getTime()) < (48 * 60 * 60 * 1000); // 48 Hours threshold
+                    const isNew = (Date.now() - itemDate.getTime()) < (48 * 60 * 60 * 1000);
 
-                    // Category Logic
                     let categoryBadge = "PLATFORM NOTICE";
                     let badgeStyles = "bg-purple-500/10 text-purple-400 border-purple-500/30";
 
@@ -1497,7 +1555,6 @@ export default function ClientDirectory({
                           </div>
                         </div>
 
-                        {/* Interactive Context Links */}
                         {(textLower.includes('directory') || textLower.includes('subscription') || textLower.includes('profile')) && (
                           <div className="pt-2 flex items-center gap-3">
                             {textLower.includes('directory') && !isFemaleUser && (
@@ -1526,12 +1583,99 @@ export default function ClientDirectory({
             </div>
           )}
 
+          {/* FULLY FUNCTIONAL FAVORITES TAB */}
           {activeTab === 'favorites' && !isFemaleUser && !isAdminUser && (
-            <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6 animate-fadeIn">
-              <div>
-                <h2 className="text-xl font-extrabold text-white">Favorite Companions</h2>
-                <p className="text-xs text-slate-400">Your saved bookmarks and preferred profiles.</p>
+            <div className="space-y-6 animate-fadeIn">
+              <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-extrabold text-white flex items-center gap-2">
+                    <Heart size={22} className="text-pink-500 fill-pink-500" /> Favorite Companions
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-1">Your saved bookmarks and preferred companion profiles.</p>
+                </div>
+
+                <div className="px-3.5 py-1.5 bg-pink-500/10 border border-pink-500/20 text-pink-400 rounded-full text-xs font-black">
+                  {favoriteLadies.length} {favoriteLadies.length === 1 ? 'Saved Companion' : 'Saved Companions'}
+                </div>
               </div>
+
+              {favoriteLadies.length === 0 ? (
+                <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-12 text-center space-y-4 shadow-xl">
+                  <div className="w-16 h-16 bg-pink-500/10 border border-pink-500/20 text-pink-400 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+                    <Heart size={32} className="animate-pulse" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-base font-extrabold text-white">No Favorite Companions Yet</h3>
+                    <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                      Click the heart icon on any companion card in the directory to save them to your favorites for quick access.
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => setActiveTab('directory')}
+                    className="px-6 py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-lg transition cursor-pointer inline-flex items-center gap-2"
+                  >
+                    <Compass size={16} /> Explore Directory
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {favoriteLadies.map((lady) => {
+                    const ladyId = lady._id || lady.id;
+
+                    return (
+                      <div 
+                        key={ladyId}
+                        onClick={() => {
+                          setActivePhotoIdx(0);
+                          setSelectedProfile(lady);
+                        }}
+                        className="bg-[#0b101d] border border-slate-800/80 rounded-3xl overflow-hidden shadow-xl hover:border-pink-500/50 transition cursor-pointer group flex flex-col justify-between relative"
+                      >
+                        <div className="relative h-56 bg-slate-950 overflow-hidden">
+                          <img 
+                            src={lady.photo || lady.photoUrl || (lady.photos && lady.photos[0])} 
+                            alt={lady.name} 
+                            className="w-full h-full object-cover group-hover:scale-105 transition duration-500" 
+                          />
+                          <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-extrabold text-pink-400 uppercase tracking-wider border border-white/10">
+                            {lady.category || 'VIP'}
+                          </div>
+
+                          <button
+                            onClick={(e) => toggleFavorite(e, ladyId)}
+                            className="absolute top-3 right-3 p-2 bg-black/60 backdrop-blur-md hover:bg-red-600/80 text-pink-500 hover:text-white rounded-full border border-white/10 transition cursor-pointer z-10"
+                            title="Remove from Favorites"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+
+                        <div className="p-5 space-y-4 flex-1 flex flex-col justify-between">
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <h3 className="text-base font-extrabold text-white">{lady.name} {lady.age ? `, ${lady.age}` : ''}</h3>
+                              <span className="text-sm font-black text-emerald-400">ZMW {lady.price || lady.rate}</span>
+                            </div>
+                            <p className="text-xs text-slate-400 flex items-center gap-1">
+                              <MapPin size={13} className="text-pink-500" /> {lady.neighborhood ? `${lady.neighborhood}, ` : ''}{lady.location}
+                            </p>
+                          </div>
+
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenWhatsApp(lady);
+                            }}
+                            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-md"
+                          >
+                            <MessageSquare size={14} /> WhatsApp Companion
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
