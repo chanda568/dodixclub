@@ -6,7 +6,6 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import mongoSanitize from 'express-mongo-sanitize';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
@@ -37,8 +36,17 @@ app.use(
   })
 );
 
-// 2. Sanitize incoming request data against NoSQL query operator injection ($ and .)
-app.use(mongoSanitize());
+// 2. Safe Lightweight NoSQL Injection Prevention for Express v5
+app.use((req, res, next) => {
+  if (req.body) {
+    for (const key of Object.keys(req.body)) {
+      if (key.startsWith('$') || key.includes('.')) {
+        delete req.body[key];
+      }
+    }
+  }
+  next();
+});
 
 // 3. Rate limiting to guard against brute-force attacks and abuse
 const apiLimiter = rateLimit({
