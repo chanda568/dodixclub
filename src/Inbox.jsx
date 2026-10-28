@@ -13,9 +13,18 @@ export default function Inbox({ currentUser, API_URL }) {
 
   const cleanApi = (API_URL || 'https://dodixclub-backend.onrender.com').replace(/\/api\/?$/, '').replace(/\/$/, '');
 
+  // Helper headers for maintenance mode bypass
+  const getAuthHeaders = () => ({
+    'Content-Type': 'application/json',
+    'x-username': currentUser?.username || '',
+    'x-user-role': currentUser?.role || ''
+  });
+
   const fetchMessages = async () => {
     try {
-      const res = await fetch(`${cleanApi}/api/messages`);
+      const res = await fetch(`${cleanApi}/api/messages`, {
+        headers: getAuthHeaders()
+      });
       const data = await res.json();
       if (data.success && Array.isArray(data.messages)) {
         setMessages(data.messages);
@@ -60,7 +69,7 @@ export default function Inbox({ currentUser, API_URL }) {
       if (socketRef.current) socketRef.current.disconnect();
       clearInterval(pollInterval);
     };
-  }, [cleanApi]);
+  }, [cleanApi, currentUser?.username]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -82,11 +91,11 @@ export default function Inbox({ currentUser, API_URL }) {
       socketRef.current.emit('send-message', messagePayload);
     }
 
-    // 2. Also send via REST API POST to guarantee database persistence & sync
+    // 2. Send via REST API POST with bypass headers to guarantee database persistence & sync
     try {
       const res = await fetch(`${cleanApi}/api/messages`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(messagePayload)
       });
       const data = await res.json();
