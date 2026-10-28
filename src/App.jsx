@@ -309,16 +309,11 @@ export default function App() {
     );
   }
 
-  // Unified Top Switcher Bar for both standard clients and companions, completely removing duplicate headers
+  // Clean Top Bar with ONLY "Dashboard / Directory" and "Secure Inbox"
   return (
     <PageTransition>
       <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col">
-        <div className="bg-slate-950 border-b border-slate-800 px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <span className="font-extrabold tracking-wider text-amber-400">DODIXCLUB</span>
-            <span className="text-xs bg-slate-800 text-slate-300 px-2.5 py-0.5 rounded-full">Secure Portal</span>
-          </div>
-
+        <div className="bg-slate-950 border-b border-slate-800 px-6 py-2.5 flex items-center justify-end">
           <div className="flex items-center space-x-3">
             <button
               onClick={() => setCurrentView('directory')}
@@ -340,13 +335,6 @@ export default function App() {
             >
               <MessageSquare className="w-4 h-4" />
               <span>Secure Inbox</span>
-            </button>
-            <button
-              onClick={handleLogout}
-              className="flex items-center space-x-1 px-3 py-2 bg-slate-900 hover:bg-red-950/40 text-red-400 border border-slate-800 hover:border-red-900/40 rounded-xl text-xs font-semibold transition cursor-pointer"
-            >
-              <LogOut className="w-4 h-4" />
-              <span>Logout</span>
             </button>
           </div>
         </div>
