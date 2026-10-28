@@ -1,7 +1,6 @@
 // src/components/client/AccountSettingsTab.jsx
-import React, { useState } from 'react';
-import { User, Lock, Key, Save, Trash2, MapPin, Crown, CheckCircle, AlertCircle, Loader2, X } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React from 'react';
+import { User, Lock, Key, Save, Trash2, MapPin, Crown, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function AccountSettingsTab({
   currentUser,
@@ -17,124 +16,10 @@ export default function AccountSettingsTab({
   settingsStatus,
   isUpdatingSettings,
   handleUpdateAccountDetails,
-  handleDeleteAccount,
-  isDeletingAccount
+  onOpenDeletePage
 }) {
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [deleteStep, setDeleteStep] = useState(1);
-  const [deletePassword, setDeletePassword] = useState('');
-  const [deleteConfirmText, setDeleteConfirmText] = useState('');
-
   return (
     <div className="bg-[#0b101d] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-xl space-y-8 animate-fadeIn">
-      {/* ACCOUNT DELETION STEP WIZARD MODAL */}
-      <AnimatePresence>
-        {deleteModalOpen && (
-          <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="max-w-md w-full bg-[#0b101d] border border-red-900/50 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 relative"
-            >
-              <button 
-                onClick={() => setDeleteModalOpen(false)} 
-                disabled={isDeletingAccount}
-                className="absolute top-5 right-5 p-2 text-slate-400 hover:text-white rounded-lg transition cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-
-              <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
-                <div className="p-3 bg-red-950/80 border border-red-800/50 text-red-400 rounded-2xl">
-                  <AlertCircle size={22} />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-white">Delete Account Wizard</h3>
-                  <p className="text-xs text-slate-400">Step {deleteStep} of 2 — Secure Deletion</p>
-                </div>
-              </div>
-
-              {deleteStep === 1 && (
-                <div className="space-y-4">
-                  <div className="p-4 bg-red-950/30 border border-red-900/40 rounded-2xl space-y-2">
-                    <span className="text-xs font-bold text-red-400 uppercase tracking-wider block">⚠️ Irreversible Action</span>
-                    <p className="text-xs text-slate-300 leading-relaxed">
-                      You are about to permanently delete your account (<span className="text-white font-semibold">{currentUser.username}</span>). All your bookmarks, history, and active permissions will be unrecoverable.
-                    </p>
-                  </div>
-
-                  <div className="flex gap-3 pt-2">
-                    <button 
-                      type="button" 
-                      onClick={() => setDeleteModalOpen(false)} 
-                      className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                    <button 
-                      type="button" 
-                      onClick={() => setDeleteStep(2)} 
-                      className="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl text-xs shadow-lg transition cursor-pointer"
-                    >
-                      Continue to Password
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {deleteStep === 2 && (
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-300">Enter Your Current Password *</label>
-                    <input 
-                      type="password" 
-                      placeholder="Required for security verification" 
-                      value={deletePassword}
-                      onChange={(e) => setDeletePassword(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-red-500 transition"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-300">Type <span className="text-red-400 font-mono font-bold">DELETE</span> to confirm *</label>
-                    <input 
-                      type="text" 
-                      placeholder="Type DELETE in capital letters" 
-                      value={deleteConfirmText}
-                      onChange={(e) => setDeleteConfirmText(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-red-500 transition font-mono uppercase"
-                      required
-                    />
-                  </div>
-
-                  <div className="flex gap-3 pt-2">
-                    <button 
-                      type="button" 
-                      disabled={isDeletingAccount}
-                      onClick={() => setDeleteStep(1)} 
-                      className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition cursor-pointer"
-                    >
-                      Back
-                    </button>
-                    <button 
-                      type="button" 
-                      disabled={isDeletingAccount || !deletePassword || deleteConfirmText !== 'DELETE'}
-                      onClick={() => handleDeleteAccount(deletePassword, setDeleteModalOpen)}
-                      className="flex-1 py-3 bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      {isDeletingAccount ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={14} />}
-                      {isDeletingAccount ? 'Deleting...' : 'Confirm Deletion'}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
       <div className="border-b border-slate-800 pb-4 flex items-center justify-between">
         <div>
           <h2 className="text-xl font-extrabold text-white">Account Details & Settings</h2>
@@ -288,6 +173,7 @@ export default function AccountSettingsTab({
         </div>
       </form>
 
+      {/* DANGER ZONE BUTTON: OPENS DEDICATED DELETION PAGE */}
       <div className="bg-red-950/20 border border-red-900/40 rounded-3xl p-6 sm:p-8 space-y-4 shadow-xl mt-6">
         <div className="flex items-center gap-3 border-b border-red-900/40 pb-4">
           <div className="p-2.5 bg-red-900/40 text-red-400 rounded-xl">
@@ -301,21 +187,16 @@ export default function AccountSettingsTab({
 
         <p className="text-xs text-slate-300 leading-relaxed">
           {isFemaleUser 
-            ? "Once you delete your account, there is no going back. All your active companion advertisements, uploaded photographs, and platform records will be permanently erased from our servers and local storage."
-            : "Once you delete your account, there is no going back. All your active passes, favorites bookmarks, and platform records will be permanently erased from our servers and local storage."
+            ? "Once you delete your account, there is no going back. All your active companion advertisements, uploaded photographs, and platform records will be permanently erased."
+            : "Once you delete your account, there is no going back. All your active passes, favorites bookmarks, and platform records will be permanently erased."
           }
         </p>
 
         <button 
-          onClick={() => {
-            setDeleteStep(1);
-            setDeletePassword('');
-            setDeleteConfirmText('');
-            setDeleteModalOpen(true);
-          }}
+          onClick={onOpenDeletePage}
           className="py-3 px-6 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
         >
-          <Trash2 size={16} /> Permanently Delete My Account & Data
+          <Trash2 size={16} /> Open Deletion Wizard Page
         </button>
       </div>
     </div>
