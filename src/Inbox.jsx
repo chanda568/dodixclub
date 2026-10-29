@@ -35,7 +35,16 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
       });
       const data = await res.json();
       if (data.success && Array.isArray(data.messages)) {
-        setMessages(data.messages);
+        setMessages((prev) => {
+          // Merge fetched messages securely without duplication
+          const existingIds = new Set(prev.map(m => m._id).filter(Boolean));
+          const newItems = data.messages.filter(m => !m._id || !existingIds.has(m._id));
+          if (newItems.length === 0 && prev.length > 0) return prev;
+          
+          // Combine and sort by timestamp
+          const combined = [...prev, ...newItems];
+          return combined.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+        });
       }
     } catch (err) {
       console.error('Failed to fetch messages:', err);
@@ -63,7 +72,16 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
 
     socketRef.current.on('receive-message', (msg) => {
       setMessages((prev) => {
-        if (prev.some((m) => m._id && m._id === msg._id)) return prev;
+        // Prevent adding if an identical message exists by ID or content/sender window
+        const isDuplicate = prev.some(
+          (m) => 
+            (m._id && msg._id && m._id === msg._id) ||
+            (m.sender === msg.sender && 
+             m.recipient === msg.recipient &&
+             m.content === msg.content && 
+             Math.abs(new Date(m.timestamp) - new Date(msg.timestamp)) < 5000)
+        );
+        if (isDuplicate) return prev;
         return [...prev, msg];
       });
     });
@@ -110,31 +128,26 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
       timestamp: new Date()
     };
 
-    // 1. Emit via socket for instant broadcast
+    // 1. Optimistically append to local state immediately so it never waits or duplicates
+    setMessages((prev) => [...prev, messagePayload]);
+    setNewMessage('');
+
+    // 2. Emit via socket for instant broadcast to recipient
     if (socketRef.current && socketRef.current.connected) {
       socketRef.current.emit('send-message', messagePayload);
     }
 
-    // 2. Send via REST API POST with bypass headers to guarantee database persistence & sync
+    // 3. Persist to database via REST (without adding response to state to prevent double-rendering)
     try {
-      const res = await fetch(`${cleanApi}/api/messages`, {
+      await fetch(`${cleanApi}/api/messages`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(messagePayload)
       });
-      const data = await res.json();
-      if (data.success && data.message) {
-        setMessages((prev) => {
-          if (prev.some((m) => m._id === data.message._id)) return prev;
-          return [...prev, data.message];
-        });
-      }
     } catch (err) {
       console.error('Failed to post message via REST:', err);
     }
 
-    setNewMessage('');
-    fetchMessages();
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
