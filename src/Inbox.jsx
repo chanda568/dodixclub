@@ -50,26 +50,44 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
     }
   };
 
-  // Mark messages as read when viewing a recipient's chat
+  // Accurately update read status in database and notify via socket
   const markMessagesAsRead = async (targetRecipient) => {
+    const myName = currentUser?.username?.toLowerCase().trim();
+    const otherUser = targetRecipient.toLowerCase().trim();
+
     try {
+      // 1. Update database via REST API
       await fetch(`${cleanApi}/api/messages/read`, {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify({
-          reader: currentUser?.username?.toLowerCase().trim(),
-          sender: targetRecipient.toLowerCase().trim()
+          reader: myName,
+          sender: otherUser
         })
       });
-      // Emit socket event to notify sender instantly that messages were read
+
+      // 2. Optimistically update local state so "Seen" appears instantly
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (
+            msg.sender?.toLowerCase().trim() === myName &&
+            msg.recipient?.toLowerCase().trim() === otherUser
+          ) {
+            return { ...msg, read: true };
+          }
+          return msg;
+        })
+      );
+
+      // 3. Emit socket event so sender's UI updates in real-time
       if (socketRef.current && socketRef.current.connected) {
         socketRef.current.emit('mark-read', {
-          reader: currentUser?.username?.toLowerCase().trim(),
-          sender: targetRecipient.toLowerCase().trim()
+          reader: myName,
+          sender: otherUser
         });
       }
     } catch (err) {
-      // Endpoint fallback if backend route is added later
+      console.error('Failed to mark messages as read:', err);
     }
   };
 
@@ -101,18 +119,30 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
         if (isDuplicate) return prev;
         return [...prev, msg];
       });
+
+      // If message is incoming for the currently open chat, automatically mark as read
+      const myName = currentUser?.username?.toLowerCase().trim();
+      if (msg.recipient?.toLowerCase().trim() === myName && msg.sender?.toLowerCase().trim() === recipient.toLowerCase().trim()) {
+        markMessagesAsRead(recipient);
+      }
     });
 
-    // Listen for read receipt updates from recipient
-    socketRef.current.on('messages-read', ({ reader }) => {
-      setMessages((prev) => 
-        prev.map(m => {
-          if (m.recipient?.toLowerCase().trim() === reader?.toLowerCase().trim()) {
-            return { ...m, read: true };
-          }
-          return m;
-        })
-      );
+    // Listen for real-time read receipt updates from the recipient
+    socketRef.current.on('messages-read', ({ reader, sender }) => {
+      const myName = currentUser?.username?.toLowerCase().trim();
+      if (sender?.toLowerCase().trim() === myName) {
+        setMessages((prev) =>
+          prev.map((m) => {
+            if (
+              m.sender?.toLowerCase().trim() === myName &&
+              m.recipient?.toLowerCase().trim() === reader?.toLowerCase().trim()
+            ) {
+              return { ...m, read: true };
+            }
+            return m;
+          })
+        );
+      }
     });
 
     fetchMessages();
@@ -122,9 +152,9 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
       if (socketRef.current) socketRef.current.disconnect();
       clearInterval(pollInterval);
     };
-  }, [cleanApi, currentUser?.username]);
+  }, [cleanApi, currentUser?.username, recipient]);
 
-  // When switching recipient, scroll down and mark their incoming messages as read
+  // When switching recipient, scroll down and mark their messages as read
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     if (recipient) {
@@ -306,8 +336,8 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
                       {msg.content}
                       {isMe && (
                         <div className="flex items-center justify-end gap-1 mt-1 text-slate-950/80">
-                          <span className="text-[9px] font-bold uppercase tracking-tighter">{isSeen ? 'Seen' : 'Sent'}</span>
-                          {isSeen ? <CheckCheck size={14} className="text-cyan-900" /> : <Check size={13} />}
+                          <span className="text-[9px] font-black uppercase tracking-wider">{isSeen ? 'Seen' : 'Sent'}</span>
+                          {isSeen ? <CheckCheck size={14} className="text-emerald-950" /> : <Check size={13} />}
                         </div>
                       )}
                     </div>
