@@ -1,3 +1,4 @@
+// src/App.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { DEFAULT_LADIES_DB, DEFAULT_MESSAGES_DB } from './data/constants';
 import { decryptStorageData, encryptStorageData } from './utils/storageEncryption';
@@ -23,6 +24,8 @@ export default function App() {
   });
 
   const [currentView, setCurrentView] = useState('directory'); // 'directory' or 'inbox'
+  const [inboxRecipient, setInboxRecipient] = useState('admin');
+  
   const [usersDb, setUsersDb] = useState([]);
   const [ladies, setLadies] = useState(() => {
     const saved = localStorage.getItem('dodix_ladies_db');
@@ -313,7 +316,10 @@ export default function App() {
   return (
     <PageTransition>
       <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col">
-        <div className="bg-slate-950 border-b border-slate-800 px-6 py-2.5 flex items-center justify-end">
+        <div className="bg-slate-950 border-b border-slate-800 px-6 py-2.5 flex items-center justify-between">
+          <div className="text-xs font-bold text-amber-400/90 tracking-wide">
+            DODIX CLUB
+          </div>
           <div className="flex items-center space-x-3">
             <button
               onClick={() => setCurrentView('directory')}
@@ -342,7 +348,7 @@ export default function App() {
         <div className="flex-1">
           {currentView === 'inbox' ? (
             <div className="p-6 max-w-5xl mx-auto">
-              <Inbox currentUser={currentUser} API_URL={BACKEND_URL} />
+              <Inbox currentUser={currentUser} API_URL={BACKEND_URL} initialRecipient={inboxRecipient} />
             </div>
           ) : (
             <ClientDirectory 
@@ -357,6 +363,10 @@ export default function App() {
               loadingText={loadingText}
               triggerLoadingAction={triggerLoadingAction}
               backendUrl={BACKEND_URL}
+              onStartChat={(username) => {
+                setInboxRecipient(username);
+                setCurrentView('inbox');
+              }}
             />
           )}
         </div>
