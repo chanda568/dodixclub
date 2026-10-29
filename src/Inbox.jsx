@@ -1,6 +1,6 @@
 // src/Inbox.jsx
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, MessageSquare, Shield, User, CheckCheck, Sparkles, Lock } from 'lucide-react';
+import { Send, MessageSquare, Shield, User, Check, CheckCheck, Sparkles, Lock } from 'lucide-react';
 import { io } from 'socket.io-client';
 
 export default function Inbox({ currentUser, API_URL, initialRecipient }) {
@@ -34,11 +34,12 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
       const data = await res.json();
       if (data.success && Array.isArray(data.messages)) {
         setMessages((prev) => {
-          const existingIds = new Set(prev.map(m => m._id).filter(Boolean));
-          const newItems = data.messages.filter(m => !m._id || !existingIds.has(m._id));
-          if (newItems.length === 0 && prev.length > 0) return prev;
-          
-          const combined = [...prev, ...newItems];
+          const existingMap = new Map(prev.map(m => [m._id || `${m.sender}-${m.timestamp}`, m]));
+          data.messages.forEach(msg => {
+            const key = msg._id || `${msg.sender}-${msg.timestamp}`;
+            existingMap.set(key, msg);
+          });
+          const combined = Array.from(existingMap.values());
           return combined.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
         });
       }
@@ -46,6 +47,29 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
       console.error('Failed to fetch messages:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Mark messages as read when viewing a recipient's chat
+  const markMessagesAsRead = async (targetRecipient) => {
+    try {
+      await fetch(`${cleanApi}/api/messages/read`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          reader: currentUser?.username?.toLowerCase().trim(),
+          sender: targetRecipient.toLowerCase().trim()
+        })
+      });
+      // Emit socket event to notify sender instantly that messages were read
+      if (socketRef.current && socketRef.current.connected) {
+        socketRef.current.emit('mark-read', {
+          reader: currentUser?.username?.toLowerCase().trim(),
+          sender: targetRecipient.toLowerCase().trim()
+        });
+      }
+    } catch (err) {
+      // Endpoint fallback if backend route is added later
     }
   };
 
@@ -79,6 +103,18 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
       });
     });
 
+    // Listen for read receipt updates from recipient
+    socketRef.current.on('messages-read', ({ reader }) => {
+      setMessages((prev) => 
+        prev.map(m => {
+          if (m.recipient?.toLowerCase().trim() === reader?.toLowerCase().trim()) {
+            return { ...m, read: true };
+          }
+          return m;
+        })
+      );
+    });
+
     fetchMessages();
     const pollInterval = setInterval(fetchMessages, 2000);
 
@@ -88,9 +124,13 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
     };
   }, [cleanApi, currentUser?.username]);
 
+  // When switching recipient, scroll down and mark their incoming messages as read
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [recipient, messages.length]);
+    if (recipient) {
+      markMessagesAsRead(recipient);
+    }
+  }, [recipient]);
 
   const activeChatTargets = React.useMemo(() => {
     const targets = new Set(['admin', 'public']);
@@ -115,7 +155,8 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
       sender: currentUser.username.toLowerCase().trim(),
       recipient: recipient.toLowerCase().trim(),
       content: textToSend.trim(),
-      timestamp: new Date()
+      timestamp: new Date(),
+      read: false
     };
 
     setNewMessage('');
@@ -131,10 +172,7 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
         });
         const data = await res.json();
         if (data.success && data.message) {
-          setMessages((prev) => {
-            if (prev.some((m) => m._id === data.message._id)) return prev;
-            return [...prev, data.message];
-          });
+          setMessages((prev) => [...prev, data.message]);
         }
       } catch (err) {
         console.error('Failed to post message via REST:', err);
@@ -201,7 +239,6 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
 
         {/* Message Thread Area */}
         <div className="flex flex-col flex-1 bg-slate-900/50">
-          {/* Active Chat Header Bar */}
           <div className="px-6 py-3 bg-slate-950/40 border-b border-slate-800/60 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-black text-xs uppercase">
@@ -219,7 +256,6 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
             </div>
           </div>
 
-          {/* Messages List */}
           <div className="flex-1 overflow-y-auto p-5 space-y-4 scrollbar-thin">
             {loading ? (
               <div className="flex items-center justify-center h-full text-slate-500 text-xs font-medium">Loading secure history...</div>
@@ -250,6 +286,8 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
             ) : (
               filteredMessages.map((msg, index) => {
                 const isMe = msg.sender?.toLowerCase().trim() === currentUser?.username?.toLowerCase().trim();
+                const isSeen = msg.read === true;
+
                 return (
                   <div key={msg._id || index} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} space-y-1`}>
                     <div className="flex items-center space-x-2 px-1">
@@ -267,8 +305,9 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
                     >
                       {msg.content}
                       {isMe && (
-                        <div className="flex justify-end mt-1 text-slate-950/70">
-                          <CheckCheck size={13} />
+                        <div className="flex items-center justify-end gap-1 mt-1 text-slate-950/80">
+                          <span className="text-[9px] font-bold uppercase tracking-tighter">{isSeen ? 'Seen' : 'Sent'}</span>
+                          {isSeen ? <CheckCheck size={14} className="text-cyan-900" /> : <Check size={13} />}
                         </div>
                       )}
                     </div>
@@ -279,7 +318,6 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input Form */}
           <form onSubmit={handleSendMessage} className="p-4 bg-slate-950 border-t border-slate-800/80 flex items-center space-x-3">
             <input
               type="text"
