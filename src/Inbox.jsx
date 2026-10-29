@@ -37,6 +37,11 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
           const existingMap = new Map(prev.map(m => [m._id || `${m.sender}-${m.timestamp}`, m]));
           data.messages.forEach(msg => {
             const key = msg._id || `${msg.sender}-${msg.timestamp}`;
+            // Preserve local read state if server hasn't updated yet, otherwise take server state
+            const existing = existingMap.get(key);
+            if (existing && existing.read) {
+              msg.read = true;
+            }
             existingMap.set(key, msg);
           });
           const combined = Array.from(existingMap.values());
@@ -50,11 +55,24 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
     }
   };
 
-  // Mark incoming messages as read when viewing the active chat
   const markMessagesAsRead = async (targetRecipient) => {
     const myName = currentUser?.username?.toLowerCase().trim();
     const otherUser = targetRecipient.toLowerCase().trim();
 
+    // 1. Instantly update local messages state so "SENT" turns into "SEEN" right away
+    setMessages((prev) =>
+      prev.map((msg) => {
+        if (
+          msg.sender?.toLowerCase().trim() === otherUser &&
+          msg.recipient?.toLowerCase().trim() === myName
+        ) {
+          return { ...msg, read: true };
+        }
+        return msg;
+      })
+    );
+
+    // 2. Persist read status to backend database
     try {
       await fetch(`${cleanApi}/api/messages/read`, {
         method: 'PUT',
@@ -65,6 +83,7 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
         })
       });
 
+      // 3. Notify sender via socket
       if (socketRef.current && socketRef.current.connected) {
         socketRef.current.emit('mark-read', {
           reader: myName,
@@ -72,7 +91,7 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
         });
       }
     } catch (err) {
-      // Graceful fallback if backend route is pending
+      console.error('Failed to update read status on server:', err);
     }
   };
 
@@ -111,10 +130,10 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
       }
     });
 
-    // Listen for read receipts from the recipient
+    // Handle real-time read notifications from the socket server
     socketRef.current.on('messages-read', ({ reader, sender }) => {
       const myName = currentUser?.username?.toLowerCase().trim();
-      if (sender?.toLowerCase().trim() === myName) {
+      if (sender?.toLowerCase().trim() === myName || reader) {
         setMessages((prev) =>
           prev.map((m) => {
             if (
@@ -298,12 +317,14 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
               </div>
             ) : (
               filteredMessages.map((msg, index) => {
-                const isMe = msg.sender?.toLowerCase().trim() === currentUser?.username?.toLowerCase().trim();
+                const senderName = msg.sender?.toLowerCase().trim();
+                const myName = currentUser?.username?.toLowerCase().trim();
+                const isMe = senderName === myName;
                 const isSeen = msg.read === true;
 
                 return (
                   <div key={msg._id || index} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} space-y-1`}>
-                    <div className="flex items-center space-x-2 px-1">
+                    <div className={`flex items-center space-x-2 px-1 ${isMe ? 'flex-row-reverse space-x-reverse' : ''}`}>
                       <span className="text-[11px] font-bold text-slate-400 capitalize">{msg.sender}</span>
                       <span className="text-[10px] text-slate-400">
                         {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -317,7 +338,6 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
                       }`}
                     >
                       {msg.content}
-                      {/* Read status badges display exclusively on messages sent by me (isMe) */}
                       {isMe && (
                         <div className="flex items-center justify-end gap-1 mt-1 text-slate-950/80">
                           <span className="text-[9px] font-black uppercase tracking-wider">{isSeen ? 'Seen' : 'Sent'}</span>
