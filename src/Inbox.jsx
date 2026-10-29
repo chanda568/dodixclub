@@ -71,9 +71,10 @@ export default function Inbox({ currentUser, API_URL }) {
     };
   }, [cleanApi, currentUser?.username]);
 
+  // Scroll to bottom only when switching recipient
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, recipient]);
+  }, [recipient]);
 
   // Dynamically extract unique users you've chatted with, plus system targets
   const activeChatTargets = React.useMemo(() => {
@@ -86,7 +87,6 @@ export default function Inbox({ currentUser, API_URL }) {
       if (sender && sender !== myName && sender !== 'public') targets.add(sender);
       if (rec && rec !== myName && rec !== 'public') targets.add(rec);
     });
-    // Ensure current selected recipient is always visible
     if (recipient) targets.add(recipient.toLowerCase().trim());
     return Array.from(targets);
   }, [messages, currentUser, recipient]);
@@ -127,6 +127,7 @@ export default function Inbox({ currentUser, API_URL }) {
 
     setNewMessage('');
     fetchMessages();
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   const filteredMessages = messages.filter((msg) => {
