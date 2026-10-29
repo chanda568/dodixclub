@@ -2,12 +2,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, MessageSquare, Shield, User, Check, CheckCheck, Sparkles, Lock } from 'lucide-react';
 import { io } from 'socket.io-client';
+import { formatDistanceToNow, format } from 'date-fns';
 
 export default function Inbox({ currentUser, API_URL, initialRecipient }) {
   const [messages, setMessages] = useState([]);
   const [recipient, setRecipient] = useState(initialRecipient || 'admin');
   const [newMessage, setNewMessage] = useState('');
   const [onlineCount, setOnlineCount] = useState(0);
+  const [usersPresence, setUsersPresence] = useState({});
   const [loading, setLoading] = useState(true);
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -25,6 +27,25 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
     'x-username': currentUser?.username || '',
     'x-user-role': currentUser?.role || ''
   });
+
+  const fetchUsersAndPresence = async () => {
+    try {
+      const res = await fetch(`${cleanApi}/api/users`, { headers: getAuthHeaders() });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.users)) {
+        const presenceMap = {};
+        data.users.forEach(u => {
+          presenceMap[u.username.toLowerCase().trim()] = {
+            isOnline: u.isOnline,
+            lastSeen: u.lastSeen ? new Date(u.lastSeen) : null
+          };
+        });
+        setUsersPresence(presenceMap);
+      }
+    } catch (err) {
+      console.error('Failed to fetch user presence:', err);
+    }
+  };
 
   const fetchMessages = async () => {
     try {
@@ -100,10 +121,20 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
 
     socketRef.current.on('connect', () => {
       console.log('[Socket] Connected successfully with ID:', socketRef.current.id);
+      if (currentUser?.username) {
+        socketRef.current.emit('register-user', currentUser.username);
+      }
     });
 
     socketRef.current.on('live-pulse-update', (data) => {
       setOnlineCount(data.onlineCount);
+    });
+
+    socketRef.current.on('presence-update', ({ username, isOnline, lastSeen }) => {
+      setUsersPresence(prev => ({
+        ...prev,
+        [username.toLowerCase().trim()]: { isOnline, lastSeen: lastSeen ? new Date(lastSeen) : new Date() }
+      }));
     });
 
     socketRef.current.on('receive-message', (msg) => {
@@ -144,7 +175,11 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
     });
 
     fetchMessages();
-    const pollInterval = setInterval(fetchMessages, 2000);
+    fetchUsersAndPresence();
+    const pollInterval = setInterval(() => {
+      fetchMessages();
+      fetchUsersAndPresence();
+    }, 2000);
 
     return () => {
       if (socketRef.current) socketRef.current.disconnect();
@@ -217,7 +252,18 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
     return (sender === myName && rec === target) || (sender === target && rec === myName);
   });
 
-  const isRecipientOnline = ['admin', 'public'].includes(recipient.toLowerCase()) || onlineCount > 1;
+  const recipientPresence = usersPresence[recipient.toLowerCase().trim()] || {};
+  const isRecipientOnline = ['admin', 'public'].includes(recipient.toLowerCase()) || recipientPresence.isOnline === true;
+
+  const getLastSeenText = () => {
+    if (isRecipientOnline) return 'Online';
+    if (!recipientPresence.lastSeen) return 'Offline';
+    try {
+      return `Last seen ${formatDistanceToNow(new Date(recipientPresence.lastSeen), { addSuffix: true })}`;
+    } catch {
+      return 'Offline';
+    }
+  };
 
   return (
     <div className="flex flex-col h-[78vh] max-w-5xl mx-auto bg-slate-900 border border-slate-800/80 rounded-3xl overflow-hidden shadow-2xl text-white">
@@ -278,7 +324,7 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
                   {recipient} 
                   <span className={`w-1.5 h-1.5 rounded-full ${isRecipientOnline ? 'bg-emerald-400' : 'bg-slate-500'}`} />
                 </h3>
-                <span className="text-[10px] text-slate-400">{isRecipientOnline ? 'Direct Secure Channel' : 'Offline'}</span>
+                <span className="text-[10px] text-slate-400">{getLastSeenText()}</span>
               </div>
             </div>
             <div className="flex items-center gap-1 text-[10px] text-slate-400 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
@@ -325,7 +371,7 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
                     <div className={`flex items-center space-x-2 px-1 ${isMe ? 'flex-row-reverse space-x-reverse' : ''}`}>
                       <span className="text-[11px] font-bold text-slate-400 capitalize">{msg.sender}</span>
                       <span className="text-[10px] text-slate-400">
-                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {format(new Date(msg.timestamp), 'p')}
                       </span>
                     </div>
                     <div

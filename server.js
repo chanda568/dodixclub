@@ -60,7 +60,6 @@ const MAINTENANCE_MODE = process.env.MAINTENANCE_MODE === 'true' || true;
 
 app.use(async (req, res, next) => {
   if (MAINTENANCE_MODE) {
-    // Always allow health checks and message synchronization endpoints
     if (req.path === '/api/health' || req.path.startsWith('/api/messages')) {
       return next();
     }
@@ -70,7 +69,6 @@ app.use(async (req, res, next) => {
     const testFemale = (process.env.TEST_FEMALE_USERNAME || 'testfemale').toLowerCase().trim();
     const allowedTestUsers = [adminUser, testMale, testFemale];
 
-    // Check headers, body, or query for active test account/admin identification
     const clientUser = (req.headers['x-username'] || req.body?.username || req.query?.username || '').toLowerCase().trim();
     const userRole = req.headers['x-user-role'];
 
@@ -78,7 +76,6 @@ app.use(async (req, res, next) => {
       return next();
     }
 
-    // Also allow login/register and user fetching/directory listings for test accounts
     if (
       req.path === '/api/login' || 
       req.path === '/api/register' || 
@@ -173,6 +170,7 @@ const userSchema = new mongoose.Schema({
   activated: { type: Boolean, default: false },
   wasActivatedBefore: { type: Boolean, default: false },
   isEmailVerified: { type: Boolean, default: true },
+  isOnline: { type: Boolean, default: false },
   lastSeen: { type: Date, default: Date.now },
   createdAt: { type: Date, default: Date.now }
 }, { bufferCommands: false });
@@ -215,7 +213,9 @@ const messageSchema = new mongoose.Schema({
   sender: { type: String, required: true, lowercase: true, trim: true },
   recipient: { type: String, default: 'public', lowercase: true, trim: true },
   content: { type: String, required: true },
-  timestamp: { type: Date, default: Date.now }
+  timestamp: { type: Date, default: Date.now },
+  read: { type: Boolean, default: false },
+  readAt: { type: Date, default: null }
 }, { bufferCommands: false });
 
 const announcementSchema = new mongoose.Schema({
@@ -246,61 +246,31 @@ async function seedDefaultData() {
     const femaleHashedPassword = await bcrypt.hash(process.env.TEST_FEMALE_PASSWORD || 'password123', 10);
     const defaultAnswerHash = await bcrypt.hash((process.env.ADMIN_SECURITY_ANSWER || 'admin').toLowerCase().trim(), 10);
 
-    const adminUser = await User.findOne({ username: adminUsername });
-    if (!adminUser) {
-      await User.create({
-        username: adminUsername,
-        password: hashedPassword,
-        gender: 'Male',
-        location: 'Lusaka',
-        role: 'admin',
-        activated: true,
-        wasActivatedBefore: true,
-        isEmailVerified: true,
-        securityQuestion: 'What was your first pet’s name?',
-        securityAnswerHash: defaultAnswerHash
-      });
-    }
+    const checkOrCreate = async (uname, pass, gender) => {
+      let u = await User.findOne({ username: uname });
+      if (!u) {
+        await User.create({
+          username: uname,
+          password: pass,
+          gender,
+          location: 'Lusaka',
+          role: uname === adminUsername ? 'admin' : 'client',
+          activated: true,
+          wasActivatedBefore: true,
+          isEmailVerified: true,
+          securityQuestion: 'What was your first pet’s name?',
+          securityAnswerHash: defaultAnswerHash
+        });
+      } else if (!u.activated) {
+        u.activated = true;
+        u.wasActivatedBefore = true;
+        await u.save();
+      }
+    };
 
-    const maleUser = await User.findOne({ username: maleUsername });
-    if (!maleUser) {
-      await User.create({
-        username: maleUsername,
-        password: maleHashedPassword,
-        gender: 'Male',
-        location: 'Lusaka',
-        role: 'client',
-        activated: true,
-        wasActivatedBefore: true,
-        isEmailVerified: true,
-        securityQuestion: 'What was your first pet’s name?',
-        securityAnswerHash: defaultAnswerHash
-      });
-    } else if (!maleUser.activated) {
-      maleUser.activated = true;
-      maleUser.wasActivatedBefore = true;
-      await maleUser.save();
-    }
-
-    const femaleUser = await User.findOne({ username: femaleUsername });
-    if (!femaleUser) {
-      await User.create({
-        username: femaleUsername,
-        password: femaleHashedPassword,
-        gender: 'Female',
-        location: 'Lusaka',
-        role: 'client',
-        activated: true,
-        wasActivatedBefore: true,
-        isEmailVerified: true,
-        securityQuestion: 'What was your first pet’s name?',
-        securityAnswerHash: defaultAnswerHash
-      });
-    } else if (!femaleUser.activated) {
-      femaleUser.activated = true;
-      femaleUser.wasActivatedBefore = true;
-      await femaleUser.save();
-    }
+    await checkOrCreate(adminUsername, hashedPassword, 'Male');
+    await checkOrCreate(maleUsername, maleHashedPassword, 'Male');
+    await checkOrCreate(femaleUsername, femaleHashedPassword, 'Female');
 
     const annCount = await Announcement.countDocuments();
     if (annCount === 0) {
@@ -317,7 +287,6 @@ async function seedDefaultData() {
 // ==========================================
 // 4. REST API Endpoints
 // ==========================================
-
 app.get('/api/health', (req, res) => {
   const clientUser = (req.headers['x-username'] || req.query?.username || '').toLowerCase().trim();
   const userRole = req.headers['x-user-role'];
@@ -351,6 +320,7 @@ app.post('/api/login', async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.json({ success: false, error: "Incorrect password." });
     
+    user.isOnline = true;
     user.lastSeen = new Date();
     await user.save();
     
@@ -392,6 +362,7 @@ app.post('/api/register', async (req, res) => {
       activated: false,
       wasActivatedBefore: false,
       isEmailVerified: true,
+      isOnline: true,
       lastSeen: new Date()
     });
 
@@ -736,21 +707,39 @@ app.post('/api/messages', async (req, res) => {
       sender: sender.toLowerCase().trim(),
       recipient: recipient ? recipient.toLowerCase().trim() : 'public',
       content,
-      timestamp: timestamp || new Date()
+      timestamp: timestamp || new Date(),
+      read: false
     });
     await newMessage.save();
 
-    // Broadcast live to all connected socket listeners
     io.emit('receive-message', newMessage);
-
     res.json({ success: true, message: newMessage });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
+app.put('/api/messages/read', async (req, res) => {
+  try {
+    const { reader, sender } = req.body;
+    if (!reader || !sender) {
+      return res.status(400).json({ success: false, error: "Missing reader or sender." });
+    }
+
+    await Message.updateMany(
+      { sender: sender.toLowerCase().trim(), recipient: reader.toLowerCase().trim(), read: false },
+      { $set: { read: true, readAt: new Date() } }
+    );
+
+    io.emit('messages-read', { reader: reader.toLowerCase().trim(), sender: sender.toLowerCase().trim() });
+    res.json({ success: true, message: 'Messages marked as read.' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // ==========================================
-// 5. Socket.io Live Pulse Tracking
+// 5. Socket.io Live Pulse & Presence Tracking
 // ==========================================
 let activeOnlineUsers = 0;
 
@@ -758,9 +747,18 @@ io.on('connection', (socket) => {
   activeOnlineUsers++;
   io.emit('live-pulse-update', { onlineCount: activeOnlineUsers });
 
-  socket.on('disconnect', () => {
-    activeOnlineUsers = Math.max(0, activeOnlineUsers - 1);
-    io.emit('live-pulse-update', { onlineCount: activeOnlineUsers });
+  socket.on('register-user', async (username) => {
+    if (!username) return;
+    const cleanName = username.toLowerCase().trim();
+    socket.username = cleanName;
+
+    await User.findOneAndUpdate(
+      { username: cleanName },
+      { isOnline: true, lastSeen: new Date() },
+      { upsert: true }
+    );
+
+    io.emit('presence-update', { username: cleanName, isOnline: true, lastSeen: new Date() });
   });
 
   socket.on('send-message', async (data) => {
@@ -771,12 +769,39 @@ io.on('connection', (socket) => {
         sender: sender.toLowerCase().trim(),
         recipient: recipient ? recipient.toLowerCase().trim() : 'public',
         content,
-        timestamp: new Date()
+        timestamp: new Date(),
+        read: false
       });
       await newMessage.save();
       io.emit('receive-message', newMessage);
     } catch (err) {
       console.error('[Socket Error]:', err);
+    }
+  });
+
+  socket.on('mark-read', async ({ reader, sender }) => {
+    try {
+      await Message.updateMany(
+        { sender: sender.toLowerCase().trim(), recipient: reader.toLowerCase().trim(), read: false },
+        { $set: { read: true, readAt: new Date() } }
+      );
+      io.emit('messages-read', { reader: reader.toLowerCase().trim(), sender: sender.toLowerCase().trim() });
+    } catch (err) {
+      console.error('[Socket Read Error]:', err);
+    }
+  });
+
+  socket.on('disconnect', async () => {
+    activeOnlineUsers = Math.max(0, activeOnlineUsers - 1);
+    io.emit('live-pulse-update', { onlineCount: activeOnlineUsers });
+
+    if (socket.username) {
+      const lastSeenTime = new Date();
+      await User.findOneAndUpdate(
+        { username: socket.username },
+        { isOnline: false, lastSeen: lastSeenTime }
+      );
+      io.emit('presence-update', { username: socket.username, isOnline: false, lastSeen: lastSeenTime });
     }
   });
 });
