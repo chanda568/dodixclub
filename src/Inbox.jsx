@@ -50,13 +50,12 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
     }
   };
 
-  // Accurately update read status in database and notify via socket
+  // Mark incoming messages as read when viewing the active chat
   const markMessagesAsRead = async (targetRecipient) => {
     const myName = currentUser?.username?.toLowerCase().trim();
     const otherUser = targetRecipient.toLowerCase().trim();
 
     try {
-      // 1. Update database via REST API
       await fetch(`${cleanApi}/api/messages/read`, {
         method: 'PUT',
         headers: getAuthHeaders(),
@@ -66,20 +65,6 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
         })
       });
 
-      // 2. Optimistically update local state so "Seen" appears instantly
-      setMessages((prev) =>
-        prev.map((msg) => {
-          if (
-            msg.sender?.toLowerCase().trim() === myName &&
-            msg.recipient?.toLowerCase().trim() === otherUser
-          ) {
-            return { ...msg, read: true };
-          }
-          return msg;
-        })
-      );
-
-      // 3. Emit socket event so sender's UI updates in real-time
       if (socketRef.current && socketRef.current.connected) {
         socketRef.current.emit('mark-read', {
           reader: myName,
@@ -87,7 +72,7 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
         });
       }
     } catch (err) {
-      console.error('Failed to mark messages as read:', err);
+      // Graceful fallback if backend route is pending
     }
   };
 
@@ -120,14 +105,13 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
         return [...prev, msg];
       });
 
-      // If message is incoming for the currently open chat, automatically mark as read
       const myName = currentUser?.username?.toLowerCase().trim();
       if (msg.recipient?.toLowerCase().trim() === myName && msg.sender?.toLowerCase().trim() === recipient.toLowerCase().trim()) {
         markMessagesAsRead(recipient);
       }
     });
 
-    // Listen for real-time read receipt updates from the recipient
+    // Listen for read receipts from the recipient
     socketRef.current.on('messages-read', ({ reader, sender }) => {
       const myName = currentUser?.username?.toLowerCase().trim();
       if (sender?.toLowerCase().trim() === myName) {
@@ -154,7 +138,6 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
     };
   }, [cleanApi, currentUser?.username, recipient]);
 
-  // When switching recipient, scroll down and mark their messages as read
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     if (recipient) {
@@ -334,6 +317,7 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
                       }`}
                     >
                       {msg.content}
+                      {/* Read status badges display exclusively on messages sent by me (isMe) */}
                       {isMe && (
                         <div className="flex items-center justify-end gap-1 mt-1 text-slate-950/80">
                           <span className="text-[9px] font-black uppercase tracking-wider">{isSeen ? 'Seen' : 'Sent'}</span>
