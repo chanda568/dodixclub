@@ -75,6 +75,22 @@ export default function Inbox({ currentUser, API_URL }) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, recipient]);
 
+  // Dynamically extract unique users you've chatted with, plus system targets
+  const activeChatTargets = React.useMemo(() => {
+    const targets = new Set(['admin', 'public']);
+    messages.forEach((msg) => {
+      const sender = msg.sender?.toLowerCase().trim();
+      const rec = msg.recipient?.toLowerCase().trim();
+      const myName = currentUser?.username?.toLowerCase().trim();
+
+      if (sender && sender !== myName && sender !== 'public') targets.add(sender);
+      if (rec && rec !== myName && rec !== 'public') targets.add(rec);
+    });
+    // Ensure current selected recipient is always visible
+    if (recipient) targets.add(recipient.toLowerCase().trim());
+    return Array.from(targets);
+  }, [messages, currentUser, recipient]);
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!newMessage.trim() || !currentUser) return;
@@ -144,11 +160,11 @@ export default function Inbox({ currentUser, API_URL }) {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Recipient Selection */}
+        {/* Dynamic Conversations Sidebar */}
         <div className="w-1/3 bg-slate-950/50 border-r border-slate-800 p-4 space-y-3">
-          <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider">Chat Target</label>
-          <div className="space-y-1">
-            {['admin', 'testmale', 'testfemale', 'public'].map((target) => (
+          <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider">Conversations</label>
+          <div className="space-y-1 overflow-y-auto max-h-[58vh]">
+            {activeChatTargets.map((target) => (
               <button
                 key={target}
                 onClick={() => setRecipient(target)}
