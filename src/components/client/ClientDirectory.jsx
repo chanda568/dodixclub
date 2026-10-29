@@ -125,6 +125,21 @@ export default function ClientDirectory({
     }
   });
 
+  // Helper function to extract valid username/handle for messaging
+  const resolveTargetUsername = (ladyObj) => {
+    if (!ladyObj) return 'admin';
+    const rawUsername = ladyObj.username?.toLowerCase()?.trim();
+    const genericPlaceholders = ['female', 'lady', 'client', 'male', 'user'];
+    
+    if (rawUsername && !genericPlaceholders.includes(rawUsername)) {
+      return rawUsername;
+    }
+    if (ladyObj.name && ladyObj.name.trim() !== '') {
+      return ladyObj.name.replace(/\s+/g, '').toLowerCase();
+    }
+    return 'companion';
+  };
+
   // Socket.io Live Pulse Listener
   useEffect(() => {
     const socket = io(BACKEND_URL);
@@ -894,8 +909,9 @@ export default function ClientDirectory({
 
                   <button 
                     onClick={() => {
+                      const resolvedUser = resolveTargetUsername(selectedProfile);
                       setSelectedProfile(null);
-                      onStartChat(selectedProfile.username);
+                      onStartChat(resolvedUser);
                     }}
                     className="py-3.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
                   >
@@ -1330,7 +1346,8 @@ export default function ClientDirectory({
                             <button 
                               onClick={(e) => {
                                 e.stopPropagation();
-                                onStartChat(lady.username);
+                                const resolvedUser = resolveTargetUsername(lady);
+                                onStartChat(resolvedUser);
                               }}
                               className="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold py-2.5 px-2 rounded-xl flex items-center justify-center gap-1.5 shadow-lg transition cursor-pointer"
                             >
@@ -1741,7 +1758,8 @@ export default function ClientDirectory({
                             <button 
                               onClick={(e) => {
                                 e.stopPropagation();
-                                onStartChat(lady.username);
+                                const resolvedUser = resolveTargetUsername(lady);
+                                onStartChat(resolvedUser);
                               }}
                               className="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold py-2.5 px-2 rounded-xl flex items-center justify-center gap-1.5 shadow-lg transition cursor-pointer"
                             >

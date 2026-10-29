@@ -363,8 +363,8 @@ export default function App() {
               loadingText={loadingText}
               triggerLoadingAction={triggerLoadingAction}
               backendUrl={BACKEND_URL}
-              onStartChat={(username) => {
-                setInboxRecipient(username);
+              onStartChat={(targetUser) => {
+                setInboxRecipient(targetUser);
                 setCurrentView('inbox');
               }}
             />
