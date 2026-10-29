@@ -1,10 +1,10 @@
 // src/components/client/ClientAdFeed.jsx
 import React, { useState, useEffect } from 'react';
-import { MapPin, MessageCircle, Search, User, ShieldCheck } from 'lucide-react';
+import { MapPin, MessageCircle, MessageSquare, Search, User, ShieldCheck } from 'lucide-react';
 
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || 'https://dodixclub-backend.onrender.com').replace(/\/+$/, '');
 
-export default function ClientAdFeed() {
+export default function ClientAdFeed({ onStartChat }) {
   const [ads, setAds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -146,7 +146,16 @@ export default function ClientAdFeed() {
                   </div>
                 </div>
 
-                <div className="p-4 pt-0">
+                <div className="p-4 pt-0 space-y-2">
+                  {/* Secure Inbox On-Site Chat Button */}
+                  <button 
+                    onClick={() => onStartChat && onStartChat(ad.username)}
+                    className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold py-2.5 rounded-xl flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
+                  >
+                    <MessageSquare size={16} /> Secure Chat On-Site
+                  </button>
+
+                  {/* WhatsApp External Button */}
                   <button 
                     onClick={() => handleWhatsAppContact(ad.phone, ad.name)}
                     className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 rounded-xl flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
