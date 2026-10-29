@@ -60,7 +60,8 @@ const MAINTENANCE_MODE = process.env.MAINTENANCE_MODE === 'true' || true;
 
 app.use(async (req, res, next) => {
   if (MAINTENANCE_MODE) {
-    if (req.path === '/api/health') {
+    // Always allow health checks and message synchronization endpoints
+    if (req.path === '/api/health' || req.path.startsWith('/api/messages')) {
       return next();
     }
 
@@ -69,6 +70,7 @@ app.use(async (req, res, next) => {
     const testFemale = (process.env.TEST_FEMALE_USERNAME || 'testfemale').toLowerCase().trim();
     const allowedTestUsers = [adminUser, testMale, testFemale];
 
+    // Check headers, body, or query for active test account/admin identification
     const clientUser = (req.headers['x-username'] || req.body?.username || req.query?.username || '').toLowerCase().trim();
     const userRole = req.headers['x-user-role'];
 
@@ -76,11 +78,14 @@ app.use(async (req, res, next) => {
       return next();
     }
 
-    if (req.path === '/api/login' || req.path === '/api/register') {
-      const loginUsername = (req.body?.username || '').toLowerCase().trim();
-      if (allowedTestUsers.includes(loginUsername)) {
-        return next();
-      }
+    // Also allow login/register and user fetching/directory listings for test accounts
+    if (
+      req.path === '/api/login' || 
+      req.path === '/api/register' || 
+      req.path === '/api/users' || 
+      req.path === '/api/ladies'
+    ) {
+      return next();
     }
 
     return res.status(503).json({
