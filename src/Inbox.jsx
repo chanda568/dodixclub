@@ -36,12 +36,10 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
       const data = await res.json();
       if (data.success && Array.isArray(data.messages)) {
         setMessages((prev) => {
-          // Merge fetched messages securely without duplication
           const existingIds = new Set(prev.map(m => m._id).filter(Boolean));
           const newItems = data.messages.filter(m => !m._id || !existingIds.has(m._id));
           if (newItems.length === 0 && prev.length > 0) return prev;
           
-          // Combine and sort by timestamp
           const combined = [...prev, ...newItems];
           return combined.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
         });
@@ -72,7 +70,6 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
 
     socketRef.current.on('receive-message', (msg) => {
       setMessages((prev) => {
-        // Prevent adding if an identical message exists by ID or content/sender window
         const isDuplicate = prev.some(
           (m) => 
             (m._id && msg._id && m._id === msg._id) ||
@@ -128,24 +125,30 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
       timestamp: new Date()
     };
 
-    // 1. Optimistically append to local state immediately so it never waits or duplicates
-    setMessages((prev) => [...prev, messagePayload]);
-    setNewMessage('');
+    const textToSend = newMessage.trim();
+    setNewMessage(''); // Clear input immediately
 
-    // 2. Emit via socket for instant broadcast to recipient
-    if (socketRef.current && socketRef.current.connected) {
-      socketRef.current.emit('send-message', messagePayload);
-    }
-
-    // 3. Persist to database via REST (without adding response to state to prevent double-rendering)
+    // 1. Send via REST API POST and append the official server message with its unique _id
     try {
-      await fetch(`${cleanApi}/api/messages`, {
+      const res = await fetch(`${cleanApi}/api/messages`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(messagePayload)
       });
+      const data = await res.json();
+      if (data.success && data.message) {
+        setMessages((prev) => {
+          if (prev.some((m) => m._id === data.message._id)) return prev;
+          return [...prev, data.message];
+        });
+      }
     } catch (err) {
       console.error('Failed to post message via REST:', err);
+    }
+
+    // 2. Emit via socket for instant broadcast to the recipient
+    if (socketRef.current && socketRef.current.connected) {
+      socketRef.current.emit('send-message', messagePayload);
     }
 
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
