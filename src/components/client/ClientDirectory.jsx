@@ -21,7 +21,8 @@ export default function ClientDirectory({
   ladies = [], 
   setLadies = () => {}, 
   isLoading = false, 
-  loadingText = '' 
+  loadingText = '',
+  onStartChat = () => {}
 }) {
   // ==========================================
   // 1. ALL HOOKS MUST BE DECLARED FIRST AT THE TOP
@@ -894,11 +895,23 @@ export default function ClientDirectory({
                   <button 
                     onClick={() => {
                       setSelectedProfile(null);
+                      onStartChat(selectedProfile.username);
+                    }}
+                    className="py-3.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
+                  >
+                    <MessageSquare size={16} /> Secure Chat
+                  </button>
+                </div>
+
+                <div className="pt-1">
+                  <button 
+                    onClick={() => {
+                      setSelectedProfile(null);
                       handleOpenWhatsApp(selectedProfile);
                     }}
-                    className="py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
+                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
                   >
-                    <MessageSquare size={16} /> WhatsApp
+                    <MessageCircle size={16} /> WhatsApp Chat
                   </button>
                 </div>
               </motion.div>
@@ -1312,6 +1325,28 @@ export default function ClientDirectory({
                               <MapPin size={13} className="text-pink-500" /> {lady.neighborhood ? `${lady.neighborhood}, ` : ''}{lady.location}
                             </p>
                           </div>
+
+                          <div className="grid grid-cols-2 gap-2 pt-2">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onStartChat(lady.username);
+                              }}
+                              className="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold py-2.5 px-2 rounded-xl flex items-center justify-center gap-1.5 shadow-lg transition cursor-pointer"
+                            >
+                              <MessageSquare size={14} /> Secure Chat
+                            </button>
+
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenWhatsApp(lady);
+                              }}
+                              className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-2 rounded-xl flex items-center justify-center gap-1.5 shadow-lg transition cursor-pointer"
+                            >
+                              <MessageCircle size={14} /> WhatsApp
+                            </button>
+                          </div>
                         </div>
                       </div>
                     );
@@ -1702,15 +1737,27 @@ export default function ClientDirectory({
                             </p>
                           </div>
 
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenWhatsApp(lady);
-                            }}
-                            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-md"
-                          >
-                            <MessageSquare size={14} /> WhatsApp Companion
-                          </button>
+                          <div className="grid grid-cols-2 gap-2 pt-2">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onStartChat(lady.username);
+                              }}
+                              className="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold py-2.5 px-2 rounded-xl flex items-center justify-center gap-1.5 shadow-lg transition cursor-pointer"
+                            >
+                              <MessageSquare size={14} /> Secure Chat
+                            </button>
+
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenWhatsApp(lady);
+                              }}
+                              className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-2 rounded-xl flex items-center justify-center gap-1.5 shadow-lg transition cursor-pointer"
+                            >
+                              <MessageCircle size={14} /> WhatsApp
+                            </button>
+                          </div>
                         </div>
                       </div>
                     );
