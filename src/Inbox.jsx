@@ -1,10 +1,11 @@
+// src/Inbox.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, MessageSquare, Shield, User } from 'lucide-react';
 import { io } from 'socket.io-client';
 
-export default function Inbox({ currentUser, API_URL }) {
+export default function Inbox({ currentUser, API_URL, initialRecipient }) {
   const [messages, setMessages] = useState([]);
-  const [recipient, setRecipient] = useState('admin');
+  const [recipient, setRecipient] = useState(initialRecipient || 'admin');
   const [newMessage, setNewMessage] = useState('');
   const [onlineCount, setOnlineCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -12,6 +13,13 @@ export default function Inbox({ currentUser, API_URL }) {
   const messagesEndRef = useRef(null);
 
   const cleanApi = (API_URL || 'https://dodixclub-backend.onrender.com').replace(/\/api\/?$/, '').replace(/\/$/, '');
+
+  // Synchronize recipient when initialRecipient changes from parent (e.g. clicking Secure Chat on a card)
+  useEffect(() => {
+    if (initialRecipient) {
+      setRecipient(initialRecipient.toLowerCase().trim());
+    }
+  }, [initialRecipient]);
 
   // Helper headers for maintenance mode bypass
   const getAuthHeaders = () => ({
