@@ -1,6 +1,6 @@
 // src/Inbox.jsx
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, MessageSquare, Shield, User } from 'lucide-react';
+import { Send, MessageSquare, Shield, User, CheckCheck, Sparkles, Lock } from 'lucide-react';
 import { io } from 'socket.io-client';
 
 export default function Inbox({ currentUser, API_URL, initialRecipient }) {
@@ -14,14 +14,12 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
 
   const cleanApi = (API_URL || 'https://dodixclub-backend.onrender.com').replace(/\/api\/?$/, '').replace(/\/$/, '');
 
-  // Synchronize recipient when initialRecipient changes from parent (e.g. clicking Secure Chat on a card)
   useEffect(() => {
     if (initialRecipient) {
       setRecipient(initialRecipient.toLowerCase().trim());
     }
   }, [initialRecipient]);
 
-  // Helper headers for maintenance mode bypass
   const getAuthHeaders = () => ({
     'Content-Type': 'application/json',
     'x-username': currentUser?.username || '',
@@ -52,8 +50,6 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
   };
 
   useEffect(() => {
-    console.log('[Socket] Connecting to server:', cleanApi);
-    
     socketRef.current = io(cleanApi, {
       transports: ['websocket', 'polling'],
       secure: true,
@@ -70,7 +66,6 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
 
     socketRef.current.on('receive-message', (msg) => {
       setMessages((prev) => {
-        // Strict deduplication by ID or exact sender/recipient/content within 15 seconds
         const isDuplicate = prev.some(
           (m) => 
             (m._id && msg._id && m._id === msg._id) ||
@@ -85,8 +80,6 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
     });
 
     fetchMessages();
-
-    // Fast polling every 2 seconds to guarantee real-time sync across sessions
     const pollInterval = setInterval(fetchMessages, 2000);
 
     return () => {
@@ -95,12 +88,10 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
     };
   }, [cleanApi, currentUser?.username]);
 
-  // Scroll to bottom only when switching recipient
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [recipient]);
+  }, [recipient, messages.length]);
 
-  // Dynamically extract unique users you've chatted with, plus system targets
   const activeChatTargets = React.useMemo(() => {
     const targets = new Set(['admin', 'public']);
     messages.forEach((msg) => {
@@ -115,24 +106,23 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
     return Array.from(targets);
   }, [messages, currentUser, recipient]);
 
-  const handleSendMessage = async (e) => {
-    e.preventDefault();
-    if (!newMessage.trim() || !currentUser) return;
+  const handleSendMessage = async (e, customText = null) => {
+    if (e) e.preventDefault();
+    const textToSend = customText || newMessage;
+    if (!textToSend.trim() || !currentUser) return;
 
     const messagePayload = {
       sender: currentUser.username.toLowerCase().trim(),
       recipient: recipient.toLowerCase().trim(),
-      content: newMessage.trim(),
+      content: textToSend.trim(),
       timestamp: new Date()
     };
 
-    setNewMessage(''); // Clear input immediately
+    setNewMessage('');
 
-    // Emit via socket (backend handles persistence and broadcasts back via receive-message)
     if (socketRef.current && socketRef.current.connected) {
       socketRef.current.emit('send-message', messagePayload);
     } else {
-      // Fallback to REST POST if socket is disconnected
       try {
         const res = await fetch(`${cleanApi}/api/messages`, {
           method: 'POST',
@@ -150,8 +140,6 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
         console.error('Failed to post message via REST:', err);
       }
     }
-
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   const filteredMessages = messages.filter((msg) => {
@@ -165,76 +153,124 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
   });
 
   return (
-    <div className="flex flex-col h-[75vh] max-w-4xl mx-auto bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl text-white">
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 bg-slate-950 border-b border-slate-800">
+    <div className="flex flex-col h-[78vh] max-w-5xl mx-auto bg-slate-900 border border-slate-800/80 rounded-3xl overflow-hidden shadow-2xl text-white">
+      {/* Top Header */}
+      <div className="flex items-center justify-between px-6 py-4 bg-slate-950 border-b border-slate-800/80">
         <div className="flex items-center space-x-3">
-          <div className="p-2.5 bg-amber-500/10 rounded-xl border border-amber-500/20 text-amber-400">
+          <div className="p-2.5 bg-amber-500/10 rounded-2xl border border-amber-500/20 text-amber-400 shadow-inner">
             <MessageSquare className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="font-bold text-amber-400">DodixClub Secure Inbox</h2>
-            <p className="text-xs text-gray-400">Logged in as @{currentUser?.username}</p>
+            <h2 className="font-extrabold text-amber-400 tracking-wide text-sm sm:text-base">DodixClub Secure Inbox</h2>
+            <p className="text-[11px] text-slate-400">Encrypted session as <span className="text-slate-200 font-semibold">@{currentUser?.username}</span></p>
           </div>
         </div>
 
-        <div className="flex items-center space-x-2 bg-slate-900 px-3 py-1.5 rounded-full border border-slate-800 text-xs">
+        <div className="flex items-center space-x-2 bg-slate-900/90 px-3.5 py-1.5 rounded-full border border-slate-800 text-xs shadow-sm">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span className="text-gray-300">{onlineCount} Active Online</span>
+          <span className="text-slate-300 font-medium">{onlineCount} Active Online</span>
         </div>
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Dynamic Conversations Sidebar */}
-        <div className="w-1/3 bg-slate-950/50 border-r border-slate-800 p-4 space-y-3">
-          <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider">Conversations</label>
-          <div className="space-y-1 overflow-y-auto max-h-[58vh]">
+        {/* Conversations Sidebar */}
+        <div className="w-1/3 bg-slate-950/60 border-r border-slate-800/80 p-4 space-y-3 flex flex-col">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Conversations</span>
+            <span className="text-[10px] px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded-full font-bold">{activeChatTargets.length}</span>
+          </div>
+          <div className="space-y-1.5 overflow-y-auto flex-1 scrollbar-thin pr-1">
             {activeChatTargets.map((target) => (
               <button
                 key={target}
                 onClick={() => setRecipient(target)}
-                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm font-medium transition cursor-pointer ${
+                className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
                   recipient === target
-                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
-                    : 'text-gray-400 hover:bg-slate-900 hover:text-white'
+                    ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-lg shadow-amber-500/5'
+                    : 'text-slate-400 hover:bg-slate-900 hover:text-white border border-transparent'
                 }`}
               >
-                <User className="w-4 h-4" />
-                <span className="capitalize">{target}</span>
+                <div className={`p-2 rounded-xl ${recipient === target ? 'bg-amber-500 text-slate-950' : 'bg-slate-900 text-slate-400'}`}>
+                  <User className="w-3.5 h-3.5" />
+                </div>
+                <span className="capitalize truncate">{target}</span>
               </button>
             ))}
           </div>
         </div>
 
-        {/* Message Thread */}
-        <div className="flex flex-col flex-1 bg-slate-900">
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* Message Thread Area */}
+        <div className="flex flex-col flex-1 bg-slate-900/50">
+          {/* Active Chat Header Bar */}
+          <div className="px-6 py-3 bg-slate-950/40 border-b border-slate-800/60 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-black text-xs uppercase">
+                {recipient.charAt(0)}
+              </div>
+              <div>
+                <h3 className="text-xs font-black text-white capitalize flex items-center gap-1.5">
+                  {recipient} <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                </h3>
+                <span className="text-[10px] text-slate-400">Direct Secure Channel</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 text-[10px] text-slate-400 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
+              <Lock size={10} className="text-amber-400" /> End-to-End Encrypted
+            </div>
+          </div>
+
+          {/* Messages List */}
+          <div className="flex-1 overflow-y-auto p-5 space-y-4 scrollbar-thin">
             {loading ? (
-              <div className="flex items-center justify-center h-full text-gray-500">Loading chat history...</div>
+              <div className="flex items-center justify-center h-full text-slate-500 text-xs font-medium">Loading secure history...</div>
             ) : filteredMessages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-gray-500 space-y-2">
-                <Shield className="w-8 h-8 text-slate-700" />
-                <p className="text-sm">No messages with {recipient} yet.</p>
+              <div className="flex flex-col items-center justify-center h-full text-slate-500 space-y-4 my-auto">
+                <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 text-amber-400/80">
+                  <Shield className="w-8 h-8" />
+                </div>
+                <div className="text-center space-y-1 max-w-xs">
+                  <p className="text-xs font-bold text-slate-300">Secure chat initialized with @{recipient}</p>
+                  <p className="text-[11px] text-slate-400">Send a message or choose a quick prompt below to start conversation.</p>
+                </div>
+                <div className="flex flex-wrap gap-2 justify-center pt-2">
+                  <button 
+                    onClick={(e) => handleSendMessage(e, "Hello! Is availability open for booking?")}
+                    className="px-3 py-1.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-amber-400 text-[11px] font-bold rounded-xl transition cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Sparkles size={12} /> Is availability open?
+                  </button>
+                  <button 
+                    onClick={(e) => handleSendMessage(e, "What are your rates and timings?")}
+                    className="px-3 py-1.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-amber-400 text-[11px] font-bold rounded-xl transition cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Sparkles size={12} /> Rates & timings?
+                  </button>
+                </div>
               </div>
             ) : (
               filteredMessages.map((msg, index) => {
                 const isMe = msg.sender?.toLowerCase().trim() === currentUser?.username?.toLowerCase().trim();
                 return (
-                  <div key={msg._id || index} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                    <div className="flex items-center space-x-2 mb-1">
-                      <span className="text-xs font-semibold text-gray-400 capitalize">{msg.sender}</span>
-                      <span className="text-[10px] text-gray-500">
+                  <div key={msg._id || index} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} space-y-1`}>
+                    <div className="flex items-center space-x-2 px-1">
+                      <span className="text-[11px] font-bold text-slate-400 capitalize">{msg.sender}</span>
+                      <span className="text-[10px] text-slate-400">
                         {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
                     <div
-                      className={`max-w-md px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
+                      className={`max-w-md px-4 py-3 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-md ${
                         isMe
                           ? 'bg-amber-500 text-slate-950 font-medium rounded-br-none'
-                          : 'bg-slate-800 text-gray-100 rounded-bl-none border border-slate-700'
+                          : 'bg-slate-800 text-slate-100 rounded-bl-none border border-slate-700/60'
                       }`}
                     >
                       {msg.content}
+                      {isMe && (
+                        <div className="flex justify-end mt-1 text-slate-950/70">
+                          <CheckCheck size={13} />
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -243,20 +279,21 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Form Input */}
-          <form onSubmit={handleSendMessage} className="p-3 bg-slate-950 border-t border-slate-800 flex items-center space-x-3">
+          {/* Input Form */}
+          <form onSubmit={handleSendMessage} className="p-4 bg-slate-950 border-t border-slate-800/80 flex items-center space-x-3">
             <input
               type="text"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              placeholder={`Send message to ${recipient}...`}
-              className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500"
+              placeholder={`Secure message to @${recipient}...`}
+              className="flex-1 bg-slate-900 border border-slate-800 rounded-2xl px-4 py-3 text-xs sm:text-sm text-white focus:outline-none focus:border-amber-500 transition shadow-inner"
             />
             <button
               type="submit"
-              className="bg-amber-500 hover:bg-amber-600 text-slate-950 p-2.5 rounded-xl transition font-bold flex items-center justify-center cursor-pointer"
+              disabled={!newMessage.trim()}
+              className="bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-slate-950 p-3 rounded-2xl transition font-black flex items-center justify-center cursor-pointer shadow-lg shadow-amber-500/10"
             >
-              <Send className="w-5 h-5" />
+              <Send className="w-4 h-4" />
             </button>
           </form>
         </div>
