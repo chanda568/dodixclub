@@ -37,7 +37,6 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
           const existingMap = new Map(prev.map(m => [m._id || `${m.sender}-${m.timestamp}`, m]));
           data.messages.forEach(msg => {
             const key = msg._id || `${msg.sender}-${msg.timestamp}`;
-            // Preserve local read state if server hasn't updated yet, otherwise take server state
             const existing = existingMap.get(key);
             if (existing && existing.read) {
               msg.read = true;
@@ -59,7 +58,6 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
     const myName = currentUser?.username?.toLowerCase().trim();
     const otherUser = targetRecipient.toLowerCase().trim();
 
-    // 1. Instantly update local messages state so "SENT" turns into "SEEN" right away
     setMessages((prev) =>
       prev.map((msg) => {
         if (
@@ -72,7 +70,6 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
       })
     );
 
-    // 2. Persist read status to backend database
     try {
       await fetch(`${cleanApi}/api/messages/read`, {
         method: 'PUT',
@@ -83,7 +80,6 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
         })
       });
 
-      // 3. Notify sender via socket
       if (socketRef.current && socketRef.current.connected) {
         socketRef.current.emit('mark-read', {
           reader: myName,
@@ -130,7 +126,6 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
       }
     });
 
-    // Handle real-time read notifications from the socket server
     socketRef.current.on('messages-read', ({ reader, sender }) => {
       const myName = currentUser?.username?.toLowerCase().trim();
       if (sender?.toLowerCase().trim() === myName || reader) {
@@ -222,6 +217,8 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
     return (sender === myName && rec === target) || (sender === target && rec === myName);
   });
 
+  const isRecipientOnline = ['admin', 'public'].includes(recipient.toLowerCase()) || onlineCount > 1;
+
   return (
     <div className="flex flex-col h-[78vh] max-w-5xl mx-auto bg-slate-900 border border-slate-800/80 rounded-3xl overflow-hidden shadow-2xl text-white">
       {/* Top Header */}
@@ -278,9 +275,10 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
               </div>
               <div>
                 <h3 className="text-xs font-black text-white capitalize flex items-center gap-1.5">
-                  {recipient} <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  {recipient} 
+                  <span className={`w-1.5 h-1.5 rounded-full ${isRecipientOnline ? 'bg-emerald-400' : 'bg-slate-500'}`} />
                 </h3>
-                <span className="text-[10px] text-slate-400">Direct Secure Channel</span>
+                <span className="text-[10px] text-slate-400">{isRecipientOnline ? 'Direct Secure Channel' : 'Offline'}</span>
               </div>
             </div>
             <div className="flex items-center gap-1 text-[10px] text-slate-400 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
