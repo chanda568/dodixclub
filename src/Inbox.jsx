@@ -70,13 +70,14 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
 
     socketRef.current.on('receive-message', (msg) => {
       setMessages((prev) => {
+        // Strict deduplication by ID or exact sender/recipient/content within 15 seconds
         const isDuplicate = prev.some(
           (m) => 
             (m._id && msg._id && m._id === msg._id) ||
-            (m.sender === msg.sender && 
-             m.recipient === msg.recipient &&
+            (m.sender?.toLowerCase() === msg.sender?.toLowerCase() && 
+             m.recipient?.toLowerCase() === msg.recipient?.toLowerCase() &&
              m.content === msg.content && 
-             Math.abs(new Date(m.timestamp) - new Date(msg.timestamp)) < 5000)
+             Math.abs(new Date(m.timestamp) - new Date(msg.timestamp)) < 15000)
         );
         if (isDuplicate) return prev;
         return [...prev, msg];
@@ -125,30 +126,29 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
       timestamp: new Date()
     };
 
-    const textToSend = newMessage.trim();
     setNewMessage(''); // Clear input immediately
 
-    // 1. Send via REST API POST and append the official server message with its unique _id
-    try {
-      const res = await fetch(`${cleanApi}/api/messages`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(messagePayload)
-      });
-      const data = await res.json();
-      if (data.success && data.message) {
-        setMessages((prev) => {
-          if (prev.some((m) => m._id === data.message._id)) return prev;
-          return [...prev, data.message];
-        });
-      }
-    } catch (err) {
-      console.error('Failed to post message via REST:', err);
-    }
-
-    // 2. Emit via socket for instant broadcast to the recipient
+    // Emit via socket (backend handles persistence and broadcasts back via receive-message)
     if (socketRef.current && socketRef.current.connected) {
       socketRef.current.emit('send-message', messagePayload);
+    } else {
+      // Fallback to REST POST if socket is disconnected
+      try {
+        const res = await fetch(`${cleanApi}/api/messages`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(messagePayload)
+        });
+        const data = await res.json();
+        if (data.success && data.message) {
+          setMessages((prev) => {
+            if (prev.some((m) => m._id === data.message._id)) return prev;
+            return [...prev, data.message];
+          });
+        }
+      } catch (err) {
+        console.error('Failed to post message via REST:', err);
+      }
     }
 
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
