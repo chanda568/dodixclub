@@ -147,21 +147,23 @@ export default function ClientAdFeed({ onStartChat }) {
                 </div>
 
                 <div className="p-4 pt-0 space-y-2">
-                  {/* Secure Inbox On-Site Chat Button */}
-                  <button 
-                    onClick={() => onStartChat && onStartChat(ad.username)}
-                    className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold py-2.5 rounded-xl flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
-                  >
-                    <MessageSquare size={16} /> Secure Chat On-Site
-                  </button>
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Secure On-Site Chat Button */}
+                    <button 
+                      onClick={() => onStartChat && onStartChat(ad.username)}
+                      className="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold py-2.5 px-2 rounded-xl flex items-center justify-center gap-1.5 shadow-lg transition cursor-pointer"
+                    >
+                      <MessageSquare size={14} /> Secure Chat
+                    </button>
 
-                  {/* WhatsApp External Button */}
-                  <button 
-                    onClick={() => handleWhatsAppContact(ad.phone, ad.name)}
-                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 rounded-xl flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
-                  >
-                    <MessageCircle size={16} /> WhatsApp Chat
-                  </button>
+                    {/* WhatsApp External Button */}
+                    <button 
+                      onClick={() => handleWhatsAppContact(ad.phone, ad.name)}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-2 rounded-xl flex items-center justify-center gap-1.5 shadow-lg transition cursor-pointer"
+                    >
+                      <MessageCircle size={14} /> WhatsApp
+                    </button>
+                  </div>
                 </div>
               </div>
             );
