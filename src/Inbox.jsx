@@ -1,14 +1,14 @@
 // src/Inbox.jsx
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, MessageSquare, Shield, User, Check, CheckCheck, Sparkles, Lock, MessageCircle } from 'lucide-react';
+import { Send, MessageSquare, Shield, User, Check, CheckCheck, Sparkles, Lock, Search, MoreVertical, Phone, Video } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { formatDistanceToNow, format } from 'date-fns';
 
 export default function Inbox({ currentUser, API_URL, initialRecipient }) {
   const [messages, setMessages] = useState([]);
-  // Default to null so it doesn't force-open a chat automatically
   const [recipient, setRecipient] = useState(initialRecipient ? initialRecipient.toLowerCase().trim() : null);
   const [newMessage, setNewMessage] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [onlineCount, setOnlineCount] = useState(0);
   const [usersPresence, setUsersPresence] = useState({});
   const [loading, setLoading] = useState(true);
@@ -50,9 +50,7 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
 
   const fetchMessages = async () => {
     try {
-      const res = await fetch(`${cleanApi}/api/messages`, {
-        headers: getAuthHeaders()
-      });
+      const res = await fetch(`${cleanApi}/api/messages`, { headers: getAuthHeaders() });
       const data = await res.json();
       if (data.success && Array.isArray(data.messages)) {
         setMessages((prev) => {
@@ -97,17 +95,11 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
       await fetch(`${cleanApi}/api/messages/read`, {
         method: 'PUT',
         headers: getAuthHeaders(),
-        body: JSON.stringify({
-          reader: myName,
-          sender: otherUser
-        })
+        body: JSON.stringify({ reader: myName, sender: otherUser })
       });
 
       if (socketRef.current && socketRef.current.connected) {
-        socketRef.current.emit('mark-read', {
-          reader: myName,
-          sender: otherUser
-        });
+        socketRef.current.emit('mark-read', { reader: myName, sender: otherUser });
       }
     } catch (err) {
       console.error('Failed to update read status on server:', err);
@@ -122,15 +114,12 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
     });
 
     socketRef.current.on('connect', () => {
-      console.log('[Socket] Connected successfully with ID:', socketRef.current.id);
       if (currentUser?.username) {
         socketRef.current.emit('register-user', currentUser.username);
       }
     });
 
-    socketRef.current.on('live-pulse-update', (data) => {
-      setOnlineCount(data.onlineCount);
-    });
+    socketRef.current.on('live-pulse-update', (data) => setOnlineCount(data.onlineCount));
 
     socketRef.current.on('presence-update', ({ username, isOnline, lastSeen }) => {
       setUsersPresence(prev => ({
@@ -207,8 +196,8 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
       if (rec && rec !== myName && rec !== 'public') targets.add(rec);
     });
     if (recipient) targets.add(recipient.toLowerCase().trim());
-    return Array.from(targets);
-  }, [messages, currentUser, recipient]);
+    return Array.from(targets).filter(t => t.includes(searchTerm.toLowerCase()));
+  }, [messages, currentUser, recipient, searchTerm]);
 
   const handleSendMessage = async (e, customText = null) => {
     if (e) e.preventDefault();
@@ -259,181 +248,174 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
 
   const getLastSeenText = () => {
     if (!recipient) return '';
-    if (isRecipientOnline) return 'Online';
-    if (!recipientPresence.lastSeen) return 'Offline';
+    if (isRecipientOnline) return 'online';
+    if (!recipientPresence.lastSeen) return 'offline';
     try {
-      return `Last seen ${formatDistanceToNow(new Date(recipientPresence.lastSeen), { addSuffix: true })}`;
+      return `last seen ${formatDistanceToNow(new Date(recipientPresence.lastSeen), { addSuffix: true })}`;
     } catch {
-      return 'Offline';
+      return 'offline';
     }
   };
 
   return (
-    <div className="flex flex-col h-[78vh] max-w-5xl mx-auto bg-slate-900 border border-slate-800/80 rounded-3xl overflow-hidden shadow-2xl text-white">
-      {/* Top Header */}
-      <div className="flex items-center justify-between px-6 py-4 bg-slate-950 border-b border-slate-800/80">
-        <div className="flex items-center space-x-3">
-          <div className="p-2.5 bg-amber-500/10 rounded-2xl border border-amber-500/20 text-amber-400 shadow-inner">
-            <MessageSquare className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="font-extrabold text-amber-400 tracking-wide text-sm sm:text-base">DodixClub Secure Inbox</h2>
-            <p className="text-[11px] text-slate-400">Encrypted session as <span className="text-slate-200 font-semibold">@{currentUser?.username}</span></p>
-          </div>
-        </div>
-
-        <div className="flex items-center space-x-2 bg-slate-900/90 px-3.5 py-1.5 rounded-full border border-slate-800 text-xs shadow-sm">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span className="text-slate-300 font-medium">{onlineCount} Active Online</span>
-        </div>
-      </div>
-
-      <div className="flex flex-1 overflow-hidden">
-        {/* Conversations Sidebar */}
-        <div className="w-1/3 bg-slate-950/60 border-r border-slate-800/80 p-4 space-y-3 flex flex-col">
+    <div className="flex h-[82vh] max-w-6xl mx-auto bg-[#17212b] border border-[#0e1621] rounded-2xl overflow-hidden shadow-2xl text-[#f5f5f5] font-sans">
+      
+      {/* ================= TELEGRAM SIDEBAR ================= */}
+      <div className="w-80 bg-[#17212b] border-r border-[#0e1621] flex flex-col">
+        
+        {/* Sidebar Header with Search */}
+        <div className="p-3 bg-[#17212b] border-b border-[#0e1621] space-y-3">
           <div className="flex items-center justify-between px-1">
-            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Conversations</span>
-            <span className="text-[10px] px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded-full font-bold">{activeChatTargets.length}</span>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-[#2b5278] flex items-center justify-center text-xs font-bold uppercase">
+                {currentUser?.username?.charAt(0) || 'U'}
+              </div>
+              <span className="text-xs font-semibold text-slate-200">@{currentUser?.username}</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#242f3d] rounded-full text-[10px] text-emerald-400 font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              {onlineCount} online
+            </div>
           </div>
-          <div className="space-y-1.5 overflow-y-auto flex-1 scrollbar-thin pr-1">
-            {activeChatTargets.map((target) => (
+
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
+            <input 
+              type="text" 
+              placeholder="Search chats..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-[#242f3d] text-xs text-white placeholder-slate-400 pl-9 pr-3 py-2 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#5288c1]"
+            />
+          </div>
+        </div>
+
+        {/* Chat List Items */}
+        <div className="flex-1 overflow-y-auto divide-y divide-[#0e1621]/40 scrollbar-thin">
+          {activeChatTargets.map((target) => {
+            const isSelected = recipient === target;
+            const targetPresence = usersPresence[target] || {};
+            const online = ['admin', 'public'].includes(target) || targetPresence.isOnline;
+
+            return (
               <button
                 key={target}
                 onClick={() => setRecipient(target)}
-                className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
-                  recipient === target
-                    ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-lg shadow-amber-500/5'
-                    : 'text-slate-400 hover:bg-slate-900 hover:text-white border border-transparent'
+                className={`w-full flex items-center gap-3 px-3 py-3 transition cursor-pointer text-left ${
+                  isSelected ? 'bg-[#2b5278]' : 'hover:bg-[#202b36]'
                 }`}
               >
-                <div className={`p-2 rounded-xl ${recipient === target ? 'bg-amber-500 text-slate-950' : 'bg-slate-900 text-slate-400'}`}>
-                  <User className="w-3.5 h-3.5" />
+                <div className="relative w-11 h-11 rounded-full bg-gradient-to-tr from-[#5288c1] to-[#2b5278] flex items-center justify-center font-bold text-sm uppercase text-white shadow">
+                  {target.charAt(0)}
+                  {online && <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-[#17212b] rounded-full"></span>}
                 </div>
-                <span className="capitalize truncate">{target}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold text-white capitalize truncate">{target}</h4>
+                  </div>
+                  <p className="text-[11px] text-slate-400 truncate mt-0.5">Secure encrypted conversation</p>
+                </div>
               </button>
-            ))}
-          </div>
+            );
+          })}
         </div>
+      </div>
 
-        {/* Message Thread Area / Empty Selection State */}
-        <div className="flex flex-col flex-1 bg-slate-900/50">
-          {!recipient ? (
-            /* Professional Empty State when no chat is open */
-            <div className="flex flex-col items-center justify-center h-full text-slate-500 space-y-4 p-8 text-center my-auto">
-              <div className="p-5 bg-slate-950 rounded-3xl border border-slate-800 text-amber-400/90 shadow-xl">
-                <MessageCircle className="w-10 h-10" />
+      {/* ================= TELEGRAM CHAT WINDOW ================= */}
+      <div className="flex flex-col flex-1 bg-[#0e1621] relative">
+        {!recipient ? (
+          <div className="flex flex-col items-center justify-center h-full text-slate-400 space-y-3">
+            <div className="p-4 bg-[#17212b] rounded-full text-[#5288c1] shadow-lg">
+              <MessageSquare size={28} />
+            </div>
+            <p className="text-xs font-medium">Please select a chat to start messaging</p>
+          </div>
+        ) : (
+          <>
+            {/* Chat Top Header */}
+            <div className="px-5 py-3 bg-[#17212b] border-b border-[#0e1621] flex items-center justify-between shadow-sm z-10">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#2b5278] flex items-center justify-center font-bold text-xs uppercase text-white">
+                  {recipient.charAt(0)}
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-white capitalize">{recipient}</h3>
+                  <span className={`text-[10px] ${isRecipientOnline ? 'text-[#5288c1]' : 'text-slate-400'} lowercase font-medium`}>
+                    {getLastSeenText()}
+                  </span>
+                </div>
               </div>
-              <div className="space-y-1 max-w-sm">
-                <h3 className="text-sm font-extrabold text-slate-200">Secure Client Communications</h3>
-                <p className="text-xs text-slate-400">Select a conversation from the sidebar on the left to start messaging securely with end-to-end encryption.</p>
+
+              <div className="flex items-center gap-3 text-slate-300">
+                <div className="flex items-center gap-1 text-[10px] bg-[#242f3d] px-2.5 py-1 rounded-lg border border-slate-700/50 text-amber-400">
+                  <Lock size={10} /> Encrypted
+                </div>
               </div>
             </div>
-          ) : (
-            <>
-              {/* Active Chat Header */}
-              <div className="px-6 py-3 bg-slate-950/40 border-b border-slate-800/60 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-black text-xs uppercase">
-                    {recipient.charAt(0)}
-                  </div>
-                  <div>
-                    <h3 className="text-xs font-black text-white capitalize flex items-center gap-1.5">
-                      {recipient} 
-                      <span className={`w-1.5 h-1.5 rounded-full ${isRecipientOnline ? 'bg-emerald-400' : 'bg-slate-500'}`} />
-                    </h3>
-                    <span className="text-[10px] text-slate-400">{getLastSeenText()}</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1 text-[10px] text-slate-400 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
-                  <Lock size={10} className="text-amber-400" /> End-to-End Encrypted
-                </div>
-              </div>
 
-              {/* Messages List */}
-              <div className="flex-1 overflow-y-auto p-5 space-y-4 scrollbar-thin">
-                {loading ? (
-                  <div className="flex items-center justify-center h-full text-slate-500 text-xs font-medium">Loading secure history...</div>
-                ) : filteredMessages.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-slate-500 space-y-4 my-auto">
-                    <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 text-amber-400/80">
-                      <Shield className="w-8 h-8" />
-                    </div>
-                    <div className="text-center space-y-1 max-w-xs">
-                      <p className="text-xs font-bold text-slate-300">Secure chat initialized with @{recipient}</p>
-                      <p className="text-[11px] text-slate-400">Send a message or choose a quick prompt below to start conversation.</p>
-                    </div>
-                    <div className="flex flex-wrap gap-2 justify-center pt-2">
-                      <button 
-                        onClick={(e) => handleSendMessage(e, "Hello! Is availability open for booking?")}
-                        className="px-3 py-1.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-amber-400 text-[11px] font-bold rounded-xl transition cursor-pointer flex items-center gap-1.5"
-                      >
-                        <Sparkles size={12} /> Is availability open?
-                      </button>
-                      <button 
-                        onClick={(e) => handleSendMessage(e, "What are your rates and timings?")}
-                        className="px-3 py-1.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-amber-400 text-[11px] font-bold rounded-xl transition cursor-pointer flex items-center gap-1.5"
-                      >
-                        <Sparkles size={12} /> Rates & timings?
-                      </button>
-                    </div>
+            {/* Chat Messages Body */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-3 scrollbar-thin bg-[#0e1621] bg-opacity-95">
+              {loading ? (
+                <div className="flex items-center justify-center h-full text-slate-500 text-xs">Loading messages...</div>
+              ) : filteredMessages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-slate-500 space-y-3">
+                  <div className="p-3 bg-[#17212b] rounded-xl text-slate-400">
+                    <Shield size={24} />
                   </div>
-                ) : (
-                  filteredMessages.map((msg, index) => {
-                    const senderName = msg.sender?.toLowerCase().trim();
-                    const myName = currentUser?.username?.toLowerCase().trim();
-                    const isMe = senderName === myName;
-                    const isSeen = msg.read === true;
+                  <p className="text-xs font-medium">Secure channel opened with @{recipient}</p>
+                </div>
+              ) : (
+                filteredMessages.map((msg, index) => {
+                  const senderName = msg.sender?.toLowerCase().trim();
+                  const myName = currentUser?.username?.toLowerCase().trim();
+                  const isMe = senderName === myName;
+                  const isSeen = msg.read === true;
 
-                    return (
-                      <div key={msg._id || index} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} space-y-1`}>
-                        <div className={`flex items-center space-x-2 px-1 ${isMe ? 'flex-row-reverse space-x-reverse' : ''}`}>
-                          <span className="text-[11px] font-bold text-slate-400 capitalize">{msg.sender}</span>
-                          <span className="text-[10px] text-slate-400">
-                            {format(new Date(msg.timestamp), 'p')}
-                          </span>
-                        </div>
-                        <div
-                          className={`max-w-md px-4 py-3 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-md ${
-                            isMe
-                              ? 'bg-amber-500 text-slate-950 font-medium rounded-br-none'
-                              : 'bg-slate-800 text-slate-100 rounded-bl-none border border-slate-700/60'
-                          }`}
-                        >
-                          {msg.content}
+                  return (
+                    <div key={msg._id || index} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                      <div
+                        className={`max-w-md px-3.5 py-2 rounded-2xl text-xs sm:text-sm leading-relaxed shadow ${
+                          isMe
+                            ? 'bg-[#2b5278] text-white rounded-br-none'
+                            : 'bg-[#18222d] text-slate-100 rounded-bl-none border border-slate-800'
+                        }`}
+                      >
+                        <p className="break-words">{msg.content}</p>
+                        <div className={`flex items-center justify-end gap-1 mt-1 text-[10px] ${isMe ? 'text-slate-200' : 'text-slate-400'}`}>
+                          <span>{format(new Date(msg.timestamp), 'p')}</span>
                           {isMe && (
-                            <div className="flex items-center justify-end gap-1 mt-1 text-slate-950/80">
-                              <span className="text-[9px] font-black uppercase tracking-wider">{isSeen ? 'Seen' : 'Sent'}</span>
-                              {isSeen ? <CheckCheck size={14} className="text-emerald-950" /> : <Check size={13} />}
-                            </div>
+                            <span className="flex items-center">
+                              {isSeen ? <CheckCheck size={13} className="text-sky-300 ml-0.5" /> : <Check size={13} className="ml-0.5" />}
+                            </span>
                           )}
                         </div>
                       </div>
-                    );
-                  })
-                )}
-                <div ref={messagesEndRef} />
-              </div>
+                    </div>
+                  );
+                })
+              )}
+              <div ref={messagesEndRef} />
+            </div>
 
-              {/* Input Form */}
-              <form onSubmit={handleSendMessage} className="p-4 bg-slate-950 border-t border-slate-800/80 flex items-center space-x-3">
-                <input
-                  type="text"
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder={`Secure message to @${recipient}...`}
-                  className="flex-1 bg-slate-900 border border-slate-800 rounded-2xl px-4 py-3 text-xs sm:text-sm text-white focus:outline-none focus:border-amber-500 transition shadow-inner"
-                />
-                <button
-                  type="submit"
-                  disabled={!newMessage.trim()}
-                  className="bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-slate-950 p-3 rounded-2xl transition font-black flex items-center justify-center cursor-pointer shadow-lg shadow-amber-500/10"
-                >
-                  <Send className="w-4 h-4" />
-                </button>
-              </form>
-            </>
-          )}
-        </div>
+            {/* Bottom Input Area */}
+            <form onSubmit={handleSendMessage} className="p-3 bg-[#17212b] border-t border-[#0e1621] flex items-center space-x-3">
+              <input
+                type="text"
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="Write a message..."
+                className="flex-1 bg-[#242f3d] border border-transparent rounded-xl px-4 py-2.5 text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#5288c1] transition"
+              />
+              <button
+                type="submit"
+                disabled={!newMessage.trim()}
+                className="bg-[#5288c1] hover:bg-[#4073a8] disabled:opacity-40 text-white p-2.5 rounded-xl transition flex items-center justify-center cursor-pointer shadow"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </form>
+          </>
+        )}
       </div>
     </div>
   );
