@@ -16,7 +16,7 @@ export default function Inbox({ currentUser, API_URL }) {
   const [editingMsgId, setEditingMsgId] = useState(null);
   const [editText, setEditText] = useState('');
   const [pinnedChats, setPinnedChats] = useState([]);
-  const [selfDestructTimer, setSelfDestructTimer] = useState(0); // in seconds, 0 = off
+  const [chatTimers, setChatTimers] = useState({}); // Stores per-chat destruct timer settings synchronized via socket/state
   const [loading, setLoading] = useState(true);
   
   const socketRef = useRef(null);
@@ -129,6 +129,12 @@ export default function Inbox({ currentUser, API_URL }) {
       }));
     });
 
+    // Listen for synchronized timer changes from peer
+    socketRef.current.on('timer-update', ({ recipientUser, senderUser, timer }) => {
+      const chatKey = [senderUser, recipientUser].sort().join('-');
+      setChatTimers(prev => ({ ...prev, [chatKey]: timer }));
+    });
+
     socketRef.current.on('receive-message', (msg) => {
       setMessages((prev) => {
         const isDuplicate = prev.some(
@@ -186,19 +192,32 @@ export default function Inbox({ currentUser, API_URL }) {
     }
   }, [recipient]);
 
-  // Self-destruct timer cleanup simulation
-  useEffect(() => {
-    if (selfDestructTimer > 0 && messages.length > 0) {
-      const timer = setInterval(() => {
-        const now = new Date();
-        setMessages(prev => prev.filter(msg => {
-          if (!msg.destructAt) return true;
-          return new Date(msg.destructAt) > now;
-        }));
-      }, 1000);
-      return () => clearInterval(timer);
+  // Active chat timer key
+  const currentChatKey = recipient && currentUser ? [currentUser.username.toLowerCase().trim(), recipient.toLowerCase().trim()].sort().join('-') : '';
+  const currentTimer = currentChatKey ? (chatTimers[currentChatKey] || 0) : 0;
+
+  const handleTimerChange = (newTimerVal) => {
+    setChatTimers(prev => ({ ...prev, [currentChatKey]: newTimerVal }));
+    if (socketRef.current && socketRef.current.connected && recipient && currentUser) {
+      socketRef.current.emit('set-timer', {
+        senderUser: currentUser.username.toLowerCase().trim(),
+        recipientUser: recipient.toLowerCase().trim(),
+        timer: newTimerVal
+      });
     }
-  }, [selfDestructTimer, messages]);
+  };
+
+  // Self-destruct message interval runner
+  useEffect(() => {
+    const timerInterval = setInterval(() => {
+      const now = new Date();
+      setMessages(prev => prev.filter(msg => {
+        if (!msg.destructAt) return true;
+        return new Date(msg.destructAt) > now;
+      }));
+    }, 1000);
+    return () => clearInterval(timerInterval);
+  }, []);
 
   const chatPreviews = React.useMemo(() => {
     const targets = new Set(['admin', 'public']);
@@ -247,7 +266,7 @@ export default function Inbox({ currentUser, API_URL }) {
     const textToSend = customText || newMessage;
     if (!textToSend.trim() || !currentUser || !recipient) return;
 
-    const destructAt = selfDestructTimer > 0 ? new Date(Date.now() + selfDestructTimer * 1000) : null;
+    const destructAt = currentTimer > 0 ? new Date(Date.now() + currentTimer * 1000) : null;
 
     const messagePayload = {
       sender: currentUser.username.toLowerCase().trim(),
@@ -279,7 +298,7 @@ export default function Inbox({ currentUser, API_URL }) {
     }
   };
 
-  const handleDeleteMessage = (msgId, deleteForEveryone = false) => {
+  const handleDeleteMessage = (msgId) => {
     setMessages(prev => prev.filter(m => (m._id || `${m.sender}-${m.timestamp}`) !== msgId));
     setActiveMenuMsgId(null);
   };
@@ -375,7 +394,7 @@ export default function Inbox({ currentUser, API_URL }) {
           </div>
         </div>
 
-        {/* Telegram Chat List with Pin & Unread Badges */}
+        {/* Telegram Chat List */}
         <div className="flex-1 overflow-y-auto divide-y divide-[#0e1621]/40 scrollbar-thin">
           {chatPreviews.map(({ target, lastMessage, timestamp, unreadCount, isPinned }) => {
             const isSelected = recipient === target;
@@ -418,7 +437,6 @@ export default function Inbox({ currentUser, API_URL }) {
                   </div>
                 </button>
                 
-                {/* Pin Chat Quick Button on Hover */}
                 <button 
                   onClick={(e) => { e.stopPropagation(); togglePinChat(target); }}
                   className="absolute right-2 opacity-0 group-hover:opacity-100 p-1.5 text-slate-300 hover:text-white transition"
@@ -461,12 +479,12 @@ export default function Inbox({ currentUser, API_URL }) {
               </div>
 
               <div className="flex items-center gap-3">
-                {/* Self Destruct Timer Selector */}
+                {/* Synchronized Self Destruct Timer Selector */}
                 <div className="flex items-center gap-1 bg-[#242f3d] px-2.5 py-1 rounded-lg border border-slate-700/50 text-[10px] text-pink-400">
                   <Flame size={12} />
                   <select 
-                    value={selfDestructTimer} 
-                    onChange={(e) => setSelfDestructTimer(Number(e.target.value))}
+                    value={currentTimer} 
+                    onChange={(e) => handleTimerChange(Number(e.target.value))}
                     className="bg-transparent text-pink-400 focus:outline-none cursor-pointer"
                   >
                     <option value={0} className="bg-[#17212b]">Timer: Off</option>
@@ -517,7 +535,6 @@ export default function Inbox({ currentUser, API_URL }) {
                             : 'bg-[#18222d] text-slate-100 rounded-bl-sm border border-slate-800'
                         }`}
                       >
-                        {/* Context Menu on Hover */}
                         {showMenu && (
                           <div className={`absolute top-0 ${isMe ? '-left-28' : '-right-28'} bg-[#242f3d] border border-slate-700 rounded-xl shadow-xl py-1 z-30 text-[11px]`}>
                             {isMe && (
@@ -525,8 +542,8 @@ export default function Inbox({ currentUser, API_URL }) {
                                 <Edit2 size={12} /> Edit
                               </button>
                             )}
-                            <button onClick={() => handleDeleteMessage(msgId, true)} className="w-full text-left px-3 py-1.5 hover:bg-red-950/60 flex items-center gap-1.5 text-red-400">
-                              <Trash2 size={12} /> Delete for all
+                            <button onClick={() => handleDeleteMessage(msgId)} className="w-full text-left px-3 py-1.5 hover:bg-red-950/60 flex items-center gap-1.5 text-red-400">
+                              <Trash2 size={12} /> Delete
                             </button>
                           </div>
                         )}
