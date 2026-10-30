@@ -6,6 +6,7 @@ import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns';
 
 export default function Inbox({ currentUser, API_URL, initialRecipient }) {
   const [messages, setMessages] = useState([]);
+  // Fixed: Only set recipient if initialRecipient is explicitly passed, otherwise start null (Telegram behavior)
   const [recipient, setRecipient] = useState(initialRecipient ? initialRecipient.toLowerCase().trim() : null);
   const [newMessage, setNewMessage] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -185,7 +186,6 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
     }
   }, [recipient]);
 
-  // Compute chats with last message preview and unread counts
   const chatPreviews = React.useMemo(() => {
     const targets = new Set(['admin', 'public']);
     messages.forEach((msg) => {
@@ -202,7 +202,6 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
 
     return Array.from(targets)
       .map((target) => {
-        // Find messages exchanged with this target
         const chatMsgs = messages.filter((msg) => {
           const s = msg.sender?.toLowerCase().trim();
           const r = msg.recipient?.toLowerCase().trim();
@@ -221,7 +220,7 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
         };
       })
       .filter(chat => chat.target.includes(searchTerm.toLowerCase()))
-      .sort((a, b) => b.timestamp - a.timestamp); // Most recent chat on top like Telegram
+      .sort((a, b) => b.timestamp - a.timestamp);
   }, [messages, currentUser, recipient, searchTerm]);
 
   const handleSendMessage = async (e, customText = null) => {
@@ -295,7 +294,7 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
       {/* ================= TELEGRAM SIDEBAR ================= */}
       <div className="w-80 bg-[#17212b] border-r border-[#0e1621] flex flex-col">
         
-        {/* Sidebar Header with Profile & Search */}
+        {/* Sidebar Header */}
         <div className="p-3 bg-[#17212b] border-b border-[#0e1621] space-y-3">
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2.5">
@@ -322,7 +321,7 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
           </div>
         </div>
 
-        {/* Telegram Chat List with Previews & Unread Badges */}
+        {/* Telegram Chat List */}
         <div className="flex-1 overflow-y-auto divide-y divide-[#0e1621]/40 scrollbar-thin">
           {chatPreviews.map(({ target, lastMessage, timestamp, unreadCount }) => {
             const isSelected = recipient === target;
@@ -361,14 +360,14 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
         </div>
       </div>
 
-      {/* ================= TELEGRAM CHAT WINDOW ================= */}
+      {/* ================= TELEGRAM CHAT WINDOW / EMPTY STATE ================= */}
       <div className="flex flex-col flex-1 bg-[#0e1621] relative">
         {!recipient ? (
           <div className="flex flex-col items-center justify-center h-full text-slate-400 space-y-3">
             <div className="p-4 bg-[#17212b] rounded-full text-[#5288c1] shadow-lg">
               <MessageSquare size={28} />
             </div>
-            <p className="text-xs font-medium">Select a chat to start messaging</p>
+            <p className="text-xs font-medium">Select a chat from the sidebar to start messaging</p>
           </div>
         ) : (
           <>
