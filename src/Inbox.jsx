@@ -1,28 +1,22 @@
 // src/Inbox.jsx
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, MessageSquare, Shield, User, Check, CheckCheck, Lock, Search } from 'lucide-react';
+import { Send, MessageSquare, Shield, User, Check, CheckCheck, Lock, Search, MoreVertical, Phone, Video, Info, Bell, Star } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns';
 
-export default function Inbox({ currentUser, API_URL, initialRecipient }) {
+export default function Inbox({ currentUser, API_URL }) {
   const [messages, setMessages] = useState([]);
-  // Strictly start with null so no chat is pre-opened on inbox load
-  const [recipient, setRecipient] = useState(initialRecipient ? initialRecipient.toLowerCase().trim() : null);
+  const [recipient, setRecipient] = useState(null);
   const [newMessage, setNewMessage] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [onlineCount, setOnlineCount] = useState(0);
   const [usersPresence, setUsersPresence] = useState({});
+  const [showProfileDrawer, setShowProfileDrawer] = useState(false);
   const [loading, setLoading] = useState(true);
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
 
   const cleanApi = (API_URL || 'https://dodixclub-backend.onrender.com').replace(/\/api\/?$/, '').replace(/\/$/, '');
-
-  useEffect(() => {
-    if (initialRecipient) {
-      setRecipient(initialRecipient.toLowerCase().trim());
-    }
-  }, [initialRecipient]);
 
   const getAuthHeaders = () => ({
     'Content-Type': 'application/json',
@@ -288,7 +282,7 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
   };
 
   return (
-    <div className="flex h-[82vh] max-w-6xl mx-auto bg-[#17212b] border border-[#0e1621] rounded-2xl overflow-hidden shadow-2xl text-[#f5f5f5] font-sans">
+    <div className="flex h-[82vh] max-w-6xl mx-auto bg-[#17212b] border border-[#0e1621] rounded-2xl overflow-hidden shadow-2xl text-[#f5f5f5] font-sans relative">
       
       {/* ================= TELEGRAM SIDEBAR ================= */}
       <div className="w-80 bg-[#17212b] border-r border-[#0e1621] flex flex-col">
@@ -302,7 +296,7 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
               </div>
               <span className="text-xs font-semibold text-slate-200">@{currentUser?.username}</span>
             </div>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#242f3d] rounded-full text-[10px] text-emerald-400 font-medium">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[#242f3d] rounded-full text-[10px] text-emerald-400 font-medium shadow-sm">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
               {onlineCount} online
             </div>
@@ -330,7 +324,10 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
             return (
               <button
                 key={target}
-                onClick={() => setRecipient(target)}
+                onClick={() => {
+                  setRecipient(target);
+                  setShowProfileDrawer(false);
+                }}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 transition cursor-pointer text-left ${
                   isSelected ? 'bg-[#2b5278]' : 'hover:bg-[#202b36]'
                 }`}
@@ -359,7 +356,7 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
         </div>
       </div>
 
-      {/* ================= TELEGRAM CHAT WINDOW / EMPTY STATE ================= */}
+      {/* ================= TELEGRAM CHAT WINDOW ================= */}
       <div className="flex flex-col flex-1 bg-[#0e1621] relative">
         {!recipient ? (
           <div className="flex flex-col items-center justify-center h-full text-slate-400 space-y-3">
@@ -371,9 +368,12 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
         ) : (
           <>
             {/* Top Chat Header */}
-            <div className="px-5 py-3 bg-[#17212b] border-b border-[#0e1621] flex items-center justify-between shadow-sm z-10">
+            <div 
+              onClick={() => setShowProfileDrawer(!showProfileDrawer)}
+              className="px-5 py-3 bg-[#17212b] border-b border-[#0e1621] flex items-center justify-between shadow-sm z-10 cursor-pointer hover:bg-[#1e2a38] transition"
+            >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-[#2b5278] flex items-center justify-center font-bold text-xs uppercase text-white">
+                <div className="w-10 h-10 rounded-full bg-[#2b5278] flex items-center justify-center font-bold text-xs uppercase text-white shadow">
                   {recipient.charAt(0)}
                 </div>
                 <div>
@@ -384,14 +384,17 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1 text-[10px] bg-[#242f3d] px-2.5 py-1 rounded-lg border border-slate-700/50 text-amber-400">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1 text-[10px] bg-[#242f3d] px-2.5 py-1 rounded-lg border border-slate-700/50 text-amber-400 shadow-inner">
                   <Lock size={10} /> Encrypted
                 </div>
+                <button className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[#242f3d] transition">
+                  <Info size={16} />
+                </button>
               </div>
             </div>
 
-            {/* Chat Body */}
+            {/* Chat Body with Telegram Wallpaper Grid */}
             <div className="flex-1 overflow-y-auto p-5 space-y-3 scrollbar-thin bg-[#0e1621] bg-opacity-95">
               {loading ? (
                 <div className="flex items-center justify-center h-full text-slate-500 text-xs">Loading messages...</div>
@@ -412,10 +415,10 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
                   return (
                     <div key={msg._id || index} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                       <div
-                        className={`max-w-md px-3.5 py-2 rounded-2xl text-xs sm:text-sm leading-relaxed shadow ${
+                        className={`max-w-md px-3.5 py-2 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-md ${
                           isMe
-                            ? 'bg-[#2b5278] text-white rounded-br-none'
-                            : 'bg-[#18222d] text-slate-100 rounded-bl-none border border-slate-800'
+                            ? 'bg-[#2b5278] text-white rounded-br-sm'
+                            : 'bg-[#18222d] text-slate-100 rounded-bl-sm border border-slate-800'
                         }`}
                       >
                         <p className="break-words">{msg.content}</p>
@@ -453,6 +456,48 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
               </button>
             </form>
           </>
+        )}
+
+        {/* ================= TELEGRAM PROFILE INFO DRAWER ================= */}
+        {showProfileDrawer && recipient && (
+          <div className="absolute top-0 right-0 w-72 h-full bg-[#17212b] border-l border-[#0e1621] z-20 flex flex-col shadow-2xl animate-in slide-in-from-right duration-200">
+            <div className="p-4 bg-[#17212b] border-b border-[#0e1621] flex items-center justify-between">
+              <h4 className="text-xs font-bold text-white uppercase tracking-wider">User Info</h4>
+              <button 
+                onClick={() => setShowProfileDrawer(false)}
+                className="text-slate-400 hover:text-white text-xs font-bold cursor-pointer px-2 py-1 rounded bg-[#242f3d]"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-5 flex flex-col items-center text-center border-b border-[#0e1621]">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-[#5288c1] to-[#2b5278] flex items-center justify-center font-bold text-xl uppercase text-white shadow-lg mb-3">
+                {recipient.charAt(0)}
+              </div>
+              <h3 className="text-sm font-extrabold text-white capitalize">@{recipient}</h3>
+              <p className={`text-[11px] mt-0.5 ${isRecipientOnline ? 'text-emerald-400 font-semibold' : 'text-slate-400'}`}>
+                {getLastSeenText()}
+              </p>
+            </div>
+
+            <div className="p-4 space-y-3 flex-1 overflow-y-auto text-xs">
+              <div className="bg-[#242f3d]/60 p-3 rounded-xl border border-slate-700/40 space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Security Status</span>
+                <p className="text-amber-400 font-medium flex items-center gap-1.5">
+                  <Lock size={12} /> End-to-End Encrypted Channel
+                </p>
+              </div>
+
+              <div className="bg-[#242f3d]/60 p-3 rounded-xl border border-slate-700/40 space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Notifications</span>
+                <p className="text-slate-200 flex items-center justify-between">
+                  <span>Enabled</span>
+                  <Bell size={14} className="text-slate-400" />
+                </p>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
