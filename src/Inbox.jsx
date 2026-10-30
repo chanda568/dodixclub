@@ -483,15 +483,16 @@ export default function Inbox({ currentUser, API_URL }) {
                             : 'bg-[#18222d] text-slate-100 rounded-bl-sm border border-slate-800'
                         }`}
                       >
+                        {/* Properly positioned floating action menu */}
                         {showMenu && (
-                          <div className={`absolute top-0 ${isMe ? '-left-28' : '-right-28'} bg-[#242f3d] border border-slate-700 rounded-xl shadow-xl py-1 z-30 text-[11px]`}>
+                          <div className={`absolute top-full mt-1 ${isMe ? 'right-0' : 'left-0'} bg-[#242f3d] border border-slate-700 rounded-xl shadow-2xl py-1 z-40 text-[11px] min-w-[120px]`}>
                             {isMe && (
-                              <button onClick={() => handleEditMessage(msgId)} className="w-full text-left px-3 py-1.5 hover:bg-[#2b5278] flex items-center gap-1.5 text-slate-200">
-                                <Edit2 size={12} /> Edit
+                              <button onClick={() => handleEditMessage(msgId)} className="w-full text-left px-3.5 py-2 hover:bg-[#2b5278] flex items-center gap-2 text-slate-200 cursor-pointer">
+                                <Edit2 size={13} /> Edit
                               </button>
                             )}
-                            <button onClick={() => handleDeleteMessage(msgId)} className="w-full text-left px-3 py-1.5 hover:bg-red-950/60 flex items-center gap-1.5 text-red-400">
-                              <Trash2 size={12} /> Delete
+                            <button onClick={() => handleDeleteMessage(msgId)} className="w-full text-left px-3.5 py-2 hover:bg-red-950/60 flex items-center gap-2 text-red-400 cursor-pointer">
+                              <Trash2 size={13} /> Delete
                             </button>
                           </div>
                         )}
@@ -506,8 +507,8 @@ export default function Inbox({ currentUser, API_URL }) {
                               autoFocus
                             />
                             <div className="flex justify-end gap-1.5">
-                              <button onClick={() => setEditingMsgId(null)} className="px-2 py-0.5 bg-slate-700 text-white rounded text-[10px]">Cancel</button>
-                              <button onClick={() => saveEditedMessage(msgId)} className="px-2 py-0.5 bg-[#5288c1] text-white rounded text-[10px] font-bold">Save</button>
+                              <button onClick={() => setEditingMsgId(null)} className="px-2 py-0.5 bg-slate-700 text-white rounded text-[10px] cursor-pointer">Cancel</button>
+                              <button onClick={() => saveEditedMessage(msgId)} className="px-2 py-0.5 bg-[#5288c1] text-white rounded text-[10px] font-bold cursor-pointer">Save</button>
                             </div>
                           </div>
                         ) : (
