@@ -1,12 +1,13 @@
 // src/Inbox.jsx
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, MessageSquare, Shield, User, Check, CheckCheck, Sparkles, Lock } from 'lucide-react';
+import { Send, MessageSquare, Shield, User, Check, CheckCheck, Sparkles, Lock, MessageCircle } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { formatDistanceToNow, format } from 'date-fns';
 
 export default function Inbox({ currentUser, API_URL, initialRecipient }) {
   const [messages, setMessages] = useState([]);
-  const [recipient, setRecipient] = useState(initialRecipient || 'admin');
+  // Default to null so it doesn't force-open a chat automatically
+  const [recipient, setRecipient] = useState(initialRecipient ? initialRecipient.toLowerCase().trim() : null);
   const [newMessage, setNewMessage] = useState('');
   const [onlineCount, setOnlineCount] = useState(0);
   const [usersPresence, setUsersPresence] = useState({});
@@ -76,6 +77,7 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
   };
 
   const markMessagesAsRead = async (targetRecipient) => {
+    if (!targetRecipient) return;
     const myName = currentUser?.username?.toLowerCase().trim();
     const otherUser = targetRecipient.toLowerCase().trim();
 
@@ -152,7 +154,7 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
       });
 
       const myName = currentUser?.username?.toLowerCase().trim();
-      if (msg.recipient?.toLowerCase().trim() === myName && msg.sender?.toLowerCase().trim() === recipient.toLowerCase().trim()) {
+      if (recipient && msg.recipient?.toLowerCase().trim() === myName && msg.sender?.toLowerCase().trim() === recipient.toLowerCase().trim()) {
         markMessagesAsRead(recipient);
       }
     });
@@ -188,8 +190,8 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
   }, [cleanApi, currentUser?.username, recipient]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     if (recipient) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       markMessagesAsRead(recipient);
     }
   }, [recipient]);
@@ -211,7 +213,7 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
   const handleSendMessage = async (e, customText = null) => {
     if (e) e.preventDefault();
     const textToSend = customText || newMessage;
-    if (!textToSend.trim() || !currentUser) return;
+    if (!textToSend.trim() || !currentUser || !recipient) return;
 
     const messagePayload = {
       sender: currentUser.username.toLowerCase().trim(),
@@ -242,7 +244,7 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
     }
   };
 
-  const filteredMessages = messages.filter((msg) => {
+  const filteredMessages = recipient ? messages.filter((msg) => {
     const sender = msg.sender?.toLowerCase().trim();
     const rec = msg.recipient?.toLowerCase().trim();
     const myName = currentUser?.username?.toLowerCase().trim();
@@ -250,12 +252,13 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
 
     if (rec === 'public' || target === 'public') return rec === 'public';
     return (sender === myName && rec === target) || (sender === target && rec === myName);
-  });
+  }) : [];
 
-  const recipientPresence = usersPresence[recipient.toLowerCase().trim()] || {};
-  const isRecipientOnline = ['admin', 'public'].includes(recipient.toLowerCase()) || recipientPresence.isOnline === true;
+  const recipientPresence = recipient ? (usersPresence[recipient.toLowerCase().trim()] || {}) : {};
+  const isRecipientOnline = recipient ? (['admin', 'public'].includes(recipient.toLowerCase()) || recipientPresence.isOnline === true) : false;
 
   const getLastSeenText = () => {
+    if (!recipient) return '';
     if (isRecipientOnline) return 'Online';
     if (!recipientPresence.lastSeen) return 'Offline';
     try {
@@ -312,106 +315,124 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
           </div>
         </div>
 
-        {/* Message Thread Area */}
+        {/* Message Thread Area / Empty Selection State */}
         <div className="flex flex-col flex-1 bg-slate-900/50">
-          <div className="px-6 py-3 bg-slate-950/40 border-b border-slate-800/60 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-black text-xs uppercase">
-                {recipient.charAt(0)}
+          {!recipient ? (
+            /* Professional Empty State when no chat is open */
+            <div className="flex flex-col items-center justify-center h-full text-slate-500 space-y-4 p-8 text-center my-auto">
+              <div className="p-5 bg-slate-950 rounded-3xl border border-slate-800 text-amber-400/90 shadow-xl">
+                <MessageCircle className="w-10 h-10" />
               </div>
-              <div>
-                <h3 className="text-xs font-black text-white capitalize flex items-center gap-1.5">
-                  {recipient} 
-                  <span className={`w-1.5 h-1.5 rounded-full ${isRecipientOnline ? 'bg-emerald-400' : 'bg-slate-500'}`} />
-                </h3>
-                <span className="text-[10px] text-slate-400">{getLastSeenText()}</span>
+              <div className="space-y-1 max-w-sm">
+                <h3 className="text-sm font-extrabold text-slate-200">Secure Client Communications</h3>
+                <p className="text-xs text-slate-400">Select a conversation from the sidebar on the left to start messaging securely with end-to-end encryption.</p>
               </div>
             </div>
-            <div className="flex items-center gap-1 text-[10px] text-slate-400 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
-              <Lock size={10} className="text-amber-400" /> End-to-End Encrypted
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-5 space-y-4 scrollbar-thin">
-            {loading ? (
-              <div className="flex items-center justify-center h-full text-slate-500 text-xs font-medium">Loading secure history...</div>
-            ) : filteredMessages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-slate-500 space-y-4 my-auto">
-                <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 text-amber-400/80">
-                  <Shield className="w-8 h-8" />
+          ) : (
+            <>
+              {/* Active Chat Header */}
+              <div className="px-6 py-3 bg-slate-950/40 border-b border-slate-800/60 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-black text-xs uppercase">
+                    {recipient.charAt(0)}
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-black text-white capitalize flex items-center gap-1.5">
+                      {recipient} 
+                      <span className={`w-1.5 h-1.5 rounded-full ${isRecipientOnline ? 'bg-emerald-400' : 'bg-slate-500'}`} />
+                    </h3>
+                    <span className="text-[10px] text-slate-400">{getLastSeenText()}</span>
+                  </div>
                 </div>
-                <div className="text-center space-y-1 max-w-xs">
-                  <p className="text-xs font-bold text-slate-300">Secure chat initialized with @{recipient}</p>
-                  <p className="text-[11px] text-slate-400">Send a message or choose a quick prompt below to start conversation.</p>
-                </div>
-                <div className="flex flex-wrap gap-2 justify-center pt-2">
-                  <button 
-                    onClick={(e) => handleSendMessage(e, "Hello! Is availability open for booking?")}
-                    className="px-3 py-1.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-amber-400 text-[11px] font-bold rounded-xl transition cursor-pointer flex items-center gap-1.5"
-                  >
-                    <Sparkles size={12} /> Is availability open?
-                  </button>
-                  <button 
-                    onClick={(e) => handleSendMessage(e, "What are your rates and timings?")}
-                    className="px-3 py-1.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-amber-400 text-[11px] font-bold rounded-xl transition cursor-pointer flex items-center gap-1.5"
-                  >
-                    <Sparkles size={12} /> Rates & timings?
-                  </button>
+                <div className="flex items-center gap-1 text-[10px] text-slate-400 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
+                  <Lock size={10} className="text-amber-400" /> End-to-End Encrypted
                 </div>
               </div>
-            ) : (
-              filteredMessages.map((msg, index) => {
-                const senderName = msg.sender?.toLowerCase().trim();
-                const myName = currentUser?.username?.toLowerCase().trim();
-                const isMe = senderName === myName;
-                const isSeen = msg.read === true;
 
-                return (
-                  <div key={msg._id || index} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} space-y-1`}>
-                    <div className={`flex items-center space-x-2 px-1 ${isMe ? 'flex-row-reverse space-x-reverse' : ''}`}>
-                      <span className="text-[11px] font-bold text-slate-400 capitalize">{msg.sender}</span>
-                      <span className="text-[10px] text-slate-400">
-                        {format(new Date(msg.timestamp), 'p')}
-                      </span>
+              {/* Messages List */}
+              <div className="flex-1 overflow-y-auto p-5 space-y-4 scrollbar-thin">
+                {loading ? (
+                  <div className="flex items-center justify-center h-full text-slate-500 text-xs font-medium">Loading secure history...</div>
+                ) : filteredMessages.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-slate-500 space-y-4 my-auto">
+                    <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 text-amber-400/80">
+                      <Shield className="w-8 h-8" />
                     </div>
-                    <div
-                      className={`max-w-md px-4 py-3 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-md ${
-                        isMe
-                          ? 'bg-amber-500 text-slate-950 font-medium rounded-br-none'
-                          : 'bg-slate-800 text-slate-100 rounded-bl-none border border-slate-700/60'
-                      }`}
-                    >
-                      {msg.content}
-                      {isMe && (
-                        <div className="flex items-center justify-end gap-1 mt-1 text-slate-950/80">
-                          <span className="text-[9px] font-black uppercase tracking-wider">{isSeen ? 'Seen' : 'Sent'}</span>
-                          {isSeen ? <CheckCheck size={14} className="text-emerald-950" /> : <Check size={13} />}
-                        </div>
-                      )}
+                    <div className="text-center space-y-1 max-w-xs">
+                      <p className="text-xs font-bold text-slate-300">Secure chat initialized with @{recipient}</p>
+                      <p className="text-[11px] text-slate-400">Send a message or choose a quick prompt below to start conversation.</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2 justify-center pt-2">
+                      <button 
+                        onClick={(e) => handleSendMessage(e, "Hello! Is availability open for booking?")}
+                        className="px-3 py-1.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-amber-400 text-[11px] font-bold rounded-xl transition cursor-pointer flex items-center gap-1.5"
+                      >
+                        <Sparkles size={12} /> Is availability open?
+                      </button>
+                      <button 
+                        onClick={(e) => handleSendMessage(e, "What are your rates and timings?")}
+                        className="px-3 py-1.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-amber-400 text-[11px] font-bold rounded-xl transition cursor-pointer flex items-center gap-1.5"
+                      >
+                        <Sparkles size={12} /> Rates & timings?
+                      </button>
                     </div>
                   </div>
-                );
-              })
-            )}
-            <div ref={messagesEndRef} />
-          </div>
+                ) : (
+                  filteredMessages.map((msg, index) => {
+                    const senderName = msg.sender?.toLowerCase().trim();
+                    const myName = currentUser?.username?.toLowerCase().trim();
+                    const isMe = senderName === myName;
+                    const isSeen = msg.read === true;
 
-          <form onSubmit={handleSendMessage} className="p-4 bg-slate-950 border-t border-slate-800/80 flex items-center space-x-3">
-            <input
-              type="text"
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder={`Secure message to @${recipient}...`}
-              className="flex-1 bg-slate-900 border border-slate-800 rounded-2xl px-4 py-3 text-xs sm:text-sm text-white focus:outline-none focus:border-amber-500 transition shadow-inner"
-            />
-            <button
-              type="submit"
-              disabled={!newMessage.trim()}
-              className="bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-slate-950 p-3 rounded-2xl transition font-black flex items-center justify-center cursor-pointer shadow-lg shadow-amber-500/10"
-            >
-              <Send className="w-4 h-4" />
-            </button>
-          </form>
+                    return (
+                      <div key={msg._id || index} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} space-y-1`}>
+                        <div className={`flex items-center space-x-2 px-1 ${isMe ? 'flex-row-reverse space-x-reverse' : ''}`}>
+                          <span className="text-[11px] font-bold text-slate-400 capitalize">{msg.sender}</span>
+                          <span className="text-[10px] text-slate-400">
+                            {format(new Date(msg.timestamp), 'p')}
+                          </span>
+                        </div>
+                        <div
+                          className={`max-w-md px-4 py-3 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-md ${
+                            isMe
+                              ? 'bg-amber-500 text-slate-950 font-medium rounded-br-none'
+                              : 'bg-slate-800 text-slate-100 rounded-bl-none border border-slate-700/60'
+                          }`}
+                        >
+                          {msg.content}
+                          {isMe && (
+                            <div className="flex items-center justify-end gap-1 mt-1 text-slate-950/80">
+                              <span className="text-[9px] font-black uppercase tracking-wider">{isSeen ? 'Seen' : 'Sent'}</span>
+                              {isSeen ? <CheckCheck size={14} className="text-emerald-950" /> : <Check size={13} />}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* Input Form */}
+              <form onSubmit={handleSendMessage} className="p-4 bg-slate-950 border-t border-slate-800/80 flex items-center space-x-3">
+                <input
+                  type="text"
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder={`Secure message to @${recipient}...`}
+                  className="flex-1 bg-slate-900 border border-slate-800 rounded-2xl px-4 py-3 text-xs sm:text-sm text-white focus:outline-none focus:border-amber-500 transition shadow-inner"
+                />
+                <button
+                  type="submit"
+                  disabled={!newMessage.trim()}
+                  className="bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-slate-950 p-3 rounded-2xl transition font-black flex items-center justify-center cursor-pointer shadow-lg shadow-amber-500/10"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </form>
+            </>
+          )}
         </div>
       </div>
     </div>
