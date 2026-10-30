@@ -24,7 +24,7 @@ export default function App() {
   });
 
   const [currentView, setCurrentView] = useState('directory'); // 'directory' or 'inbox'
-  const [inboxRecipient, setInboxRecipient] = useState('admin');
+  const [inboxRecipient, setInboxRecipient] = useState(null); // Fixed: Start null so it never auto-opens a chat on load
   
   const [usersDb, setUsersDb] = useState([]);
   const [ladies, setLadies] = useState(() => {
@@ -312,7 +312,6 @@ export default function App() {
     );
   }
 
-  // Clean Top Bar with ONLY "Dashboard / Directory" and "Secure Inbox"
   return (
     <PageTransition>
       <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col">
