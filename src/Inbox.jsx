@@ -6,7 +6,7 @@ import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns';
 
 export default function Inbox({ currentUser, API_URL, initialRecipient }) {
   const [messages, setMessages] = useState([]);
-  // Fixed: Only set recipient if initialRecipient is explicitly passed, otherwise start null (Telegram behavior)
+  // Strictly start with null so no chat is pre-opened on inbox load
   const [recipient, setRecipient] = useState(initialRecipient ? initialRecipient.toLowerCase().trim() : null);
   const [newMessage, setNewMessage] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -177,7 +177,7 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
       if (socketRef.current) socketRef.current.disconnect();
       clearInterval(pollInterval);
     };
-  }, [cleanApi, currentUser?.username, recipient]);
+  }, [cleanApi, currentUser?.username]);
 
   useEffect(() => {
     if (recipient) {
@@ -196,7 +196,6 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
       if (sender && sender !== myName && sender !== 'public') targets.add(sender);
       if (rec && rec !== myName && rec !== 'public') targets.add(rec);
     });
-    if (recipient) targets.add(recipient.toLowerCase().trim());
 
     const myName = currentUser?.username?.toLowerCase().trim();
 
@@ -221,7 +220,7 @@ export default function Inbox({ currentUser, API_URL, initialRecipient }) {
       })
       .filter(chat => chat.target.includes(searchTerm.toLowerCase()))
       .sort((a, b) => b.timestamp - a.timestamp);
-  }, [messages, currentUser, recipient, searchTerm]);
+  }, [messages, currentUser, searchTerm]);
 
   const handleSendMessage = async (e, customText = null) => {
     if (e) e.preventDefault();
