@@ -1,6 +1,6 @@
 // src/Inbox.jsx
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, MessageSquare, Shield, User, Check, CheckCheck, Lock, Search, MoreVertical, Phone, Video, Info, Bell, Star, Edit2, Trash2, Pin, Clock, Flame } from 'lucide-react';
+import { Send, MessageSquare, Shield, User, Check, CheckCheck, Lock, Search, MoreVertical, Phone, Video, Info, Bell, Star, Edit2, Trash2, Pin } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns';
 
@@ -16,7 +16,6 @@ export default function Inbox({ currentUser, API_URL }) {
   const [editingMsgId, setEditingMsgId] = useState(null);
   const [editText, setEditText] = useState('');
   const [pinnedChats, setPinnedChats] = useState([]);
-  const [chatTimers, setChatTimers] = useState({}); // Stores per-chat destruct timer settings synchronized via socket/state
   const [loading, setLoading] = useState(true);
   
   const socketRef = useRef(null);
@@ -129,12 +128,6 @@ export default function Inbox({ currentUser, API_URL }) {
       }));
     });
 
-    // Listen for synchronized timer changes from peer
-    socketRef.current.on('timer-update', ({ recipientUser, senderUser, timer }) => {
-      const chatKey = [senderUser, recipientUser].sort().join('-');
-      setChatTimers(prev => ({ ...prev, [chatKey]: timer }));
-    });
-
     socketRef.current.on('receive-message', (msg) => {
       setMessages((prev) => {
         const isDuplicate = prev.some(
@@ -192,33 +185,6 @@ export default function Inbox({ currentUser, API_URL }) {
     }
   }, [recipient]);
 
-  // Active chat timer key
-  const currentChatKey = recipient && currentUser ? [currentUser.username.toLowerCase().trim(), recipient.toLowerCase().trim()].sort().join('-') : '';
-  const currentTimer = currentChatKey ? (chatTimers[currentChatKey] || 0) : 0;
-
-  const handleTimerChange = (newTimerVal) => {
-    setChatTimers(prev => ({ ...prev, [currentChatKey]: newTimerVal }));
-    if (socketRef.current && socketRef.current.connected && recipient && currentUser) {
-      socketRef.current.emit('set-timer', {
-        senderUser: currentUser.username.toLowerCase().trim(),
-        recipientUser: recipient.toLowerCase().trim(),
-        timer: newTimerVal
-      });
-    }
-  };
-
-  // Self-destruct message interval runner
-  useEffect(() => {
-    const timerInterval = setInterval(() => {
-      const now = new Date();
-      setMessages(prev => prev.filter(msg => {
-        if (!msg.destructAt) return true;
-        return new Date(msg.destructAt) > now;
-      }));
-    }, 1000);
-    return () => clearInterval(timerInterval);
-  }, []);
-
   const chatPreviews = React.useMemo(() => {
     const targets = new Set(['admin', 'public']);
     messages.forEach((msg) => {
@@ -266,15 +232,12 @@ export default function Inbox({ currentUser, API_URL }) {
     const textToSend = customText || newMessage;
     if (!textToSend.trim() || !currentUser || !recipient) return;
 
-    const destructAt = currentTimer > 0 ? new Date(Date.now() + currentTimer * 1000) : null;
-
     const messagePayload = {
       sender: currentUser.username.toLowerCase().trim(),
       recipient: recipient.toLowerCase().trim(),
       content: textToSend.trim(),
       timestamp: new Date(),
-      read: false,
-      destructAt
+      read: false
     };
 
     setNewMessage('');
@@ -479,21 +442,6 @@ export default function Inbox({ currentUser, API_URL }) {
               </div>
 
               <div className="flex items-center gap-3">
-                {/* Synchronized Self Destruct Timer Selector */}
-                <div className="flex items-center gap-1 bg-[#242f3d] px-2.5 py-1 rounded-lg border border-slate-700/50 text-[10px] text-pink-400">
-                  <Flame size={12} />
-                  <select 
-                    value={currentTimer} 
-                    onChange={(e) => handleTimerChange(Number(e.target.value))}
-                    className="bg-transparent text-pink-400 focus:outline-none cursor-pointer"
-                  >
-                    <option value={0} className="bg-[#17212b]">Timer: Off</option>
-                    <option value={5} className="bg-[#17212b]">5s</option>
-                    <option value={30} className="bg-[#17212b]">30s</option>
-                    <option value={60} className="bg-[#17212b]">1m</option>
-                  </select>
-                </div>
-
                 <div className="flex items-center gap-1 text-[10px] bg-[#242f3d] px-2.5 py-1 rounded-lg border border-slate-700/50 text-amber-400">
                   <Lock size={10} /> Encrypted
                 </div>
