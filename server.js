@@ -165,6 +165,7 @@ const userSchema = new mongoose.Schema({
   phone: { type: String, default: '' },
   plan: { type: String, default: '7 Days' },
   role: { type: String, default: 'client' },
+  hasCompletedProfile: { type: Boolean, default: false },
   securityQuestion: { type: String, default: 'What was your first pet’s name?' },
   securityAnswerHash: { type: String, default: '' },
   activated: { type: Boolean, default: false },
@@ -176,7 +177,7 @@ const userSchema = new mongoose.Schema({
 }, { bufferCommands: false });
 
 const companionSchema = new mongoose.Schema({
-  username: { type: String, required: true, lowercase: true, trim: true },
+  username: { type: String, required: true, unique: true, lowercase: true, trim: true },
   name: { type: String, required: true },
   category: { type: String, default: 'VIP' },
   price: { type: String, required: true },
@@ -477,7 +478,7 @@ app.delete('/api/users/:username', async (req, res) => {
   }
 });
 
-// Companions Endpoints
+// Companions Endpoints (Persistent Single Profile per Companion)
 app.get('/api/ladies', async (req, res) => {
   try {
     const { location, category, status, username } = req.query;
@@ -496,7 +497,7 @@ app.get('/api/ladies', async (req, res) => {
       query.status = status;
     }
 
-    const ladies = await Companion.find(query).sort({ createdAt: -1 }).limit(100).lean();
+    const ladies = await Companion.find(query).sort({ updatedAt: -1 }).limit(100).lean();
     res.json({ success: true, ladies });
   } catch (err) {
     res.status(500).json({ success: false, ladies: [], error: err.message });
@@ -506,7 +507,9 @@ app.get('/api/ladies', async (req, res) => {
 app.post('/api/ladies', async (req, res) => {
   try {
     const profileData = req.body;
-    if (!profileData.username || !profileData.phone || !profileData.price || !profileData.neighborhood || !profileData.age || !profileData.hosting) {
+    const cleanUsername = profileData.username?.toLowerCase().trim();
+
+    if (!cleanUsername || !profileData.phone || !profileData.price || !profileData.neighborhood || !profileData.age || !profileData.hosting) {
       return res.status(400).json({ success: false, error: "Required compulsory fields missing." });
     }
 
@@ -531,17 +534,22 @@ app.post('/api/ladies', async (req, res) => {
       profileData.unmaskedPhotos = profileData.originalPhotos;
     }
 
-    const newCompanionAd = new Companion({
-      ...profileData,
-      username: profileData.username.toLowerCase().trim(),
-      status: 'pending',
-      approved: false,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    });
+    const updatedCompanion = await Companion.findOneAndUpdate(
+      { username: cleanUsername },
+      {
+        ...profileData,
+        username: cleanUsername,
+        updatedAt: new Date()
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
 
-    await newCompanionAd.save();
-    res.json({ success: true, companion: newCompanionAd });
+    await User.findOneAndUpdate(
+      { username: cleanUsername },
+      { hasCompletedProfile: true }
+    );
+
+    res.json({ success: true, companion: updatedCompanion });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -687,7 +695,7 @@ app.post('/api/reports', async (req, res) => {
   }
 });
 
-// Messages Endpoints (GET and POST REST Fallback)
+// Messages Endpoints
 app.get('/api/messages', async (req, res) => {
   try {
     const messages = await Message.find({}).sort({ timestamp: 1 }).limit(200).lean();
