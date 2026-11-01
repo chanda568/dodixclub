@@ -165,8 +165,6 @@ const userSchema = new mongoose.Schema({
   phone: { type: String, default: '' },
   plan: { type: String, default: '7 Days' },
   role: { type: String, default: 'client' },
-  hasCompletedProfile: { type: Boolean, default: false },
-  profile: { type: mongoose.Schema.Types.Mixed, default: {} },
   securityQuestion: { type: String, default: 'What was your first pet’s name?' },
   securityAnswerHash: { type: String, default: '' },
   activated: { type: Boolean, default: false },
@@ -380,41 +378,6 @@ app.get('/api/users', async (req, res) => {
     const users = await User.find({}).lean();
     res.json({ success: true, users });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// Dedicated User Profile Persistence Endpoint
-app.put('/api/users/:username/profile', async (req, res) => {
-  try {
-    const cleanUsername = req.params.username.toLowerCase().trim();
-    const { profileData } = req.body;
-
-    if (!profileData) {
-      return res.status(400).json({ success: false, error: 'Profile data is required.' });
-    }
-
-    const updatedUser = await User.findOneAndUpdate(
-      { username: cleanUsername },
-      { 
-        $set: { 
-          profile: profileData,
-          hasCompletedProfile: true,
-          phone: profileData.phone || '',
-          location: profileData.location || 'Lusaka',
-          lastSeen: new Date()
-        } 
-      },
-      { new: true }
-    ).lean();
-
-    if (!updatedUser) {
-      return res.status(404).json({ success: false, error: 'User profile not found.' });
-    }
-
-    res.json({ success: true, user: updatedUser });
-  } catch (err) {
-    console.error('Error updating user profile:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
